@@ -1,25 +1,42 @@
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useSales } from '../store/SalesContext'
-import { followUpBody, followUpSubject, personalize } from '../lib/templates'
-import { formatDateTime } from '../lib/dates'
+import { followUpBody, followUpSubject, personalize, withEmailSignature, defaultTemplateBody, EMAIL_SIGNATURE, serviceLabels } from '../lib/templates'
+import {
+  formatDate,
+  formatDateTime,
+  isOverdue,
+  isToday,
+} from '../lib/dates'
+import { STAGES } from '../types'
 import './Emails.css'
+
+function followUpLabel(nextFollowUpAt: string | null) {
+  if (!nextFollowUpAt) return 'No follow-up scheduled'
+  if (isOverdue(nextFollowUpAt)) return `Overdue · was ${formatDate(nextFollowUpAt)}`
+  if (isToday(nextFollowUpAt)) return `Due today · ${formatDate(nextFollowUpAt)}`
+  return `Scheduled · ${formatDate(nextFollowUpAt)}`
+}
 
 export function Emails() {
   const { state, saveTemplate, deleteTemplate, markEmailSent } = useSales()
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const initialProspect = params.get('prospect') ?? state.prospects[0]?.id ?? ''
+  const initialSent = params.get('sent')
 
   const [prospectId, setProspectId] = useState(initialProspect)
   const [templateId, setTemplateId] = useState(state.templates[0]?.id ?? '')
   const [subject, setSubject] = useState('')
-  const [body, setBody] = useState('')
+  const [body, setBody] = useState(() =>
+    params.get('prospect') && !params.get('sent') ? EMAIL_SIGNATURE : '',
+  )
   const [editingId, setEditingId] = useState<string | null>(null)
   const [tplName, setTplName] = useState('')
   const [tplSubject, setTplSubject] = useState('')
   const [tplBody, setTplBody] = useState('')
   const [copied, setCopied] = useState(false)
   const [logged, setLogged] = useState(false)
+  const [selectedSentId, setSelectedSentId] = useState<string | null>(initialSent)
 
   const prospect = useMemo(
     () => state.prospects.find((p) => p.id === prospectId),
@@ -30,6 +47,33 @@ export function Emails() {
     () => state.sentEmails.find((e) => e.prospectId === prospectId),
     [state.sentEmails, prospectId],
   )
+
+  const selectedSent = useMemo(
+    () => state.sentEmails.find((e) => e.id === selectedSentId) ?? null,
+    [state.sentEmails, selectedSentId],
+  )
+
+  const selectedProspect = useMemo(
+    () =>
+      selectedSent
+        ? state.prospects.find((p) => p.id === selectedSent.prospectId)
+        : null,
+    [selectedSent, state.prospects],
+  )
+
+  function openSent(id: string) {
+    setSelectedSentId(id)
+    const next = new URLSearchParams(params)
+    next.set('sent', id)
+    setParams(next, { replace: true })
+  }
+
+  function closeSent() {
+    setSelectedSentId(null)
+    const next = new URLSearchParams(params)
+    next.delete('sent')
+    setParams(next, { replace: true })
+  }
 
   function applyTemplate(id: string) {
     const tpl = state.templates.find((t) => t.id === id)
@@ -57,14 +101,12 @@ export function Emails() {
       setEditingId(id)
       setTplName(tpl.name)
       setTplSubject(tpl.subject)
-      setTplBody(tpl.body)
+      setTplBody(withEmailSignature(tpl.body))
     } else {
       setEditingId('new')
       setTplName('')
       setTplSubject('Exterior cleaning for {{businessName}}')
-      setTplBody(
-        `Hi {{decisionMaker}},\n\nThis is {{salesRep}} with Harris Exterior Solutions...\n\nServices: {{services}}\n\nThanks,\n{{salesRep}}\n(336) 986-8371`,
-      )
+      setTplBody(defaultTemplateBody())
     }
   }
 
@@ -74,7 +116,7 @@ export function Emails() {
       id: editingId === 'new' ? undefined : editingId ?? undefined,
       name: tplName,
       subject: tplSubject,
-      body: tplBody,
+      body: withEmailSignature(tplBody),
     })
     setEditingId(null)
     setTemplateId(saved.id)
@@ -134,7 +176,7 @@ export function Emails() {
                 <input className="field" value={tplSubject} onChange={(e) => setTplSubject(e.target.value)} required />
               </label>
               <label className="lbl">
-                Body (use {'{{businessName}}'}, {'{{decisionMaker}}'}, {'{{services}}'}, …)
+                Body (use {'{{businessName}}'}, {'{{decisionMaker}}'}, {'{{services}}'}, {'{{signature}}'}, …)
                 <textarea className="field" rows={8} value={tplBody} onChange={(e) => setTplBody(e.target.value)} required />
               </label>
               <div className="modal-actions">
@@ -185,7 +227,7 @@ export function Emails() {
           {prospect && (
             <p className="prospect-snap muted">
               {prospect.email || 'No email on file'} · {prospect.city} ·{' '}
-              {prospect.servicesNeeded.map((s) => s.replace(/_/g, ' ')).join(', ')}
+              {serviceLabels(prospect.servicesNeeded)}
             </p>
           )}
 
@@ -226,10 +268,11 @@ export function Emails() {
                 markEmailSent({
                   prospectId: prospect!.id,
                   subject: subject || '(no subject)',
-                  body,
+                  body: withEmailSignature(body),
                   templateId: templateId || null,
                 })
                 setLogged(true)
+                setBody(withEmailSignature(body))
               }}
             >
               {logged ? 'Logged as sent' : 'Mark sent'}
@@ -239,25 +282,130 @@ export function Emails() {
       </div>
 
       <section className="panel">
-        <div className="panel-head">
-          <h2>Sent emails</h2>
-        </div>
-        <ul className="sent-list">
-          {state.sentEmails.map((e) => {
-            const p = state.prospects.find((x) => x.id === e.prospectId)
-            return (
-              <li key={e.id}>
+        {selectedSent && selectedProspect ? (
+          <>
+            <div className="panel-head">
+              <h2>Sent email</h2>
+              <button type="button" className="btn small secondary" onClick={closeSent}>
+                Back to list
+              </button>
+            </div>
+            <div className="sent-detail">
+              <dl className="sent-meta">
                 <div>
-                  <strong>{e.subject}</strong>
-                  <span>
-                    {p?.businessName ?? 'Prospect'} · {formatDateTime(e.sentAt)}
-                  </span>
+                  <dt>Recipient</dt>
+                  <dd>{selectedProspect.decisionMaker || '—'}</dd>
                 </div>
-              </li>
-            )
-          })}
-          {state.sentEmails.length === 0 && <li className="empty">No emails logged yet.</li>}
-        </ul>
+                <div>
+                  <dt>Email</dt>
+                  <dd>{selectedProspect.email || 'No email on file'}</dd>
+                </div>
+                <div>
+                  <dt>Company</dt>
+                  <dd>
+                    <Link to={`/prospects/${selectedProspect.id}`}>
+                      {selectedProspect.businessName}
+                    </Link>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Date sent</dt>
+                  <dd>{formatDateTime(selectedSent.sentAt)}</dd>
+                </div>
+                <div>
+                  <dt>Pipeline stage</dt>
+                  <dd>
+                    {STAGES.find((s) => s.id === selectedProspect.stage)?.label ??
+                      selectedProspect.stage}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Follow-up</dt>
+                  <dd>{followUpLabel(selectedProspect.nextFollowUpAt)}</dd>
+                </div>
+              </dl>
+
+              <div className="sent-subject">
+                <span className="lbl">Subject</span>
+                <strong>{selectedSent.subject}</strong>
+              </div>
+
+              <div className="sent-body-block">
+                <span className="lbl">Email body</span>
+                <pre className="sent-body">{selectedSent.body}</pre>
+              </div>
+
+              <div className="sent-notes-block">
+                <span className="lbl">Prospect notes</span>
+                <p className="sent-notes">
+                  {selectedProspect.notes.trim()
+                    ? selectedProspect.notes
+                    : 'No notes on this prospect.'}
+                </p>
+              </div>
+
+              <div className="sent-detail-actions">
+                <Link
+                  className="btn secondary"
+                  to={`/prospects/${selectedProspect.id}`}
+                >
+                  Open prospect
+                </Link>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => {
+                    setProspectId(selectedProspect.id)
+                    setSubject(
+                      followUpSubject(
+                        selectedSent.subject ||
+                          `Exterior cleaning for ${selectedProspect.businessName}`,
+                      ),
+                    )
+                    setBody(followUpBody(selectedProspect, selectedSent.body))
+                    setTemplateId('')
+                    setCopied(false)
+                    setLogged(false)
+                    closeSent()
+                  }}
+                >
+                  Draft follow-up
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="panel-head">
+              <h2>Sent emails</h2>
+            </div>
+            <ul className="sent-list">
+              {state.sentEmails.map((e) => {
+                const p = state.prospects.find((x) => x.id === e.prospectId)
+                return (
+                  <li key={e.id}>
+                    <button
+                      type="button"
+                      className="sent-row"
+                      onClick={() => openSent(e.id)}
+                    >
+                      <strong>{e.subject}</strong>
+                      <span>
+                        {p?.businessName ?? 'Prospect'}
+                        {p?.decisionMaker ? ` · ${p.decisionMaker}` : ''}
+                        {' · '}
+                        {formatDateTime(e.sentAt)}
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+              {state.sentEmails.length === 0 && (
+                <li className="empty">No emails logged yet.</li>
+              )}
+            </ul>
+          </>
+        )}
       </section>
     </div>
   )

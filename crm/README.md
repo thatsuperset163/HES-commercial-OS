@@ -1,6 +1,6 @@
 # HES Commercial Sales OS
 
-Purpose-built sales tool for **Harris Exterior Solutions** to book commercial pressure washing, soft washing, window cleaning, gutter cleaning, and exterior maintenance contracts.
+Purpose-built sales tool for **Harris Exterior Solutions** to book commercial pressure washing, window cleaning, and junk removal contracts.
 
 ## Run
 
@@ -9,6 +9,18 @@ cd crm
 npm install
 npm run dev
 ```
+
+For local CRM-only: Vite serves at [http://localhost:5173/sales/](http://localhost:5173/sales/) (base path `/sales/`).
+
+**Preferred:** sync into the Harris Exteriors HQ site (`hes-blackboard`):
+
+```bash
+cd ../hes-blackboard
+npm run sync:sales
+npm run dev
+```
+
+Then open [http://localhost:3000/sales/](http://localhost:3000/sales/) after logging into HQ.
 
 ## Screens
 

@@ -34,11 +34,14 @@
 body {
   margin: 0;
   min-width: 320px;
+  overflow-wrap: anywhere;
+  word-wrap: break-word;
 }
 
 a {
   color: inherit;
   text-decoration: none;
+  overflow-wrap: anywhere;
 }
 
 button,
@@ -47,12 +50,30 @@ select,
 textarea {
   font: inherit;
   color: inherit;
+  max-width: 100%;
+}
+
+textarea.field,
+textarea {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
+  resize: vertical;
+  min-height: 2.75rem;
+}
+
+input.field,
+.search-input,
+select.field {
+  min-width: 0;
 }
 
 h1,
 h2,
 h3 {
   font-weight: 800;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .btn {
@@ -71,6 +92,11 @@ h3 {
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
+  white-space: normal;
+  text-align: center;
+  max-width: 100%;
+  height: auto;
+  line-height: 1.25;
 }
 
 .btn:hover {
@@ -173,6 +199,11 @@ label.lbl {
   flex-wrap: wrap;
 }
 
+.page-header > div {
+  min-width: 0;
+  flex: 1 1 220px;
+}
+
 .eyebrow {
   margin: 0 0 0.3rem;
   font-size: 0.7rem;
@@ -187,6 +218,7 @@ label.lbl {
   font-size: clamp(1.45rem, 2.6vw, 1.9rem);
   letter-spacing: 0.03em;
   text-transform: uppercase;
+  overflow-wrap: anywhere;
 }
 
 .lede {
@@ -194,6 +226,7 @@ label.lbl {
   color: var(--muted);
   max-width: 38rem;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .panel {
@@ -201,12 +234,14 @@ label.lbl {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 1rem 1.1rem;
+  min-width: 0;
+  overflow: visible;
 }
 
 .panel-head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
   margin-bottom: 0.85rem;
   flex-wrap: wrap;
@@ -217,6 +252,9 @@ label.lbl {
   font-size: 0.78rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
 }
 
 .muted {
@@ -227,11 +265,13 @@ label.lbl {
   color: var(--muted);
   margin: 0;
   font-size: 0.92rem;
+  overflow-wrap: anywhere;
 }
 
 .pill {
   display: inline-flex;
   align-items: center;
+  flex-shrink: 0;
   padding: 0.18rem 0.45rem;
   border-radius: 4px;
   font-size: 0.68rem;
@@ -240,6 +280,15 @@ label.lbl {
   text-transform: uppercase;
   background: var(--bg-soft);
   color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Shared wrapping helpers for flex/grid text blocks */
+.text-block,
+.wrap-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .pill.call { color: #8fd0ad; background: var(--green-dim); }

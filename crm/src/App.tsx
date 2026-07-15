@@ -10,7 +10,7 @@ import { Analytics } from './pages/Analytics'
 export default function App() {
   return (
     <SalesProvider>
-      <BrowserRouter>
+      <BrowserRouter basename="/sales">
         <Routes>
           <Route element={<Layout />}>
             <Route index element={<Today />} />

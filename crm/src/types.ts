@@ -1,9 +1,7 @@
 export type ServiceType =
   | 'pressure_washing'
-  | 'soft_washing'
   | 'window_cleaning'
-  | 'gutter_cleaning'
-  | 'exterior_maintenance'
+  | 'junk_removal'
 
 export type PipelineStage =
   | 'not_researched'
@@ -132,11 +130,9 @@ export interface SalesState {
 }
 
 export const SERVICES: { id: ServiceType; label: string }[] = [
-  { id: 'pressure_washing', label: 'Pressure washing' },
-  { id: 'soft_washing', label: 'Soft washing' },
-  { id: 'window_cleaning', label: 'Window cleaning' },
-  { id: 'gutter_cleaning', label: 'Gutter cleaning' },
-  { id: 'exterior_maintenance', label: 'Exterior maintenance' },
+  { id: 'pressure_washing', label: 'Pressure Washing' },
+  { id: 'window_cleaning', label: 'Window Cleaning' },
+  { id: 'junk_removal', label: 'Junk Removal' },
 ]
 
 export const STAGES: { id: PipelineStage; label: string }[] = [

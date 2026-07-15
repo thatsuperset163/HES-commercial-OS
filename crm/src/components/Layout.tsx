@@ -80,7 +80,10 @@ export function Layout() {
     <div className="shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <img src="/brand/logo-lockup-white.svg" alt="Harris Exterior Solutions" />
+          <img
+            src={`${import.meta.env.BASE_URL}brand/logo-lockup-white.svg`}
+            alt="Harris Exterior Solutions"
+          />
           <p>Commercial sales OS</p>
         </div>
         <nav className="sidebar-nav">
@@ -96,6 +99,9 @@ export function Layout() {
           ))}
         </nav>
         <div className="sidebar-foot">
+          <a className="ghost-btn" href="/">
+            ← HES HQ
+          </a>
           <button type="button" className="ghost-btn" onClick={() => setPaletteOpen(true)}>
             Search <span className="kbd">⌘K</span>
           </button>

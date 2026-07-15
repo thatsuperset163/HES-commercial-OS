@@ -1,7 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vite.dev/config/
+// Served under the Harris Exteriors site at /sales/
 export default defineConfig({
+  base: '/sales/',
   plugins: [react()],
 })

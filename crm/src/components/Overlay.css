@@ -49,15 +49,26 @@
   padding: 0.7rem 0.65rem;
   border-radius: 6px;
   cursor: pointer;
+  min-width: 0;
+}
+
+.palette-row > div {
+  min-width: 0;
+  flex: 1;
 }
 
 .palette-row strong {
   display: block;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .palette-row span {
   color: var(--muted);
   font-size: 0.82rem;
+  display: block;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .palette-row.active,

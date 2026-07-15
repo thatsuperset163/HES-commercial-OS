@@ -13,6 +13,7 @@ import {
 import {
   daysFromNow,
   formatDate,
+  formatDateTime,
   formatMoney,
   fromDateInput,
   toDateInput,
@@ -83,6 +84,13 @@ export function ProspectDetail() {
   const attachments = useMemo(
     () => state.attachments.filter((a) => a.prospectId === id),
     [state.attachments, id],
+  )
+  const sentEmails = useMemo(
+    () =>
+      state.sentEmails
+        .filter((e) => e.prospectId === id)
+        .sort((a, b) => b.sentAt.localeCompare(a.sentAt)),
+    [state.sentEmails, id],
   )
 
   if (!prospect) {
@@ -591,6 +599,32 @@ export function ProspectDetail() {
           <h2>Timeline</h2>
         </div>
         <Timeline events={timeline} />
+      </section>
+
+      <section className="panel" style={{ marginTop: '1rem' }}>
+        <div className="panel-head">
+          <h2>Sent emails</h2>
+          <Link className="btn small secondary" to={`/emails?prospect=${prospect.id}`}>
+            Draft email
+          </Link>
+        </div>
+        {sentEmails.length === 0 ? (
+          <p className="empty">No emails logged for this prospect.</p>
+        ) : (
+          <ul className="attach-list">
+            {sentEmails.map((e) => (
+              <li key={e.id}>
+                <span className="pill email">email</span>
+                <div>
+                  <Link to={`/emails?sent=${e.id}&prospect=${prospect.id}`}>
+                    <strong>{e.subject}</strong>
+                  </Link>
+                  <span>{formatDateTime(e.sentAt)}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   )

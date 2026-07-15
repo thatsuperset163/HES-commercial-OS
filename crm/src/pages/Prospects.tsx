@@ -4,6 +4,7 @@ import { useSales } from '../store/SalesContext'
 import { STAGES, INDUSTRIES, type PipelineStage, type Prospect } from '../types'
 import { formatDate, formatMoney, fromDateInput, daysFromNow } from '../lib/dates'
 import { weightedValue } from '../lib/metrics'
+import { serviceLabels } from '../lib/templates'
 import './Prospects.css'
 
 type Filters = {
@@ -286,7 +287,7 @@ export function Prospects() {
                   </span>
                 </td>
                 <td className="services-cell">
-                  {p.servicesNeeded.map((s) => s.replace(/_/g, ' ')).join(', ')}
+                  {serviceLabels(p.servicesNeeded)}
                 </td>
                 <td>{formatMoney(p.quoteAmount)}</td>
                 <td>{formatMoney(weightedValue(p))}</td>
