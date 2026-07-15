@@ -1,0 +1,289 @@
+.filters {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(4, 1fr);
+  gap: 0.55rem;
+  margin-bottom: 1rem;
+}
+
+.filters .search-input {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 1100px) {
+  .filters {
+    grid-template-columns: 1.6fr repeat(3, 1fr);
+  }
+
+  .filters .search-input {
+    grid-column: auto;
+  }
+}
+
+.table-wrap {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.data-table th {
+  text-align: left;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0.8rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-soft);
+}
+
+.data-table td {
+  padding: 0.85rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.biz-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.biz-link span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.biz-link:hover strong {
+  color: #b6efcd;
+}
+
+.stage-tag {
+  display: inline-block;
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+  background: var(--bg-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.services-cell {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-transform: capitalize;
+  max-width: 180px;
+}
+
+.overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  z-index: 60;
+}
+
+.modal {
+  width: min(680px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.modal h2 {
+  margin: 0 0 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 1rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+}
+
+.form-grid .full {
+  grid-column: 1 / -1;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.breadcrumb {
+  display: flex;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 650;
+  margin-bottom: 0.7rem;
+}
+
+.breadcrumb a:hover {
+  color: var(--green);
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.detail-header h1 {
+  margin: 0;
+  font-size: clamp(1.4rem, 2.5vw, 1.85rem);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: flex-start;
+}
+
+.quote-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+  align-items: end;
+}
+
+.weighted {
+  background: var(--green-dim);
+  border-radius: 6px;
+  padding: 0.65rem 0.75rem;
+}
+
+.weighted span {
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.weighted strong {
+  font-size: 1.2rem;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.inline-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.75rem;
+}
+
+.inline-row .field {
+  flex: 1;
+  min-width: 120px;
+}
+
+.services-block {
+  margin-top: 1rem;
+}
+
+.service-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+
+.chip {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.chip.active {
+  border-color: var(--green);
+  background: var(--green-dim);
+  color: #b6efcd;
+}
+
+.link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin-top: 1rem;
+  align-items: center;
+  font-size: 0.88rem;
+  font-weight: 650;
+}
+
+.link-row a {
+  color: #9ec0e8;
+}
+
+.attach-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.attach-list li {
+  display: flex;
+  gap: 0.65rem;
+  padding: 0.65rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.attach-list li:first-child {
+  border-top: none;
+}
+
+.attach-list strong {
+  display: block;
+}
+
+.attach-list span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.note-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.padded {
+  padding: 1rem;
+}
+
+@media (max-width: 900px) {
+  .filters,
+  .form-grid,
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+}

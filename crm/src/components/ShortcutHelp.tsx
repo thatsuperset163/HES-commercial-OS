@@ -1,0 +1,1 @@
+export { ShortcutHelp } from './CommandPalette'

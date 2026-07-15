@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <title>HES Door Hanger — Print</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../shared/brand.css" />
+    <style>
+      .hanger {
+        width: 4.25in;
+        height: 11in;
+        position: relative;
+        overflow: hidden;
+        background: var(--navy);
+        box-shadow: 0 8px 28px rgba(11, 35, 64, 0.18);
+      }
+
+      .hole {
+        position: absolute;
+        top: 0.4in;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 1.55in;
+        height: 1.55in;
+        border-radius: 50%;
+        background: #cfd5db;
+        border: 1.5pt dashed rgba(255, 255, 255, 0.7);
+        z-index: 5;
+      }
+
+      .hole::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: -0.44in;
+        transform: translateX(-50%);
+        width: 0.5in;
+        height: 0.92in;
+        background: #cfd5db;
+        border-left: 1.5pt dashed rgba(255, 255, 255, 0.7);
+        border-right: 1.5pt dashed rgba(255, 255, 255, 0.7);
+      }
+
+      /* ——— FRONT ——— */
+      .hanger-front {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .top-band {
+        height: 2.3in;
+        background: var(--navy);
+        flex-shrink: 0;
+        position: relative;
+        z-index: 1;
+      }
+
+      .hero {
+        position: relative;
+        height: 3.35in;
+        background: #0b2340;
+        color: var(--white);
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        flex-shrink: 0;
+        overflow: hidden;
+      }
+
+      .hero-photo {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        object-position: center center;
+        display: block;
+        background: #0b2340;
+      }
+
+      .hero::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 55%;
+        background: linear-gradient(
+          180deg,
+          rgba(11, 35, 64, 0) 0%,
+          rgba(11, 35, 64, 0.92) 100%
+        );
+        z-index: 1;
+        pointer-events: none;
+      }
+
+      .hero-copy {
+        position: relative;
+        z-index: 2;
+        padding: 0.16in 0.24in 0.18in;
+      }
+
+      .missed {
+        margin: 0 0 0.06in;
+        font-size: 12pt;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        color: #9fd0ae;
+        line-height: 1.1;
+      }
+
+      .hero h2 {
+        margin: 0;
+        font-size: 20pt;
+        font-weight: 900;
+        line-height: 1.05;
+        letter-spacing: -0.01em;
+        text-transform: uppercase;
+      }
+
+      .body {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: var(--navy);
+        color: var(--white);
+      }
+
+      .personal {
+        padding: 0.18in 0.24in;
+        font-size: 12pt;
+        font-weight: 700;
+        line-height: 1.25;
+        color: #ffffff;
+        background: #0b2340;
+      }
+
+      .personal strong {
+        color: #9fd0ae;
+        font-weight: 900;
+      }
+
+      .phone-block {
+        text-align: center;
+        background: var(--green);
+        color: var(--white);
+        padding: 0.2in 0.12in 0.16in;
+      }
+
+      .phone {
+        display: block;
+        font-size: 28pt;
+        font-weight: 900;
+        letter-spacing: -0.01em;
+        line-height: 1;
+        margin-bottom: 0.06in;
+        color: #ffffff;
+      }
+
+      .cta {
+        display: block;
+        font-size: 11.5pt;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        line-height: 1.2;
+        color: #ffffff;
+      }
+
+      .web {
+        text-align: center;
+        font-size: 11pt;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        margin: 0;
+        padding: 0.14in 0.2in;
+        background: #061422;
+        color: #ffffff;
+      }
+
+      .svc-bar {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 1.85in;
+      }
+
+      .svc-bar div {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 0.1in 0.12in;
+        font-size: 14pt;
+        font-weight: 900;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        line-height: 1.1;
+        color: var(--white);
+        border-bottom: 1.5pt solid rgba(255, 255, 255, 0.12);
+      }
+
+      .svc-bar div:nth-child(1) {
+        background: #2f6b45;
+      }
+      .svc-bar div:nth-child(2) {
+        background: #265738;
+      }
+      .svc-bar div:nth-child(3) {
+        background: #1e462d;
+        border-bottom: none;
+      }
+
+      .creds {
+        margin: 0;
+        text-align: center;
+        font-size: 8.5pt;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #ffffff;
+        background: #061422;
+        padding: 0.08in 0.12in;
+      }
+
+      .offer {
+        background: #3d8a58;
+        padding: 0.14in 0.2in;
+        display: flex;
+        align-items: center;
+        gap: 0.12in;
+      }
+
+      .offer .pct {
+        font-size: 28pt;
+        font-weight: 900;
+        line-height: 0.9;
+        color: #ffffff;
+        flex-shrink: 0;
+      }
+
+      .offer .copy {
+        font-size: 13pt;
+        font-weight: 900;
+        line-height: 1.15;
+        text-transform: uppercase;
+        color: #ffffff;
+      }
+
+      .offer .copy span {
+        display: block;
+        margin-top: 0.03in;
+        font-size: 9pt;
+        font-weight: 700;
+        text-transform: none;
+        color: #ffffff;
+      }
+
+      /* ——— BACK ——— */
+      .hanger-back {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: var(--navy);
+        color: var(--white);
+      }
+
+      .back-photo {
+        position: relative;
+        height: 2.55in;
+        background: #0b2340 url("../assets/window-cleaning.png") center 22% /
+          cover no-repeat;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 0.16in 0.22in;
+        flex-shrink: 0;
+      }
+
+      .back-photo::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          180deg,
+          rgba(11, 35, 64, 0.05) 0%,
+          rgba(11, 35, 64, 0.25) 45%,
+          rgba(11, 35, 64, 0.95) 100%
+        );
+      }
+
+      .back-photo > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      .back-photo .hey {
+        margin: 0 0 0.06in;
+        font-size: 12pt;
+        font-weight: 800;
+        color: #9fd0ae;
+        text-transform: uppercase;
+      }
+
+      .back-photo h2 {
+        margin: 0;
+        font-size: 22pt;
+        font-weight: 900;
+        letter-spacing: -0.01em;
+        text-transform: uppercase;
+        line-height: 1.05;
+      }
+
+      .svc-stack {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+      }
+
+      .svc-stack .item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 0.14in 0.24in;
+        border-bottom: 2pt solid rgba(255, 255, 255, 0.12);
+      }
+
+      .svc-stack .item:nth-child(1) {
+        background: #2f6b45;
+      }
+      .svc-stack .item:nth-child(2) {
+        background: #265738;
+      }
+      .svc-stack .item:nth-child(3) {
+        background: #1e462d;
+      }
+
+      .svc-stack .label {
+        font-size: 15pt;
+        font-weight: 900;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        color: #ffffff;
+      }
+
+      .svc-stack .hint {
+        display: block;
+        margin-top: 0.03in;
+        font-size: 10pt;
+        font-weight: 600;
+        color: #ffffff;
+      }
+
+      .social-band {
+        padding: 0.14in 0.16in 0.12in;
+        background: #081a30;
+        text-align: center;
+      }
+
+      .social-icons {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.14in;
+        margin-bottom: 0.08in;
+      }
+
+      .social-icons img {
+        width: 0.38in;
+        height: 0.38in;
+        display: block;
+      }
+
+      .handle {
+        margin: 0;
+        font-size: 12pt;
+        font-weight: 900;
+        letter-spacing: 0.02em;
+        color: #ffffff;
+      }
+
+      .back-bottom {
+        padding: 0.14in 0.2in 0.16in;
+        background: var(--green);
+        display: flex;
+        align-items: center;
+        gap: 0.14in;
+      }
+
+      .qr-wrap img {
+        width: 0.85in;
+        height: 0.85in;
+        background: white;
+        padding: 0.04in;
+        display: block;
+        flex-shrink: 0;
+      }
+
+      .qr-copy {
+        flex: 1;
+      }
+
+      .qr-copy .visit {
+        margin: 0 0 0.04in;
+        font-size: 10pt;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #ffffff;
+      }
+
+      .back-phone {
+        margin: 0 0 0.02in;
+        font-size: 16pt;
+        font-weight: 900;
+        letter-spacing: -0.01em;
+        color: #ffffff;
+      }
+
+      .back-cta {
+        margin: 0;
+        font-size: 9pt;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: #ffffff;
+      }
+
+      .label {
+        text-align: center;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 0.4rem;
+        color: #445;
+      }
+
+      .sheet {
+        width: 8.5in;
+        height: 11in;
+        page-break-after: always;
+        break-after: page;
+        display: flex;
+        position: relative;
+      }
+
+      .sheet .hanger {
+        box-shadow: none;
+        flex: 0 0 4.25in;
+      }
+
+      .cut-guide {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        border-left: 0.5pt dashed rgba(11, 35, 64, 0.35);
+        pointer-events: none;
+      }
+
+      @page {
+        size: letter portrait;
+        margin: 0;
+      }
+
+      @media print {
+        .sheet {
+          margin: 0;
+        }
+
+        .hole {
+          background: white;
+          border-color: #777;
+        }
+
+        .hole::after {
+          background: white;
+          border-color: #777;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="toolbar screen-only">
+      <h1>Residential door hanger</h1>
+      <p>
+        Size: 4.25&quot; × 11&quot; · 2 per letter page. Print with margins
+        <strong>None</strong>, scale <strong>100%</strong>,
+        <strong>Background graphics</strong> on.
+      </p>
+      <div class="actions">
+        <button class="btn" type="button" onclick="window.print()">Print</button>
+        <a class="btn secondary" href="../commercial/index.html">Commercial card</a>
+        <a class="btn secondary" href="../index.html">All pieces</a>
+      </div>
+    </header>
+
+    <div class="preview-wrap screen-only">
+      <div>
+        <div class="label">Front</div>
+        <div id="preview-front"></div>
+      </div>
+      <div>
+        <div class="label">Back</div>
+        <div id="preview-back"></div>
+      </div>
+    </div>
+
+    <div class="sheet print-only" id="sheet-front"></div>
+    <div class="sheet print-only" id="sheet-back"></div>
+
+    <template id="tpl-front">
+      <article class="hanger hanger-front">
+        <div class="hole" aria-hidden="true"></div>
+        <div class="top-band" aria-hidden="true"></div>
+        <div class="hero">
+          <img
+            class="hero-photo"
+            src="../assets/home-hero.png"
+            alt="Clean residential home exterior"
+          />
+          <div class="hero-copy">
+            <p class="missed">Sorry I missed you</p>
+            <h2>We’d love to<br />help your home<br />look its best</h2>
+          </div>
+        </div>
+        <div class="body">
+          <p class="personal">
+            Locally owned in Winston-Salem — <strong>Harris Exterior Solutions</strong>.
+            Not a franchise. Not a call center.
+          </p>
+          <div class="phone-block">
+            <a class="phone" href="tel:3369868371">(336) 986-8371</a>
+            <span class="cta">Get a free quote online</span>
+          </div>
+          <p class="web">harrisexteriorsolutions.com · upload photos with your request</p>
+          <div class="svc-bar">
+            <div>Pressure washing</div>
+            <div>Window cleaning</div>
+            <div>Junk removal</div>
+          </div>
+          <p class="creds">Local · Licensed · Insured</p>
+          <div class="offer">
+            <div class="pct">15%</div>
+            <div class="copy">
+              Off your first job
+              <span>Mention this hanger on your quote request</span>
+            </div>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <template id="tpl-back">
+      <article class="hanger hanger-back">
+        <div class="hole" aria-hidden="true"></div>
+        <div class="top-band" aria-hidden="true"></div>
+        <div
+          class="back-photo"
+          role="img"
+          aria-label="Window cleaning in progress"
+        >
+          <p class="hey">Triad exteriors, done right</p>
+          <h2>Clean homes.<br />Clear pricing.</h2>
+        </div>
+        <div class="svc-stack">
+          <div class="item">
+            <div class="label">Pressure washing</div>
+            <span class="hint">House, driveway, sidewalks, patio</span>
+          </div>
+          <div class="item">
+            <div class="label">Window cleaning</div>
+            <span class="hint">Inside &amp; out — streak-free</span>
+          </div>
+          <div class="item">
+            <div class="label">Junk removal</div>
+            <span class="hint">We haul it off the same day</span>
+          </div>
+        </div>
+        <div class="social-band">
+          <div class="social-icons" aria-label="Social media">
+            <img src="../assets/social/instagram.svg" alt="Instagram" />
+            <img src="../assets/social/youtube.svg" alt="YouTube" />
+            <img src="../assets/social/tiktok.svg" alt="TikTok" />
+            <img src="../assets/social/facebook.svg" alt="Facebook" />
+          </div>
+          <p class="handle">@harrisexteriorsolutions</p>
+        </div>
+        <div class="back-bottom">
+          <div class="qr-wrap">
+            <img src="../assets/qr-website.png" alt="QR code to website" />
+          </div>
+          <div class="qr-copy">
+            <p class="visit">Scan for a free quote</p>
+            <p class="back-phone">(336) 986-8371</p>
+            <p class="back-cta">harrisexteriorsolutions.com</p>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <script>
+      function clone(id) {
+        return document.getElementById(id).content.cloneNode(true);
+      }
+
+      function fillPreview() {
+        const pf = document.getElementById("preview-front");
+        const pb = document.getElementById("preview-back");
+        pf.innerHTML = "";
+        pb.innerHTML = "";
+        pf.appendChild(clone("tpl-front"));
+        pb.appendChild(clone("tpl-back"));
+      }
+
+      function fillSheets() {
+        const front = document.getElementById("sheet-front");
+        const back = document.getElementById("sheet-back");
+        front.innerHTML = "";
+        back.innerHTML = "";
+        front.appendChild(clone("tpl-front"));
+        front.appendChild(clone("tpl-front"));
+        front.insertAdjacentHTML("beforeend", '<div class="cut-guide"></div>');
+        back.appendChild(clone("tpl-back"));
+        back.appendChild(clone("tpl-back"));
+        back.insertAdjacentHTML("beforeend", '<div class="cut-guide"></div>');
+      }
+
+      fillPreview();
+      fillSheets();
+    </script>
+  </body>
+</html>

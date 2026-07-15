@@ -1,0 +1,126 @@
+.emails-layout {
+  display: grid;
+  grid-template-columns: 0.9fr 1.3fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.tpl-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tpl-list li {
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.tpl-list li:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.tpl-btn {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.35rem 0;
+}
+
+.tpl-btn strong {
+  display: block;
+  margin-bottom: 0.15rem;
+}
+
+.tpl-btn span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.tpl-btn:hover strong {
+  color: #b6efcd;
+}
+
+.tpl-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.tpl-edit {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.composer-top {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.composer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.prospect-snap {
+  margin: 0;
+  font-size: 0.88rem;
+  text-transform: capitalize;
+}
+
+.composer-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.sent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sent-list li {
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.sent-list li:first-child {
+  border-top: none;
+}
+
+.sent-list strong {
+  display: block;
+}
+
+.sent-list span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+@media (max-width: 900px) {
+  .emails-layout {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" role="img" aria-label="Harris Exterior Solutions">
+  <!-- House mark: navy body + green shutter accent -->
+  <path fill="#0B2340" d="M60 8 L108 48 L96 48 L96 92 L24 92 L24 48 L12 48 Z"/>
+  <rect x="48" y="52" width="24" height="24" fill="#F5F2EB"/>
+  <rect x="58.5" y="52" width="3" height="24" fill="#0B2340"/>
+  <rect x="48" y="62.5" width="24" height="3" fill="#0B2340"/>
+  <rect x="88" y="50" width="12" height="34" fill="#2F6B45"/>
+  <rect x="90.5" y="56" width="7" height="3.5" fill="#F5F2EB"/>
+  <rect x="90.5" y="65" width="7" height="3.5" fill="#F5F2EB"/>
+  <rect x="90.5" y="74" width="7" height="3.5" fill="#F5F2EB"/>
+</svg>

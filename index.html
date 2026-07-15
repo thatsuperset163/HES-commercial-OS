@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Harris Exterior Solutions — Outreach Printables</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="shared/brand.css" />
+    <style>
+      .grid {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 0 1rem 3rem;
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+
+      .card-link {
+        background: var(--white);
+        border: 2px solid var(--navy);
+        padding: 1.25rem;
+        color: inherit;
+        transition: border-color 0.15s ease, transform 0.15s ease;
+      }
+
+      .card-link:hover {
+        border-color: var(--green);
+        transform: translateY(-2px);
+      }
+
+      .card-link h2 {
+        margin: 0 0 0.4rem;
+        font-size: 1.05rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .card-link p {
+        margin: 0;
+        color: #445;
+        line-height: 1.45;
+        font-size: 0.95rem;
+      }
+
+      .brand-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      .brand-row img {
+        width: 140px;
+      }
+
+      .tips {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 0 1rem 2rem;
+        color: #334;
+        line-height: 1.5;
+      }
+
+      .tips h2 {
+        font-size: 0.9rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin: 0 0 0.5rem;
+      }
+
+      .tips ul {
+        margin: 0;
+        padding-left: 1.1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="toolbar">
+      <div class="brand-row">
+        <img src="assets/logo-lockup.svg" alt="Harris Exterior Solutions" />
+        <div>
+          <h1>Outreach printables</h1>
+          <p style="margin: 0">
+            Home-print door hangers + commercial leave-behinds · (336) 986-8371
+          </p>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <a class="card-link" href="crm/">
+        <h2>Commercial Sales OS</h2>
+        <p>
+          Today’s actions, washing prospects, email templates, quotes, and
+          analytics — run with <code>cd crm &amp;&amp; npm run dev</code>.
+        </p>
+      </a>
+      <a class="card-link" href="door-hanger/index.html">
+        <h2>Residential door hanger</h2>
+        <p>
+          4.25&quot; × 11&quot; · 2 per letter page · big phone + CTA, website, small
+          logo · front/back with your before/after photo.
+        </p>
+      </a>
+      <a class="card-link" href="commercial/index.html">
+        <h2>Commercial leave-behind</h2>
+        <p>
+          Landscape · default 5&quot; × 10&quot; · About you on the front · Things we
+          noticed + offer box on the back.
+        </p>
+      </a>
+    </div>
+
+    <section class="tips">
+      <h2>Print tip</h2>
+      <ul>
+        <li>Chrome or Edge → Print → Margins: None → Scale: 100%</li>
+        <li>Turn on “Background graphics”</li>
+        <li>Cardstock reads more premium than plain copy paper</li>
+      </ul>
+    </section>
+  </body>
+</html>
