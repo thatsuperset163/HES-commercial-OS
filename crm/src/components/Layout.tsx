@@ -13,7 +13,7 @@ const links = [
 ]
 
 export function Layout() {
-  const { resetDemo, ready, cloudStatus } = useSales()
+  const { ready, cloudStatus } = useSales()
   const navigate = useNavigate()
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -110,22 +110,29 @@ export function Layout() {
           ))}
         </nav>
         <div className="sidebar-foot">
-          <p className={`sync-pill ${cloudStatus}`}>{syncLabel}</p>
           <a className="ghost-btn" href="/">
             ← HES HQ
           </a>
-          <button type="button" className="ghost-btn" onClick={() => setPaletteOpen(true)}>
-            Search <span className="kbd">⌘K</span>
-          </button>
-          <button type="button" className="ghost-btn" onClick={() => setHelpOpen(true)}>
-            Shortcuts <span className="kbd">?</span>
-          </button>
-          <button type="button" className="ghost-btn" onClick={resetDemo}>
-            Reset demo data
-          </button>
         </div>
       </aside>
       <main className="main">
+        <div className="sales-utility" aria-label="Sales tools">
+          <p className={`sync-pill utility-sync ${cloudStatus}`}>{syncLabel}</p>
+          <button
+            type="button"
+            className="utility-btn"
+            onClick={() => setPaletteOpen(true)}
+          >
+            Search <span className="kbd">Ctrl K</span>
+          </button>
+          <button
+            type="button"
+            className="utility-btn"
+            onClick={() => setHelpOpen(true)}
+          >
+            Shortcuts <span className="kbd">?</span>
+          </button>
+        </div>
         {!ready ? <p className="empty">Loading sales data…</p> : <Outlet />}
       </main>
       {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
