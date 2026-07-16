@@ -22,11 +22,11 @@ const hq = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "HES Blackboard",
-  description: "Daily business board for Harris Exterior Solutions",
+  title: "HES Operating System",
+  description: "Personal direction, field operations, and commercial growth for Harris Exterior Solutions",
   appleWebApp: {
     capable: true,
-    title: "HES Board",
+    title: "HES OS",
     statusBarStyle: "default",
   },
 };

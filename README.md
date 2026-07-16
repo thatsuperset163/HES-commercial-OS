@@ -3,8 +3,9 @@
 Private company HQ for **Harris Exterior Solutions**:
 
 - **HQ** — daily overview
-- **Personal / Work** — blackboard checklists + door metrics
-- **Sales** (`/sales`) — commercial pipeline (prospects, emails, analytics)
+- **Personal** — daily focus, journal, and recent context
+- **Work** — priorities, operating metrics, notes, and progress
+- **Commercial Sales** (`/work/sales/`) — Work subsection for prospects, emails, and analytics
 
 PIN-protected. Data syncs through **Supabase** with browser storage as an offline backup. Built for **Vercel**.
 
@@ -28,7 +29,7 @@ Open [http://localhost:3000](http://localhost:3000). Default PIN: `twins6` (chan
 npm run sync:sales
 ```
 
-That rebuilds into `public/sales/` (commit those files before deploy).
+That rebuilds into `public/work/sales/` (commit those files before deploy).
 
 ## Environment (Vercel + local)
 
@@ -51,4 +52,4 @@ Copy `.env.example` → `.env.local` and fill in values for local work. On Verce
 3. Set `APP_PIN`, `AUTH_SECRET`, and the Supabase vars above.
 4. Deploy.
 
-One URL for Blackboard + Commercial Sales OS. Edit here → push → Vercel updates.
+One URL for the complete HES Operating System. Edit here → push → Vercel updates.

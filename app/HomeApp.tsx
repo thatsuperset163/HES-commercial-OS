@@ -1,770 +1,145 @@
 "use client";
 
-
-
 import Link from "next/link";
-
 import { useCallback, useEffect, useMemo, useState } from "react";
-
-import type { DayEntry } from "@/lib/types";
-
-import { formatDisplayDate, todayKey } from "@/lib/dates";
-
-import { pickDailyQuote } from "@/lib/quotes";
-
+import type { DayEntry, MetricKey } from "@/lib/types";
+import { METRIC_LABELS } from "@/lib/types";
+import { formatDisplayDate, formatShortDate, todayKey } from "@/lib/dates";
 import { getLastNDayCharts } from "@/lib/charts";
-
-import {
-
-  getOrCreateDay,
-
-  hydrateStoreFromCloud,
-
-  loadStore,
-
-  upsertDay,
-
-} from "@/lib/storage";
-
-import { getCompletionInsights } from "@/lib/insights";
-
+import { getOrCreateDay, hydrateStoreFromCloud, loadStore, upsertDay } from "@/lib/storage";
 import AppShell from "./AppShell";
-
 import { BarChart } from "./BarChart";
 
-
-
-function listPct(done: number, total: number) {
-
-  if (!total) return 0;
-
-  return Math.round((done / total) * 100);
-
-}
-
-
-
 export default function HomeApp() {
-
   const [ready, setReady] = useState(false);
-
   const [day, setDay] = useState<DayEntry | null>(null);
-
   const date = todayKey();
 
-  const quote = useMemo(() => pickDailyQuote(date), [date]);
-
-
-
   const refresh = useCallback(() => {
-
     const store = loadStore();
-
     const entry = getOrCreateDay(store, date);
-
-    if (!store.days[date]) {
-
-      upsertDay(store, entry);
-
-    }
-
+    if (!store.days[date]) upsertDay(store, entry);
     setDay(entry);
-
     setReady(true);
-
   }, [date]);
 
-
-
   useEffect(() => {
-
     let cancelled = false;
-
     void hydrateStoreFromCloud().then(() => {
-
       if (!cancelled) refresh();
-
     });
-
     return () => {
-
       cancelled = true;
-
     };
-
   }, [refresh]);
 
-
-
-  const persist = useCallback((next: DayEntry) => {
-
-    const store = loadStore();
-
-    upsertDay(store, next);
-
-    setDay(next);
-
-  }, []);
-
-
-
-  const snap = useMemo(() => {
-
+  const snapshot = useMemo(() => {
     if (!day) return null;
-
     const store = loadStore();
-
-    const personalBoxes = [
-
-      ...day.dailyChecklist,
-
-      ...day.goals.filter((g) => g.category === "personal"),
-
-    ];
-
-    const personalDone = personalBoxes.filter((i) => i.done).length;
-
-    const personalTotal = personalBoxes.length;
-
-
-
-    const workBoxes = [
-
-      ...day.morningWorkChecklist,
-
-      ...day.afternoonWorkChecklist,
-
-      ...day.outreach,
-
-      ...day.goals.filter((g) => g.category === "business"),
-
-    ];
-
-    const workDone = workBoxes.filter((i) => i.done).length;
-
-    const workTotal = workBoxes.length;
-
-
-
     const charts = getLastNDayCharts(store, 7, date);
-
-    const insights = getCompletionInsights(store, {
-
-      minDays: 1,
-
-      limit: 3,
-
-    });
-
-
-
+    const recent = Object.values(store.days)
+      .filter((entry) => entry.date !== date && (entry.notes?.trim() || entry.personalNotes?.trim()))
+      .sort((a, b) => (a.date < b.date ? 1 : -1))
+      .slice(0, 4);
     return {
-
-      personalDone,
-
-      personalTotal,
-
-      personalPct: listPct(personalDone, personalTotal),
-
-      workDone,
-
-      workTotal,
-
-      workPct: listPct(workDone, workTotal),
-
       charts,
-
-      insights,
-
-      doorsWeek: charts.reduce((s, p) => s + p.doors, 0),
-
-      quotesWeek: charts.reduce((s, p) => s + p.quotes, 0),
-
-      jobsWeek: charts.reduce((s, p) => s + p.jobsBooked, 0),
-
+      recent,
+      totals: {
+        doors: charts.reduce((sum, point) => sum + point.doors, 0),
+        conversations: charts.reduce((sum, point) => sum + point.conversations, 0),
+        phoneNumbers: charts.reduce((sum, point) => sum + point.phoneNumbers, 0),
+        quotes: charts.reduce((sum, point) => sum + point.quotes, 0),
+        jobsBooked: charts.reduce((sum, point) => sum + point.jobsBooked, 0),
+      },
     };
-
   }, [day, date]);
 
-
-
-  if (!ready || !day || !snap) {
-
-    return (
-
-      <AppShell>
-
-        <p className="hq-lede">Loading HQ…</p>
-
-      </AppShell>
-
-    );
-
+  if (!ready || !day || !snapshot) {
+    return <AppShell><p className="hq-lede">Loading HQ…</p></AppShell>;
   }
 
-
-
-  const goalDone = day.goals.filter((g) => g.done).length;
-
-
+  const personalFocus = day.goals.find((goal) => goal.category === "personal")?.text;
+  const workFocus = day.goals.find((goal) => goal.category === "business")?.text;
 
   return (
-
     <AppShell>
-
       <div className="hq-page">
-
-        <header className="hq-page-header">
-
-          <p className="hq-eyebrow">Harris Exterior Solutions · HQ</p>
-
-          <h2 className="hq-page-title">{formatDisplayDate(date)}</h2>
-
-          <p className="hq-lede">
-
-            One place for the blackboard and commercial sales pipeline.
-
-          </p>
-
+        <header className="page-intro">
+          <div>
+            <p className="hq-eyebrow">Command overview</p>
+            <h2>{formatDisplayDate(date)}</h2>
+            <p>Today&apos;s direction, operating pulse, and next moves across HES.</p>
+          </div>
+          <span className="hq-pill accent">Live overview</span>
         </header>
 
-
-
-        <section className="hq-metric-strip" aria-label="Today at a glance">
-
-          <div className="hq-metric">
-
-            <span>Personal today</span>
-
-            <strong>{snap.personalPct}%</strong>
-
-          </div>
-
-          <div className="hq-metric">
-
-            <span>Work today</span>
-
-            <strong>{snap.workPct}%</strong>
-
-          </div>
-
-          <div className="hq-metric">
-
-            <span>Doors (7d)</span>
-
-            <strong>{snap.doorsWeek}</strong>
-
-          </div>
-
-          <div className="hq-metric">
-
-            <span>Jobs booked (7d)</span>
-
-            <strong>{snap.jobsWeek}</strong>
-
-          </div>
-
+        <section className="hq-metric-strip" aria-label="Seven-day operating metrics">
+          {(Object.keys(METRIC_LABELS) as MetricKey[]).map((key) => (
+            <div className="hq-metric" key={key}>
+              <span>{METRIC_LABELS[key]} · 7d</span>
+              <strong>{snapshot.totals[key]}</strong>
+            </div>
+          ))}
         </section>
-
-
-
-        <section className="hq-card">
-
-          <div className="hq-section-head">
-
-            <h2>Apps</h2>
-
-            <span className="hq-pill accent">Launch</span>
-
-          </div>
-
-          <div className="hq-app-grid">
-
-            <article className="hq-app-card">
-
-              <div className="hq-app-card-head">
-
-                <h3>Blackboard</h3>
-
-                <span className="hq-pill">Daily board</span>
-
-              </div>
-
-              <p className="hq-app-blurb">
-
-                Personal checklist, door metrics, outreach scoreboard, and
-
-                journal.
-
-              </p>
-
-              <div className="hq-app-actions">
-
-                <Link href="/personal" className="hq-btn">
-
-                  Personal
-
-                </Link>
-
-                <Link href="/work" className="hq-btn secondary">
-
-                  Work
-
-                </Link>
-
-              </div>
-
-            </article>
-
-            <article className="hq-app-card">
-
-              <div className="hq-app-card-head">
-
-                <h3>Commercial Sales OS</h3>
-
-                <span className="hq-pill">Pipeline</span>
-
-              </div>
-
-              <p className="hq-app-blurb">
-
-                Prospects, follow-ups, email templates, quotes, and analytics for
-
-                pressure washing, window cleaning, and junk removal.
-
-              </p>
-
-              <div className="hq-app-actions">
-
-                <a href="/sales/" className="hq-btn">
-
-                  Open Sales OS
-
-                </a>
-
-              </div>
-
-            </article>
-
-          </div>
-
-        </section>
-
-
 
         <div className="hq-split">
-
-          <section className="hq-card">
-
-            <div className="hq-section-head">
-
-              <h2>Today&apos;s focus</h2>
-
-              <span className="hq-pill">
-
-                {goalDone}/2 · check off in Personal / Work
-
-              </span>
-
-            </div>
-
+          <section className="hq-card focus-summary">
+            <div className="hq-section-head"><h2>Current focus</h2><span className="hq-pill">Today</span></div>
             <div className="hq-focus-grid">
-
-              {day.goals.map((goal) => (
-
-                <div
-
-                  key={goal.id}
-
-                  className={`hq-focus-card ${goal.done ? "done" : ""}`}
-
-                >
-
-                  <span className="hq-kicker">
-
-                    {goal.category === "personal" ? "Personal" : "Business"}
-
-                    {goal.done ? " · done" : ""}
-
-                  </span>
-
-                  <p>{goal.text}</p>
-
-                  <Link
-
-                    href={goal.category === "personal" ? "/personal" : "/work"}
-
-                    className="hq-link"
-
-                  >
-
-                    Open {goal.category === "personal" ? "personal" : "work"} →
-
-                  </Link>
-
-                </div>
-
-              ))}
-
+              <article className="hq-focus-card">
+                <span className="hq-kicker">Personal</span>
+                <p>{personalFocus || "Set today’s personal direction."}</p>
+                <Link href="/personal" className="hq-link">Open Personal →</Link>
+              </article>
+              <article className="hq-focus-card">
+                <span className="hq-kicker">Work</span>
+                <p>{workFocus || "Set today’s work priority."}</p>
+                <Link href="/work" className="hq-link">Open Work →</Link>
+              </article>
             </div>
-
           </section>
 
-
-
-          <section className="hq-card">
-
-            <div className="hq-section-head">
-
-              <h2>Charge</h2>
-
-              <span className="hq-pill">Quote</span>
-
-            </div>
-
-            <blockquote className="hq-quote">
-
-              <p>“{quote.text}”</p>
-
-              <footer>— {quote.author}</footer>
-
-            </blockquote>
-
+          <section className="hq-card sales-launch">
+            <p className="hq-eyebrow">Commercial Sales</p>
+            <h2>Build the next account</h2>
+            <p>Prospecting, follow-ups, quotes, and pipeline analytics live inside Work.</p>
+            <a href="/work/sales/" className="hq-btn">Enter Sales OS →</a>
           </section>
-
         </div>
 
-
-
         <section className="hq-card">
-
-          <div className="hq-section-head">
-
-            <h2>Week at a glance</h2>
-
-            <span className="hq-pill">Last 7 days</span>
-
-          </div>
-
+          <div className="hq-section-head"><h2>Operating trend</h2><span className="hq-pill">Last 7 days</span></div>
           <div className="chart-grid">
-
-            <BarChart
-
-              title="Personal completion %"
-
-              suffix="%"
-
-              max={100}
-
-              points={snap.charts.map((p) => ({
-
-                label: p.label,
-
-                value: p.personalPct,
-
-              }))}
-
-            />
-
-            <BarChart
-
-              title="Work completion %"
-
-              suffix="%"
-
-              max={100}
-
-              points={snap.charts.map((p) => ({
-
-                label: p.label,
-
-                value: p.workPct,
-
-              }))}
-
-            />
-
-            <BarChart
-
-              title="Doors knocked"
-
-              points={snap.charts.map((p) => ({
-
-                label: p.label,
-
-                value: p.doors,
-
-              }))}
-
-            />
-
-            <BarChart
-
-              title="Conversations"
-
-              points={snap.charts.map((p) => ({
-
-                label: p.label,
-
-                value: p.conversations,
-
-              }))}
-
-            />
-
+            <BarChart title="Doors knocked" points={snapshot.charts.map((point) => ({ label: point.label, value: point.doors }))} />
+            <BarChart title="Conversations" points={snapshot.charts.map((point) => ({ label: point.label, value: point.conversations }))} />
+            <BarChart title="Quotes" points={snapshot.charts.map((point) => ({ label: point.label, value: point.quotes }))} />
+            <BarChart title="Jobs booked" points={snapshot.charts.map((point) => ({ label: point.label, value: point.jobsBooked }))} />
           </div>
-
-          <p className="chart-footnote">
-
-            Quotes this week: <strong>{snap.quotesWeek}</strong>
-
-            {" · "}
-
-            Jobs booked: <strong>{snap.jobsWeek}</strong>
-
-          </p>
-
         </section>
 
-
-
-        <div className="hq-wing-grid">
-
+        <div className="hq-split">
           <section className="hq-card">
-
-            <div className="hq-section-head">
-
-              <h2>Personal wing</h2>
-
-              <span className="hq-pill accent">{snap.personalPct}%</span>
-
+            <div className="hq-section-head"><h2>Today&apos;s notes</h2><span className="hq-pill">Live</span></div>
+            <div className="notes-summary">
+              <div><span className="hq-kicker">Personal</span><p>{day.personalNotes || "No personal note yet."}</p></div>
+              <div><span className="hq-kicker">Work</span><p>{day.notes || "No work note yet."}</p></div>
             </div>
-
-            <p className="hq-app-blurb">
-
-              Faith, health, social reps — the life side of HQ.
-
-            </p>
-
-            {day.personalNotes.trim() ? (
-
-              <p className="hq-note">{day.personalNotes}</p>
-
-            ) : (
-
-              <p className="hq-note muted">No journal note yet today.</p>
-
-            )}
-
-            <Link href="/personal" className="hq-link">
-
-              Enter personal →
-
-            </Link>
-
           </section>
-
-
-
           <section className="hq-card">
-
-            <div className="hq-section-head">
-
-              <h2>Work wing</h2>
-
-              <span className="hq-pill accent">{snap.workPct}%</span>
-
-            </div>
-
-            <p className="hq-app-blurb">
-
-              Desk, doors, outreach, scoreboard — HES operations.
-
-            </p>
-
-            <div className="hq-mini-metrics">
-
-              <span>
-
-                D <strong>{day.metrics.doors}</strong>
-
-              </span>
-
-              <span>
-
-                C <strong>{day.metrics.conversations}</strong>
-
-              </span>
-
-              <span>
-
-                # <strong>{day.metrics.phoneNumbers}</strong>
-
-              </span>
-
-              <span>
-
-                Q <strong>{day.metrics.quotes}</strong>
-
-              </span>
-
-              <span>
-
-                J <strong>{day.metrics.jobsBooked}</strong>
-
-              </span>
-
-            </div>
-
-            <Link href="/work" className="hq-link">
-
-              Enter work →
-
-            </Link>
-
+            <div className="hq-section-head"><h2>Recent signals</h2><span className="hq-pill">History</span></div>
+            {snapshot.recent.length ? (
+              <div className="signal-list">
+                {snapshot.recent.map((entry) => (
+                  <article className="signal-row" key={entry.date}>
+                    <span>{formatShortDate(entry.date)}</span>
+                    <p>{entry.notes?.trim() || entry.personalNotes}</p>
+                  </article>
+                ))}
+              </div>
+            ) : <p className="empty-state">Notes and operating signals will surface here over time.</p>}
           </section>
-
         </div>
-
-
-
-        <section className="hq-card">
-
-          <div className="hq-section-head">
-
-            <h2>Journal</h2>
-
-            <span className="hq-pill">What happened today</span>
-
-          </div>
-
-          <textarea
-
-            className="field textarea journal-field"
-
-            placeholder="Write it like a page in your book — wins, weird calls, convictions, jokes, whatever stuck…"
-
-            value={day.notes}
-
-            onChange={(e) => persist({ ...day, notes: e.target.value })}
-
-          />
-
-        </section>
-
-
-
-        <section className="hq-card">
-
-          <div className="hq-section-head">
-
-            <h2>Signals</h2>
-
-            <span className="hq-pill">
-
-              {snap.insights.daysSampled
-
-                ? `${snap.insights.daysSampled} day${
-
-                    snap.insights.daysSampled === 1 ? "" : "s"
-
-                  } in the log`
-
-                : "Filling in over time"}
-
-            </span>
-
-          </div>
-
-          {snap.insights.daysSampled === 0 ? (
-
-            <p className="hq-note muted">
-
-              Live in Personal + Work a few days. HQ will start showing what you
-
-              crush and what needs pressure.
-
-            </p>
-
-          ) : (
-
-            <div className="hq-insight-grid">
-
-              <div>
-
-                <p className="hq-kicker">You&apos;re crushing</p>
-
-                <ul className="hq-insight-list">
-
-                  {snap.insights.strongest.map((row) => (
-
-                    <li key={row.id}>
-
-                      <span className="hq-insight-pct">{row.pct}%</span>
-
-                      <span className="hq-insight-label">
-
-                        <span className="hq-kicker">{row.realm}</span>
-
-                        {row.label}
-
-                      </span>
-
-                    </li>
-
-                  ))}
-
-                </ul>
-
-              </div>
-
-              <div>
-
-                <p className="hq-kicker">Needs heat</p>
-
-                {snap.insights.needsWork.length === 0 ? (
-
-                  <p className="hq-note muted">Pretty even so far.</p>
-
-                ) : (
-
-                  <ul className="hq-insight-list">
-
-                    {snap.insights.needsWork.map((row) => (
-
-                      <li key={row.id}>
-
-                        <span className="hq-insight-pct low">{row.pct}%</span>
-
-                        <span className="hq-insight-label">
-
-                          <span className="hq-kicker">{row.realm}</span>
-
-                          {row.label}
-
-                        </span>
-
-                      </li>
-
-                    ))}
-
-                  </ul>
-
-                )}
-
-              </div>
-
-            </div>
-
-          )}
-
-        </section>
-
       </div>
-
     </AppShell>
-
   );
-
 }
-

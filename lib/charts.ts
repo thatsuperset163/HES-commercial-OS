@@ -9,6 +9,7 @@ export type DayChartPoint = {
   workPct: number;
   doors: number;
   conversations: number;
+  phoneNumbers: number;
   quotes: number;
   jobsBooked: number;
   activityScore: number;
@@ -21,7 +22,7 @@ function listPct(done: number, total: number) {
 
 function dayPercents(entry: DayEntry | undefined) {
   if (!entry) {
-    return { personalPct: 0, workPct: 0, doors: 0, conversations: 0, quotes: 0, jobsBooked: 0, activityScore: 0 };
+    return { personalPct: 0, workPct: 0, doors: 0, conversations: 0, phoneNumbers: 0, quotes: 0, jobsBooked: 0, activityScore: 0 };
   }
   const day = normalizeDayEntry(entry);
   const personalBoxes = [
@@ -43,6 +44,7 @@ function dayPercents(entry: DayEntry | undefined) {
     workPct: listPct(workBoxes.filter((i) => i.done).length, workBoxes.length),
     doors: m.doors || 0,
     conversations: m.conversations || 0,
+    phoneNumbers: m.phoneNumbers || 0,
     quotes: m.quotes || 0,
     jobsBooked: m.jobsBooked || 0,
     activityScore:

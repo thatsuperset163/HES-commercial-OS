@@ -44,9 +44,9 @@ export default function LoginPage() {
           height={220}
           priority
         />
-        <p className="brand-eyebrow">Private board</p>
-        <h1>Blackboard</h1>
-        <p>Enter your PIN to open the day.</p>
+        <p className="brand-eyebrow">Private company portal</p>
+        <h1>HES OS</h1>
+        <p>Enter your PIN to open the operating system.</p>
         <form onSubmit={onSubmit}>
           <input
             className="field"
@@ -61,7 +61,7 @@ export default function LoginPage() {
           />
           {error ? <p className="login-error">{error}</p> : null}
           <button className="btn accent" type="submit" disabled={loading}>
-            {loading ? "Opening…" : "Open board"}
+            {loading ? "Opening…" : "Open HES OS"}
           </button>
         </form>
       </div>

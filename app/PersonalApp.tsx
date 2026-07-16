@@ -1,12 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ChecklistItem, DayEntry, GoalItem } from "@/lib/types";
-import {
-  addDays,
-  formatDisplayDate,
-  todayKey,
-} from "@/lib/dates";
+import type { DayEntry } from "@/lib/types";
+import { addDays, formatDisplayDate, formatShortDate, todayKey } from "@/lib/dates";
 import {
   getOrCreateDay,
   hydrateStoreFromCloud,
@@ -21,17 +17,10 @@ export default function PersonalApp() {
   const [day, setDay] = useState<DayEntry | null>(null);
   const [toast, setToast] = useState(false);
 
-  const flashSaved = useCallback(() => {
-    setToast(true);
-    window.setTimeout(() => setToast(false), 900);
-  }, []);
-
   const refresh = useCallback((date: string) => {
     const store = loadStore();
     const entry = getOrCreateDay(store, date);
-    if (!store.days[date]) {
-      upsertDay(store, entry);
-    }
+    if (!store.days[date]) upsertDay(store, entry);
     setDay(entry);
   }, []);
 
@@ -47,181 +36,103 @@ export default function PersonalApp() {
     };
   }, [selectedDate, refresh]);
 
-  const persist = useCallback(
-    (next: DayEntry) => {
-      const store = loadStore();
-      upsertDay(store, next);
-      setDay(next);
-      flashSaved();
-    },
-    [flashSaved]
-  );
+  const persist = useCallback((next: DayEntry) => {
+    const store = loadStore();
+    upsertDay(store, next);
+    setDay(next);
+    setToast(true);
+    window.setTimeout(() => setToast(false), 900);
+  }, []);
 
-  const personalGoal = useMemo(
-    () => day?.goals.find((g) => g.category === "personal") ?? null,
-    [day]
-  );
-
-  function doneCount(list: ChecklistItem[]) {
-    return list.filter((i) => i.done).length;
-  }
-
-  function toggleChecklist(id: string, done: boolean) {
-    if (!day) return;
-    persist({
-      ...day,
-      dailyChecklist: day.dailyChecklist.map((row) =>
-        row.id === id ? { ...row, done } : row
-      ),
-    });
-  }
-
-  function addChecklistItem() {
-    if (!day) return;
-    const label = window.prompt("New personal checklist item:");
-    if (!label?.trim()) return;
-    persist({
-      ...day,
-      dailyChecklist: [
-        ...day.dailyChecklist,
-        {
-          id: `dailyChecklist-${Date.now()}`,
-          label: label.trim(),
-          done: false,
-        },
-      ],
-    });
-  }
-
-  function updateGoal(patch: Partial<GoalItem>) {
-    if (!day || !personalGoal) return;
-    persist({
-      ...day,
-      goals: day.goals.map((g) =>
-        g.id === personalGoal.id ? { ...g, ...patch } : g
-      ),
-    });
-  }
+  const recent = useMemo(() => {
+    if (!ready) return [];
+    return Object.values(loadStore().days)
+      .filter((entry) => entry.date < selectedDate && entry.personalNotes?.trim())
+      .sort((a, b) => (a.date < b.date ? 1 : -1))
+      .slice(0, 4);
+  }, [ready, selectedDate, day?.updatedAt]);
 
   if (!ready || !day) {
-    return (
-      <AppShell>
-        <p className="brand-sub">Loading personal…</p>
-      </AppShell>
-    );
+    return <AppShell><p className="brand-sub">Loading personal…</p></AppShell>;
   }
 
-  const done = doneCount(day.dailyChecklist);
+  const personalGoal = day.goals.find((goal) => goal.category === "personal");
+
+  function updateFocus(text: string) {
+    if (!personalGoal || !day) return;
+    persist({
+      ...day,
+      goals: day.goals.map((goal) =>
+        goal.id === personalGoal.id ? { ...goal, text } : goal
+      ),
+    });
+  }
 
   return (
     <AppShell>
-      <div className="date-nav">
-        <button
-          type="button"
-          className="nav-btn"
-          onClick={() => setSelectedDate((d) => addDays(d, -1))}
-          aria-label="Previous day"
-        >
-          ‹
-        </button>
-        <div className="date-label">{formatDisplayDate(selectedDate)}</div>
-        <button
-          type="button"
-          className="nav-btn"
-          onClick={() => setSelectedDate((d) => addDays(d, 1))}
-          aria-label="Next day"
-        >
-          ›
-        </button>
-        <button
-          type="button"
-          className="nav-btn primary"
-          onClick={() => setSelectedDate(todayKey())}
-        >
-          Today
-        </button>
+      <div className="page-intro">
+        <div>
+          <p className="hq-eyebrow">Personal command center</p>
+          <h2>{formatDisplayDate(selectedDate)}</h2>
+          <p>Set the direction, capture the day, and notice what is changing.</p>
+        </div>
+        <div className="date-nav compact">
+          <button type="button" className="nav-btn" onClick={() => setSelectedDate((d) => addDays(d, -1))} aria-label="Previous day">‹</button>
+          <button type="button" className="nav-btn primary" onClick={() => setSelectedDate(todayKey())}>Today</button>
+          <button type="button" className="nav-btn" onClick={() => setSelectedDate((d) => addDays(d, 1))} aria-label="Next day">›</button>
+        </div>
       </div>
 
-      {personalGoal ? (
-        <section className="panel">
+      <div className="content-grid personal-grid">
+        <section className="panel focus-panel">
           <div className="panel-head">
-            <h2 className="panel-title">Personal goal</h2>
-            <span className="panel-meta">Changes daily</span>
+            <h2 className="panel-title">Current focus</h2>
+            <span className="panel-meta">Editable daily direction</span>
           </div>
-          <ul className="checklist goal-list">
-            <li
-              className={`check-row goal-row ${
-                personalGoal.done ? "done" : ""
-              }`}
-            >
-              <input
-                id="personal-goal"
-                type="checkbox"
-                checked={personalGoal.done}
-                onChange={(e) => updateGoal({ done: e.target.checked })}
-              />
-              <label htmlFor="personal-goal" className="goal-copy">
-                <span className="goal-kicker">Faith · Social · Growth</span>
-                <span className="goal-text">{personalGoal.text}</span>
-              </label>
-            </li>
-          </ul>
-        </section>
-      ) : null}
-
-      <section className="panel">
-        <div className="panel-head">
-          <h2 className="panel-title">Daily checklist</h2>
-          <span className="panel-meta">
-            {done}/{day.dailyChecklist.length} · essentials + rotating
-          </span>
-        </div>
-        <ul className="checklist">
-          {day.dailyChecklist.map((item) => (
-            <li
-              key={item.id}
-              className={`check-row ${item.done ? "done" : ""}`}
-            >
-              <input
-                id={`personal-${item.id}`}
-                type="checkbox"
-                checked={item.done}
-                onChange={(e) => toggleChecklist(item.id, e.target.checked)}
-              />
-              <label htmlFor={`personal-${item.id}`}>{item.label}</label>
-            </li>
-          ))}
-        </ul>
-        <div className="progress-bar" aria-hidden>
-          <span
-            style={{
-              width: `${(done / Math.max(day.dailyChecklist.length, 1)) * 100}%`,
-            }}
+          <label className="field-label" htmlFor="personal-focus">What deserves your attention?</label>
+          <textarea
+            id="personal-focus"
+            className="field focus-field"
+            value={personalGoal?.text ?? ""}
+            onChange={(event) => updateFocus(event.target.value)}
+            placeholder="Name the personal focus for this day…"
           />
-        </div>
-        <div className="row-actions">
-          <button type="button" className="btn ghost" onClick={addChecklistItem}>
-            + Add item
-          </button>
-        </div>
-      </section>
+        </section>
 
-      <section className="panel">
-        <div className="panel-head">
-          <h2 className="panel-title">Personal notes</h2>
-          <span className="panel-meta">Faith · people · life</span>
-        </div>
-        <textarea
-          className="field textarea"
-          placeholder="Gratitude, conversations, how you showed up…"
-          value={day.personalNotes}
-          onChange={(e) => persist({ ...day, personalNotes: e.target.value })}
-        />
-      </section>
+        <section className="panel journal-panel">
+          <div className="panel-head">
+            <h2 className="panel-title">Notes & journal</h2>
+            <span className="panel-meta">Faith · people · life</span>
+          </div>
+          <textarea
+            className="field textarea journal-field"
+            placeholder="What are you thinking, learning, or carrying today?"
+            value={day.personalNotes}
+            onChange={(event) => persist({ ...day, personalNotes: event.target.value })}
+          />
+        </section>
 
-      <div className={`save-toast ${toast ? "show" : ""}`} aria-live="polite">
-        Saved
+        <section className="panel recent-panel">
+          <div className="panel-head">
+            <h2 className="panel-title">Recent context</h2>
+            <span className="panel-meta">Previous journal signals</span>
+          </div>
+          {recent.length ? (
+            <div className="signal-list">
+              {recent.map((entry) => (
+                <article key={entry.date} className="signal-row">
+                  <span>{formatShortDate(entry.date)}</span>
+                  <p>{entry.personalNotes}</p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="empty-state">Your recent notes will collect here as a lightweight personal timeline.</p>
+          )}
+        </section>
       </div>
+
+      <div className={`save-toast ${toast ? "show" : ""}`} aria-live="polite">Saved</div>
     </AppShell>
   );
 }
