@@ -111,15 +111,9 @@
 }
 
 .overlay-backdrop.prospect-overlay {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   overflow: hidden;
-  padding:
-    max(1rem, env(safe-area-inset-top))
-    max(1rem, env(safe-area-inset-right))
-    max(1rem, env(safe-area-inset-bottom))
-    max(1rem, env(safe-area-inset-left));
+  padding: 0;
   z-index: 80;
 }
 
@@ -133,6 +127,17 @@
 }
 
 .prospect-form-modal {
+  position: absolute;
+  top: max(1rem, env(safe-area-inset-top));
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  left: max(1rem, env(safe-area-inset-left));
+  width: auto;
+  max-width: 920px;
+  max-height: none;
+  margin-inline: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 1.15rem 1.2rem 1.25rem;
 }
 
