@@ -36,12 +36,19 @@ That rebuilds into `public/sales/` (commit those files before deploy).
 |----------|---------|
 | `APP_PIN` | Login PIN |
 | `AUTH_SECRET` | Signs the auth cookie (long random string in production) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key (browser-safe) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Optional server key (preferred for API saves) |
+
+Copy `.env.example` → `.env.local` and fill in values for local work. On Vercel, add the **same variable names** under Project → Settings → Environment Variables.
+
+**Supabase data:** run `supabase/schema.sql` once in the SQL Editor, then enter prospects in Sales OS. View them under **Table Editor → commercial_prospects**. Details: [`supabase/README.md`](./supabase/README.md).
 
 ## Deploy on Vercel
 
 1. Push this repo to GitHub.
 2. Import it in Vercel (Framework: Next.js).
-3. Set `APP_PIN` and `AUTH_SECRET` in Project → Settings → Environment Variables.
+3. Set `APP_PIN`, `AUTH_SECRET`, and the Supabase vars above.
 4. Deploy.
 
 One URL for Blackboard + Commercial Sales OS. Edit here → push → Vercel updates.

@@ -13,11 +13,22 @@ const links = [
 ]
 
 export function Layout() {
-  const { resetDemo } = useSales()
+  const { resetDemo, ready, cloudStatus } = useSales()
   const navigate = useNavigate()
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [goArmed, setGoArmed] = useState(false)
+
+  const syncLabel =
+    cloudStatus === 'synced'
+      ? 'Cloud: Supabase'
+      : cloudStatus === 'loading'
+        ? 'Cloud: connecting…'
+        : cloudStatus === 'error'
+          ? 'Cloud: save error'
+          : cloudStatus === 'offline'
+            ? 'Cloud: offline'
+            : 'Cloud: local only'
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -99,6 +110,7 @@ export function Layout() {
           ))}
         </nav>
         <div className="sidebar-foot">
+          <p className={`sync-pill ${cloudStatus}`}>{syncLabel}</p>
           <a className="ghost-btn" href="/">
             ← HES HQ
           </a>
@@ -114,7 +126,7 @@ export function Layout() {
         </div>
       </aside>
       <main className="main">
-        <Outlet />
+        {!ready ? <p className="empty">Loading sales data…</p> : <Outlet />}
       </main>
       {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
       {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}

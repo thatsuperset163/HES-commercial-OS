@@ -3,12 +3,10 @@ import { useMemo } from 'react'
 import { useSales } from '../store/SalesContext'
 import {
   formatDate,
-  formatMoney,
   isOverdue,
   isToday,
   isThisMonth,
 } from '../lib/dates'
-import { pipelineValue } from '../lib/metrics'
 import { OPEN_STAGES } from '../types'
 import './Today.css'
 
@@ -29,20 +27,21 @@ export function Today() {
     ...dueTasks.filter((t) => t.kind === 'visit'),
     ...state.prospects.filter(
       (p) =>
-        p.stage === 'site_visit' ||
-        (p.stage === 'meeting_scheduled' && isToday(p.nextFollowUpAt)),
+        p.stage === 'site_visit_scheduled' && isToday(p.nextFollowUpAt),
     ),
   ]
   const quotesWaiting = [
     ...dueTasks.filter((t) => t.kind === 'quote'),
-    ...state.prospects.filter((p) => p.stage === 'quote_sent' || p.stage === 'negotiating'),
+    ...state.prospects.filter((p) => p.stage === 'proposal_sent' || p.stage === 'interested'),
   ]
 
   const wonMonth = state.prospects.filter(
     (p) => p.stage === 'won' && isThisMonth(p.updatedAt),
   )
   const lost = state.prospects.filter((p) => p.stage === 'lost')
-  const pipeline = pipelineValue(state.prospects)
+  const highPriority = state.prospects.filter(
+    (p) => OPEN_STAGES.includes(p.stage) && p.priority === 'high',
+  )
   const openCount = state.prospects.filter((p) => OPEN_STAGES.includes(p.stage)).length
 
   return (
@@ -52,7 +51,7 @@ export function Today() {
           <p className="eyebrow">Harris Exterior Solutions</p>
           <h1>Today</h1>
           <p className="lede">
-            What to do next to book another commercial washing job.
+            What to do next to reach the next decision maker and book the job.
           </p>
         </div>
         <Link className="btn" to="/prospects">
@@ -78,16 +77,16 @@ export function Today() {
           <strong>{siteVisits.length}</strong>
         </div>
         <div className="metric">
-          <span>Quotes waiting</span>
+          <span>Proposals waiting</span>
           <strong>{quotesWaiting.length}</strong>
         </div>
         <div className="metric">
-          <span>Pipeline value</span>
-          <strong>{formatMoney(pipeline)}</strong>
+          <span>High priority</span>
+          <strong>{highPriority.length}</strong>
         </div>
         <div className="metric">
           <span>Won this month</span>
-          <strong>{formatMoney(wonMonth.reduce((s, p) => s + p.quoteAmount, 0))}</strong>
+          <strong>{wonMonth.length}</strong>
         </div>
         <div className="metric">
           <span>Lost opportunities</span>
@@ -96,7 +95,7 @@ export function Today() {
       </section>
 
       <p className="open-line muted">
-        {openCount} open opportunities · weighted pipeline uses quote × probability
+        {openCount} open opportunities · focus high-priority decision makers first
       </p>
 
       <section className="panel">

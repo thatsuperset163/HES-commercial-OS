@@ -42,24 +42,14 @@ export function personalize(template: string, prospect: Prospect) {
     businessName: prospect.businessName,
     decisionMaker: prospect.decisionMaker,
     jobTitle: prospect.jobTitle,
-    city: prospect.city,
+    city: prospect.city || prospect.address,
     industry: prospect.industry,
     services: serviceLabels(prospect.servicesNeeded),
-    buildings: String(prospect.numberOfBuildings || ''),
-    sqFt: prospect.estimatedSqFt
-      ? prospect.estimatedSqFt.toLocaleString('en-US')
-      : '',
-    quoteAmount: prospect.quoteAmount
-      ? prospect.quoteAmount.toLocaleString('en-US', {
-          style: 'currency',
-          currency: 'USD',
-          maximumFractionDigits: 0,
-        })
-      : '',
     salesRep: prospect.salesRep,
     phone: prospect.phone,
     email: prospect.email,
     address: prospect.address,
+    companyPhone: prospect.companyPhone,
     signature: EMAIL_SIGNATURE,
   }
 

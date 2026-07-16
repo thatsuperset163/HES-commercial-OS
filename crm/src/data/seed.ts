@@ -1,6 +1,7 @@
 import type { SalesState } from '../types'
 import { daysAgo } from '../lib/dates'
 import { EMAIL_SIGNATURE } from '../lib/templates'
+import { emptyProspectDraft } from '../types'
 
 const now = () => new Date().toISOString()
 
@@ -11,37 +12,21 @@ function schoolProspect(
 ): SalesState['prospects'][number] {
   const stamp = now()
   return {
+    ...emptyProspectDraft('Will'),
     id,
     businessName,
-    industry: 'Education / Schools',
-    address: '',
+    industry: 'School',
     city,
-    website: '',
-    googleMapsUrl: '',
-    decisionMaker: '',
-    jobTitle: '',
-    email: '',
-    phone: '',
-    linkedIn: '',
-    numberOfBuildings: 1,
-    estimatedSqFt: 0,
+    address: city,
+    stage: 'not_contacted',
+    priority: 'medium',
     servicesNeeded: ['pressure_washing'],
-    notes: '',
-    stage: 'not_researched',
-    salesRep: 'Will',
-    quoteAmount: 0,
-    probability: 20,
-    expectedCloseDate: null,
-    billingType: 'one_time',
-    expectedAnnualValue: 0,
-    lastContactAt: null,
-    nextFollowUpAt: null,
     createdAt: stamp,
     updatedAt: stamp,
   }
 }
 
-/** Default CRM: your real school leads + email templates. No fake demo companies. */
+/** Default CRM: school leads + email templates. No fake demo companies. */
 export const SEED: SalesState = {
   prospects: [
     schoolProspect('ps-reagan', 'Reagan High School', 'Pfafftown'),
@@ -58,7 +43,7 @@ export const SEED: SalesState = {
 
 This is {{salesRep}} with Harris Exterior Solutions. We help commercial properties in the Triad stay clean and presentable with pressure washing, window cleaning, and junk removal.
 
-I'd like to learn whether {{services}} would help {{businessName}} in {{city}}. Happy to do a quick site look and send a clear written scope.
+I'd like to learn whether {{services}} would help {{businessName}}. Happy to do a quick site look and send a clear written scope.
 
 Would a short call this week work?
 
@@ -80,14 +65,11 @@ ${EMAIL_SIGNATURE}`,
     },
     {
       id: 'tpl3',
-      name: 'Post site-visit quote cover',
-      subject: 'Site notes + quote — {{businessName}}',
+      name: 'Post site-visit cover',
+      subject: 'Site notes — {{businessName}}',
       body: `Hi {{decisionMaker}},
 
 Thanks for walking {{businessName}} with me. Attached is our written scope for {{services}}.
-
-Quote: {{quoteAmount}}
-Property notes captured on site for {{buildings}} building(s).
 
 Happy to adjust phasing or recurring maintenance if that fits better.
 

@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -20,7 +21,13 @@ import type {
 } from '../types'
 import { STAGES } from '../types'
 import { uid } from '../lib/dates'
-import { loadState, resetState, saveState } from '../lib/storage'
+import {
+  loadState,
+  loadStateFromCloud,
+  resetState,
+  saveState,
+  saveStateToCloud,
+} from '../lib/storage'
 
 function stageLabel(stage: PipelineStage) {
   return STAGES.find((s) => s.id === stage)?.label ?? stage
@@ -51,8 +58,12 @@ function makeTimeline(
 
 type ProspectInput = Omit<Prospect, 'id' | 'createdAt' | 'updatedAt'>
 
+export type CloudSyncStatus = 'local' | 'loading' | 'synced' | 'offline' | 'error'
+
 interface SalesContextValue {
   state: SalesState
+  ready: boolean
+  cloudStatus: CloudSyncStatus
   resetDemo: () => void
   upsertProspect: (p: ProspectInput | Prospect) => Prospect
   updateProspect: (id: string, patch: Partial<Prospect>) => void
@@ -96,10 +107,65 @@ const SalesContext = createContext<SalesContextValue | null>(null)
 
 export function SalesProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<SalesState>(() => loadState())
+  const [ready, setReady] = useState(false)
+  const [cloudStatus, setCloudStatus] = useState<CloudSyncStatus>('loading')
+  const skipNextCloudSave = useRef(true)
+  const saveTimer = useRef<number | null>(null)
+  const cloudEnabled = useRef(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function hydrate() {
+      const cloud = await loadStateFromCloud()
+      if (cancelled) return
+
+      if (cloud.ok && cloud.state) {
+        cloudEnabled.current = true
+        setState(cloud.state)
+        saveState(cloud.state)
+        setCloudStatus('synced')
+      } else if (cloud.ok && !cloud.state) {
+        cloudEnabled.current = true
+        const local = loadState()
+        setState(local)
+        const pushed = await saveStateToCloud(local)
+        setCloudStatus(pushed ? 'synced' : 'error')
+      } else if (!cloud.ok && cloud.reason === 'supabase_not_configured') {
+        cloudEnabled.current = false
+        setCloudStatus('local')
+      } else {
+        cloudEnabled.current = false
+        setCloudStatus('offline')
+      }
+
+      setReady(true)
+      window.setTimeout(() => {
+        skipNextCloudSave.current = false
+      }, 0)
+    }
+
+    void hydrate()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     saveState(state)
-  }, [state])
+    if (!ready || skipNextCloudSave.current || !cloudEnabled.current) return
+
+    if (saveTimer.current) window.clearTimeout(saveTimer.current)
+    saveTimer.current = window.setTimeout(() => {
+      void saveStateToCloud(state).then((ok) => {
+        setCloudStatus(ok ? 'synced' : 'error')
+      })
+    }, 500)
+
+    return () => {
+      if (saveTimer.current) window.clearTimeout(saveTimer.current)
+    }
+  }, [state, ready])
 
   const touchProspect = useCallback(
     (prospects: Prospect[], id: string, patch: Partial<Prospect> = {}) =>
@@ -179,9 +245,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           ...s,
           prospects: touchProspect(s.prospects, id, {
             stage,
-            ...(stage === 'won' || stage === 'lost'
-              ? { nextFollowUpAt: null, probability: stage === 'won' ? 100 : 0 }
-              : {}),
+            ...(stage === 'won' || stage === 'lost' ? { nextFollowUpAt: null } : {}),
           }),
           timeline: [event, ...s.timeline],
         }
@@ -301,9 +365,11 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           `${prospect.businessName} ${prospect.decisionMaker}`,
         )
         let stage = prospect.stage
-        if (
+        if (voicemail && prospect.stage === 'not_contacted') {
+          stage = 'left_voicemail'
+        } else if (
           !voicemail &&
-          ['not_researched', 'research_complete', 'email_sent'].includes(prospect.stage)
+          ['not_contacted', 'email_sent', 'follow_up_due'].includes(prospect.stage)
         ) {
           stage = 'called'
         }
@@ -312,6 +378,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           timeline: [event, ...s.timeline],
           prospects: touchProspect(s.prospects, prospectId, {
             lastContactAt: event.createdAt,
+            firstCallAt: prospect.firstCallAt || event.createdAt,
             stage,
           }),
         }
@@ -415,12 +482,10 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           `${prospect.businessName} ${input.body}`,
         )
         let stage = prospect.stage
-        if (prospect.stage === 'not_researched' || prospect.stage === 'research_complete') {
+        if (prospect.stage === 'not_contacted') {
           stage = 'email_sent'
-        } else if (prospect.stage === 'called') {
-          stage = 'follow_up_1'
-        } else if (prospect.stage === 'follow_up_1') {
-          stage = 'follow_up_2'
+        } else if (prospect.stage === 'called' || prospect.stage === 'left_voicemail') {
+          stage = 'follow_up_due'
         }
         return {
           ...s,
@@ -428,6 +493,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           timeline: [event, ...s.timeline],
           prospects: touchProspect(s.prospects, input.prospectId, {
             lastContactAt: sentAt,
+            firstEmailAt: prospect.firstEmailAt || sentAt,
             stage,
           }),
         }
@@ -450,7 +516,11 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           p.decisionMaker,
           p.email,
           p.phone,
-          p.notes,
+          p.propertyNotes,
+          p.conversationNotes,
+          p.painPoints,
+          p.servicesDiscussed,
+          p.assistantName,
           p.address,
           p.jobTitle,
         ]
@@ -468,11 +538,19 @@ export function SalesProvider({ children }: { children: ReactNode }) {
     [state],
   )
 
-  const resetDemo = useCallback(() => setState(resetState()), [])
+  const resetDemo = useCallback(() => {
+    const next = resetState()
+    setState(next)
+    if (cloudEnabled.current) {
+      void saveStateToCloud(next).then((ok) => setCloudStatus(ok ? 'synced' : 'error'))
+    }
+  }, [])
 
   const value = useMemo(
     () => ({
       state,
+      ready,
+      cloudStatus,
       resetDemo,
       upsertProspect,
       updateProspect,
@@ -492,6 +570,8 @@ export function SalesProvider({ children }: { children: ReactNode }) {
     }),
     [
       state,
+      ready,
+      cloudStatus,
       resetDemo,
       upsertProspect,
       updateProspect,

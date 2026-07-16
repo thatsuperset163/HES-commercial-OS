@@ -1,6 +1,5 @@
 import { useSales } from '../store/SalesContext'
 import { computeAnalytics } from '../lib/metrics'
-import { formatMoney } from '../lib/dates'
 import './Analytics.css'
 
 function pct(n: number) {
@@ -13,13 +12,13 @@ export function Analytics() {
 
   const cards = [
     { label: 'Open opportunities', value: String(a.openOpportunities) },
-    { label: 'Revenue pipeline', value: formatMoney(a.revenuePipeline) },
+    { label: 'High-priority open', value: String(a.highPriorityOpen) },
     { label: 'Closing %', value: pct(a.closingPct) },
-    { label: 'Average deal size', value: formatMoney(a.averageDealSize) },
+    { label: 'Priority score', value: String(a.revenuePipeline) },
     { label: 'Emails sent', value: String(a.emailsSent) },
     { label: 'Calls made', value: String(a.callsMade) },
     { label: 'Meetings booked', value: String(a.meetingsBooked) },
-    { label: 'Quotes sent', value: String(a.quotesSent) },
+    { label: 'Proposals logged', value: String(a.quotesSent) },
     { label: 'Jobs won', value: String(a.jobsWon) },
   ]
 
@@ -30,23 +29,25 @@ export function Analytics() {
           <p className="eyebrow">Performance</p>
           <h1>Analytics</h1>
           <p className="lede">
-            Pipeline and activity from logged timeline events — no vanity open rates.
+            Outreach activity and pipeline health — focused on decision-maker progress, not vanity
+            metrics.
           </p>
         </div>
       </header>
 
       <section className="analytics-hero">
         <div>
-          <span>Revenue pipeline</span>
-          <strong>{formatMoney(a.revenuePipeline)}</strong>
-          <p>{a.openOpportunities} open commercial opportunities (weighted)</p>
+          <span>Open pipeline</span>
+          <strong>{a.openOpportunities}</strong>
+          <p>
+            {a.highPriorityOpen} high priority · score {a.revenuePipeline}
+          </p>
         </div>
         <div>
           <span>Won this month</span>
-          <strong>{formatMoney(a.wonThisMonth)}</strong>
+          <strong>{a.wonThisMonth}</strong>
           <p>
-            {a.wonThisMonthCount} job{a.wonThisMonthCount === 1 ? '' : 's'} closed ·{' '}
-            {a.lostCount} lost overall
+            {a.wonThisMonthCount} closed · {a.lostCount} lost overall
           </p>
         </div>
       </section>

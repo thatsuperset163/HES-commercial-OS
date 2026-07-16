@@ -1,86 +1,52 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useSales } from '../store/SalesContext'
-import { STAGES, INDUSTRIES, type PipelineStage, type Prospect } from '../types'
-import { formatDate, formatMoney, fromDateInput, daysFromNow } from '../lib/dates'
-import { weightedValue } from '../lib/metrics'
+import {
+  STAGES,
+  INDUSTRIES,
+  SERVICES,
+  PRIORITIES,
+  emptyProspectDraft,
+  type PipelineStage,
+  type ProspectPriority,
+  type ServiceType,
+} from '../types'
+import { formatDate, fromDateInput, toDateInput } from '../lib/dates'
 import { serviceLabels } from '../lib/templates'
 import './Prospects.css'
 
 type Filters = {
   q: string
   industry: string
-  city: string
   stage: PipelineStage | 'all'
-  salesRep: string
+  priority: ProspectPriority | 'all'
   lastContact: 'all' | '7' | '30' | 'never'
   nextFollowUp: 'all' | 'overdue' | 'today' | 'week'
-  quoteMin: string
 }
-
-const emptyProspect = (): Omit<Prospect, 'id' | 'createdAt' | 'updatedAt'> => ({
-  businessName: '',
-  industry: 'Retail',
-  address: '',
-  city: '',
-  website: '',
-  googleMapsUrl: '',
-  decisionMaker: '',
-  jobTitle: '',
-  email: '',
-  phone: '',
-  linkedIn: '',
-  numberOfBuildings: 1,
-  estimatedSqFt: 0,
-  servicesNeeded: ['pressure_washing'],
-  notes: '',
-  stage: 'not_researched',
-  salesRep: 'Will',
-  quoteAmount: 0,
-  probability: 10,
-  expectedCloseDate: null,
-  billingType: 'one_time',
-  expectedAnnualValue: 0,
-  lastContactAt: null,
-  nextFollowUpAt: daysFromNow(1),
-})
 
 export function Prospects() {
   const { state, upsertProspect } = useSales()
   const navigate = useNavigate()
   const [showNew, setShowNew] = useState(false)
+  const [services, setServices] = useState<ServiceType[]>([])
   const [filters, setFilters] = useState<Filters>({
     q: '',
     industry: 'all',
-    city: 'all',
     stage: 'all',
-    salesRep: 'all',
+    priority: 'all',
     lastContact: 'all',
     nextFollowUp: 'all',
-    quoteMin: '',
   })
-
-  const cities = useMemo(
-    () => [...new Set(state.prospects.map((p) => p.city).filter(Boolean))].sort(),
-    [state.prospects],
-  )
-  const reps = useMemo(
-    () => [...new Set(state.prospects.map((p) => p.salesRep).filter(Boolean))].sort(),
-    [state.prospects],
-  )
 
   const filtered = useMemo(() => {
     const now = Date.now()
     const q = filters.q.trim().toLowerCase()
-    const minQuote = Number(filters.quoteMin) || 0
 
     return state.prospects
       .filter((p) => {
         if (filters.industry !== 'all' && p.industry !== filters.industry) return false
-        if (filters.city !== 'all' && p.city !== filters.city) return false
         if (filters.stage !== 'all' && p.stage !== filters.stage) return false
-        if (filters.salesRep !== 'all' && p.salesRep !== filters.salesRep) return false
-        if (p.quoteAmount < minQuote) return false
+        if (filters.priority !== 'all' && p.priority !== filters.priority) return false
 
         if (filters.lastContact === 'never' && p.lastContactAt) return false
         if (filters.lastContact === '7' || filters.lastContact === '30') {
@@ -113,11 +79,17 @@ export function Prospects() {
         return [
           p.businessName,
           p.decisionMaker,
-          p.city,
-          p.industry,
+          p.jobTitle,
           p.email,
           p.phone,
-          p.notes,
+          p.companyPhone,
+          p.address,
+          p.city,
+          p.industry,
+          p.assistantName,
+          p.propertyNotes,
+          p.conversationNotes,
+          p.painPoints,
         ]
           .join(' ')
           .toLowerCase()
@@ -126,24 +98,46 @@ export function Prospects() {
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
   }, [state.prospects, filters])
 
+  function toggleService(id: ServiceType) {
+    setServices((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
+    )
+  }
+
   function createProspect(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    const base = emptyProspect()
+    const base = emptyProspectDraft(String(fd.get('salesRep') || 'Will'))
     const created = upsertProspect({
       ...base,
-      businessName: String(fd.get('businessName') || ''),
+      businessName: String(fd.get('businessName') || '').trim(),
       industry: String(fd.get('industry') || 'Other'),
-      city: String(fd.get('city') || ''),
-      decisionMaker: String(fd.get('decisionMaker') || ''),
-      email: String(fd.get('email') || ''),
-      phone: String(fd.get('phone') || ''),
-      address: String(fd.get('address') || ''),
-      salesRep: String(fd.get('salesRep') || 'Will'),
-      quoteAmount: Number(fd.get('quoteAmount') || 0),
+      website: String(fd.get('website') || '').trim(),
+      companyPhone: String(fd.get('companyPhone') || '').trim(),
+      address: String(fd.get('address') || '').trim(),
+      decisionMaker: String(fd.get('decisionMaker') || '').trim(),
+      jobTitle: String(fd.get('jobTitle') || '').trim(),
+      email: String(fd.get('email') || '').trim(),
+      phone: String(fd.get('phone') || '').trim(),
+      phoneExt: String(fd.get('phoneExt') || '').trim(),
+      assistantName: String(fd.get('assistantName') || '').trim(),
+      assistantPhone: String(fd.get('assistantPhone') || '').trim(),
+      stage: (String(fd.get('stage') || 'not_contacted') as PipelineStage),
+      priority: (String(fd.get('priority') || 'medium') as ProspectPriority),
+      firstEmailAt: fromDateInput(String(fd.get('firstEmailAt') || '')),
+      firstCallAt: fromDateInput(String(fd.get('firstCallAt') || '')),
       nextFollowUpAt: fromDateInput(String(fd.get('nextFollowUpAt') || '')),
+      lastContactAt: fromDateInput(String(fd.get('lastContactAt') || '')),
+      propertyNotes: String(fd.get('propertyNotes') || '').trim(),
+      conversationNotes: String(fd.get('conversationNotes') || '').trim(),
+      painPoints: String(fd.get('painPoints') || '').trim(),
+      servicesDiscussed: String(fd.get('servicesDiscussed') || '').trim(),
+      servicesNeeded: services,
+      emailVerified: fd.get('emailVerified') === 'yes',
+      decisionMakerConfirmed: fd.get('decisionMakerConfirmed') === 'yes',
     })
     setShowNew(false)
+    setServices([])
     navigate(`/prospects/${created.id}`)
   }
 
@@ -153,9 +147,18 @@ export function Prospects() {
         <div>
           <p className="eyebrow">Database</p>
           <h1>Prospects</h1>
-          <p className="lede">Commercial properties that need exterior cleaning contracts.</p>
+          <p className="lede">
+            Decision makers at commercial properties — who to call, email, and close.
+          </p>
         </div>
-        <button type="button" className="btn" onClick={() => setShowNew(true)}>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            setServices([])
+            setShowNew(true)
+          }}
+        >
           Add prospect
         </button>
       </header>
@@ -163,7 +166,7 @@ export function Prospects() {
       <div className="filters">
         <input
           className="search-input"
-          placeholder="Search business, contact, city…"
+          placeholder="Search company, decision maker, email, phone…"
           value={filters.q}
           onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
         />
@@ -181,24 +184,12 @@ export function Prospects() {
         </select>
         <select
           className="field"
-          value={filters.city}
-          onChange={(e) => setFilters((f) => ({ ...f, city: e.target.value }))}
-        >
-          <option value="all">All cities</option>
-          {cities.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-        <select
-          className="field"
           value={filters.stage}
           onChange={(e) =>
             setFilters((f) => ({ ...f, stage: e.target.value as PipelineStage | 'all' }))
           }
         >
-          <option value="all">All stages</option>
+          <option value="all">All lead statuses</option>
           {STAGES.map((s) => (
             <option key={s.id} value={s.id}>
               {s.label}
@@ -207,13 +198,18 @@ export function Prospects() {
         </select>
         <select
           className="field"
-          value={filters.salesRep}
-          onChange={(e) => setFilters((f) => ({ ...f, salesRep: e.target.value }))}
+          value={filters.priority}
+          onChange={(e) =>
+            setFilters((f) => ({
+              ...f,
+              priority: e.target.value as ProspectPriority | 'all',
+            }))
+          }
         >
-          <option value="all">All reps</option>
-          {reps.map((r) => (
-            <option key={r} value={r}>
-              {r}
+          <option value="all">All priorities</option>
+          {PRIORITIES.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
             </option>
           ))}
         </select>
@@ -247,27 +243,18 @@ export function Prospects() {
           <option value="today">Today</option>
           <option value="week">Next 7 days</option>
         </select>
-        <input
-          className="field"
-          type="number"
-          min={0}
-          placeholder="Min quote $"
-          value={filters.quoteMin}
-          onChange={(e) => setFilters((f) => ({ ...f, quoteMin: e.target.value }))}
-        />
       </div>
 
       <div className="table-wrap">
         <table className="data-table">
           <thead>
             <tr>
-              <th>Business</th>
-              <th>Stage</th>
+              <th>Decision maker</th>
+              <th>Company</th>
+              <th>Lead status</th>
+              <th>Priority</th>
               <th>Services</th>
-              <th>Quote</th>
-              <th>Weighted</th>
               <th>Next follow-up</th>
-              <th>Rep</th>
             </tr>
           </thead>
           <tbody>
@@ -275,24 +262,33 @@ export function Prospects() {
               <tr key={p.id}>
                 <td>
                   <Link to={`/prospects/${p.id}`} className="biz-link">
-                    <strong>{p.businessName}</strong>
+                    <strong>{p.decisionMaker || '—'}</strong>
                     <span>
-                      {p.decisionMaker} · {p.city} · {p.industry}
+                      {p.jobTitle || 'No title'}
+                      {p.email ? ` · ${p.email}` : ''}
                     </span>
                   </Link>
+                </td>
+                <td>
+                  <div className="biz-link">
+                    <strong>{p.businessName}</strong>
+                    <span>{p.industry}</span>
+                  </div>
                 </td>
                 <td>
                   <span className="stage-tag">
                     {STAGES.find((s) => s.id === p.stage)?.label}
                   </span>
                 </td>
-                <td className="services-cell">
-                  {serviceLabels(p.servicesNeeded)}
+                <td>
+                  <span className={`priority-tag ${p.priority}`}>
+                    {PRIORITIES.find((x) => x.id === p.priority)?.label}
+                  </span>
                 </td>
-                <td>{formatMoney(p.quoteAmount)}</td>
-                <td>{formatMoney(weightedValue(p))}</td>
+                <td className="services-cell">
+                  {serviceLabels(p.servicesNeeded) || '—'}
+                </td>
                 <td>{formatDate(p.nextFollowUpAt)}</td>
-                <td>{p.salesRep}</td>
               </tr>
             ))}
           </tbody>
@@ -302,62 +298,240 @@ export function Prospects() {
 
       {showNew && (
         <div className="overlay-backdrop" onClick={() => setShowNew(false)}>
-          <form className="modal panel" onClick={(e) => e.stopPropagation()} onSubmit={createProspect}>
-            <h2>New commercial prospect</h2>
-            <div className="form-grid">
-              <label className="lbl">
-                Business name
-                <input className="field" name="businessName" required />
-              </label>
-              <label className="lbl">
-                Decision maker
-                <input className="field" name="decisionMaker" required />
-              </label>
-              <label className="lbl">
-                Industry
-                <select className="field" name="industry" defaultValue="Retail">
-                  {INDUSTRIES.map((i) => (
-                    <option key={i} value={i}>
-                      {i}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="lbl">
-                City
-                <input className="field" name="city" />
-              </label>
-              <label className="lbl">
-                Address
-                <input className="field" name="address" />
-              </label>
-              <label className="lbl">
-                Email
-                <input className="field" name="email" type="email" />
-              </label>
-              <label className="lbl">
-                Phone
-                <input className="field" name="phone" />
-              </label>
-              <label className="lbl">
-                Sales rep
-                <input className="field" name="salesRep" defaultValue="Will" />
-              </label>
-              <label className="lbl">
-                Quote amount
-                <input className="field" name="quoteAmount" type="number" min={0} defaultValue={0} />
-              </label>
-              <label className="lbl">
-                Next follow-up
-                <input className="field" name="nextFollowUpAt" type="date" />
-              </label>
+          <form
+            className="modal panel prospect-form-modal"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={createProspect}
+          >
+            <div className="modal-head">
+              <div>
+                <p className="eyebrow">New record</p>
+                <h2>New commercial prospect</h2>
+                <p className="form-lede">
+                  Capture the decision maker first — company context second.
+                </p>
+              </div>
             </div>
+
+            <section className="form-section">
+              <h3>Company information</h3>
+              <div className="form-grid">
+                <label className="lbl">
+                  Company name
+                  <input className="field" name="businessName" required autoFocus />
+                </label>
+                <label className="lbl">
+                  Industry
+                  <select className="field" name="industry" defaultValue="Other">
+                    {INDUSTRIES.map((i) => (
+                      <option key={i} value={i}>
+                        {i}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="lbl">
+                  Company website
+                  <input className="field" name="website" placeholder="https://" />
+                </label>
+                <label className="lbl">
+                  Company phone number
+                  <input className="field" name="companyPhone" inputMode="tel" />
+                </label>
+                <label className="lbl full">
+                  Company address
+                  <input
+                    className="field"
+                    name="address"
+                    placeholder="Street, city, state, ZIP"
+                  />
+                </label>
+              </div>
+            </section>
+
+            <section className="form-section">
+              <h3>Decision maker</h3>
+              <div className="form-grid">
+                <label className="lbl">
+                  Full name
+                  <input className="field" name="decisionMaker" required />
+                </label>
+                <label className="lbl">
+                  Job title
+                  <input className="field" name="jobTitle" placeholder="Property Manager, FM…" />
+                </label>
+                <label className="lbl">
+                  Direct email address
+                  <input className="field" name="email" type="email" />
+                </label>
+                <label className="lbl">
+                  Direct phone number
+                  <input className="field" name="phone" inputMode="tel" />
+                </label>
+                <label className="lbl">
+                  Extension
+                  <input className="field" name="phoneExt" />
+                </label>
+                <label className="lbl">
+                  Assistant / gatekeeper name
+                  <span className="opt">Optional</span>
+                  <input className="field" name="assistantName" />
+                </label>
+                <label className="lbl">
+                  Assistant phone
+                  <span className="opt">Optional</span>
+                  <input className="field" name="assistantPhone" inputMode="tel" />
+                </label>
+              </div>
+            </section>
+
+            <section className="form-section">
+              <h3>Outreach tracking</h3>
+              <div className="form-grid">
+                <label className="lbl">
+                  Lead status
+                  <select className="field" name="stage" defaultValue="not_contacted">
+                    {STAGES.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="lbl">
+                  Priority
+                  <select className="field" name="priority" defaultValue="medium">
+                    {PRIORITIES.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </section>
+
+            <section className="form-section">
+              <h3>Dates</h3>
+              <div className="form-grid">
+                <label className="lbl">
+                  Date added
+                  <input
+                    className="field"
+                    type="date"
+                    value={toDateInput(new Date().toISOString())}
+                    disabled
+                    readOnly
+                  />
+                </label>
+                <label className="lbl">
+                  First email date
+                  <input className="field" name="firstEmailAt" type="date" />
+                </label>
+                <label className="lbl">
+                  First call date
+                  <input className="field" name="firstCallAt" type="date" />
+                </label>
+                <label className="lbl">
+                  Next follow-up date
+                  <input className="field" name="nextFollowUpAt" type="date" />
+                </label>
+                <label className="lbl">
+                  Last contact date
+                  <input className="field" name="lastContactAt" type="date" />
+                </label>
+              </div>
+            </section>
+
+            <section className="form-section">
+              <h3>Notes</h3>
+              <div className="form-grid">
+                <label className="lbl full">
+                  Property notes
+                  <textarea
+                    className="field"
+                    name="propertyNotes"
+                    rows={2}
+                    placeholder="Buildings, staining, access, dumpster pads…"
+                  />
+                </label>
+                <label className="lbl full">
+                  Conversation notes
+                  <textarea
+                    className="field"
+                    name="conversationNotes"
+                    rows={2}
+                    placeholder="What they said, tone, next ask…"
+                  />
+                </label>
+                <label className="lbl full">
+                  Pain points / opportunities
+                  <textarea
+                    className="field"
+                    name="painPoints"
+                    rows={2}
+                    placeholder="Complaints, budget cycle, competitor issues…"
+                  />
+                </label>
+                <label className="lbl full">
+                  Services discussed
+                  <textarea
+                    className="field"
+                    name="servicesDiscussed"
+                    rows={2}
+                    placeholder="What you talked through on the call / email…"
+                  />
+                </label>
+              </div>
+            </section>
+
+            <section className="form-section">
+              <h3>Services of interest</h3>
+              <div className="service-chips">
+                {SERVICES.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className={services.includes(s.id) ? 'chip active' : 'chip'}
+                    onClick={() => toggleService(s.id)}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="form-section">
+              <h3>Data quality</h3>
+              <div className="form-grid">
+                <label className="lbl">
+                  Email verified
+                  <select className="field" name="emailVerified" defaultValue="no">
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </label>
+                <label className="lbl">
+                  Decision maker confirmed
+                  <select
+                    className="field"
+                    name="decisionMakerConfirmed"
+                    defaultValue="no"
+                  >
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </label>
+                <input type="hidden" name="salesRep" value="Will" />
+              </div>
+            </section>
+
             <div className="modal-actions">
               <button type="button" className="btn secondary" onClick={() => setShowNew(false)}>
                 Cancel
               </button>
               <button type="submit" className="btn">
-                Save
+                Save prospect
               </button>
             </div>
           </form>

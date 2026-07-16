@@ -5,8 +5,9 @@ import {
   SERVICES,
   STAGES,
   INDUSTRIES,
-  type BillingType,
+  PRIORITIES,
   type PipelineStage,
+  type ProspectPriority,
   type ServiceType,
   type TaskKind,
 } from '../types'
@@ -14,11 +15,9 @@ import {
   daysFromNow,
   formatDate,
   formatDateTime,
-  formatMoney,
   fromDateInput,
   toDateInput,
 } from '../lib/dates'
-import { weightedValue } from '../lib/metrics'
 import { Timeline, TaskList } from '../components/Timeline'
 import '../components/Overlay.css'
 import './Prospects.css'
@@ -128,17 +127,17 @@ export function ProspectDetail() {
       <div className="breadcrumb">
         <Link to="/prospects">Prospects</Link>
         <span>/</span>
-        <span>{prospect.businessName}</span>
+        <span>{prospect.decisionMaker || prospect.businessName}</span>
       </div>
 
       <header className="detail-header">
         <div>
           <p className="eyebrow">{prospect.industry}</p>
-          <h1>{prospect.businessName}</h1>
+          <h1>{prospect.decisionMaker || 'Decision maker'}</h1>
           <p className="lede">
-            {prospect.decisionMaker}
-            {prospect.jobTitle ? ` · ${prospect.jobTitle}` : ''}
-            {prospect.city ? ` · ${prospect.city}` : ''}
+            {prospect.jobTitle ? `${prospect.jobTitle} · ` : ''}
+            {prospect.businessName}
+            {prospect.address ? ` · ${prospect.address}` : ''}
           </p>
         </div>
         <div className="detail-actions">
@@ -165,7 +164,7 @@ export function ProspectDetail() {
             type="button"
             className="btn danger"
             onClick={() => {
-              if (confirm(`Delete ${prospect.businessName}?`)) {
+              if (confirm(`Delete ${prospect.decisionMaker || prospect.businessName}?`)) {
                 deleteProspect(prospect.id)
                 navigate('/prospects')
               }
@@ -178,7 +177,7 @@ export function ProspectDetail() {
 
       <section className="quote-bar panel">
         <label className="lbl">
-          Stage
+          Lead status
           <select
             className="field"
             value={prospect.stage}
@@ -192,84 +191,48 @@ export function ProspectDetail() {
           </select>
         </label>
         <label className="lbl">
-          Quote amount
-          <input
-            className="field"
-            type="number"
-            value={prospect.quoteAmount}
-            onChange={(e) =>
-              updateProspect(prospect.id, { quoteAmount: Number(e.target.value) || 0 })
-            }
-          />
-        </label>
-        <label className="lbl">
-          Probability %
-          <input
-            className="field"
-            type="number"
-            min={0}
-            max={100}
-            value={prospect.probability}
-            onChange={(e) =>
-              updateProspect(prospect.id, { probability: Number(e.target.value) || 0 })
-            }
-          />
-        </label>
-        <label className="lbl">
-          Expected close
-          <input
-            className="field"
-            type="date"
-            value={toDateInput(prospect.expectedCloseDate)}
-            onChange={(e) =>
-              updateProspect(prospect.id, {
-                expectedCloseDate: fromDateInput(e.target.value),
-              })
-            }
-          />
-        </label>
-        <label className="lbl">
-          Billing
+          Priority
           <select
             className="field"
-            value={prospect.billingType}
+            value={prospect.priority}
             onChange={(e) =>
               updateProspect(prospect.id, {
-                billingType: e.target.value as BillingType,
+                priority: e.target.value as ProspectPriority,
               })
             }
           >
-            <option value="one_time">One-time</option>
-            <option value="recurring">Recurring</option>
+            {PRIORITIES.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
           </select>
         </label>
         <label className="lbl">
-          Expected annual value
+          Next follow-up
           <input
             className="field"
-            type="number"
-            value={prospect.expectedAnnualValue}
+            type="date"
+            value={toDateInput(prospect.nextFollowUpAt)}
             onChange={(e) =>
               updateProspect(prospect.id, {
-                expectedAnnualValue: Number(e.target.value) || 0,
+                nextFollowUpAt: fromDateInput(e.target.value),
               })
             }
           />
         </label>
         <div className="weighted">
-          <span>Weighted pipeline</span>
-          <strong>{formatMoney(weightedValue(prospect))}</strong>
+          <span>Last contact</span>
+          <strong>{formatDate(prospect.lastContactAt)}</strong>
         </div>
       </section>
 
-      <div className="detail-grid">
-        <section className="panel">
-          <div className="panel-head">
-            <h2>Prospect record</h2>
-          </div>
+      <div className="detail-stack">
+        <section className="panel form-section">
+          <h3>Company information</h3>
           <div className="form-grid">
             <label className="lbl">
-              Business name
+              Company name
               <input
                 className="field"
                 value={prospect.businessName}
@@ -290,42 +253,38 @@ export function ProspectDetail() {
                 ))}
               </select>
             </label>
-            <label className="lbl full">
-              Address
-              <input
-                className="field"
-                value={prospect.address}
-                onChange={(e) => updateProspect(prospect.id, { address: e.target.value })}
-              />
-            </label>
             <label className="lbl">
-              City
-              <input
-                className="field"
-                value={prospect.city}
-                onChange={(e) => updateProspect(prospect.id, { city: e.target.value })}
-              />
-            </label>
-            <label className="lbl">
-              Website
+              Company website
               <input
                 className="field"
                 value={prospect.website}
                 onChange={(e) => updateProspect(prospect.id, { website: e.target.value })}
               />
             </label>
-            <label className="lbl full">
-              Google Maps link
+            <label className="lbl">
+              Company phone number
               <input
                 className="field"
-                value={prospect.googleMapsUrl}
-                onChange={(e) =>
-                  updateProspect(prospect.id, { googleMapsUrl: e.target.value })
-                }
+                value={prospect.companyPhone}
+                onChange={(e) => updateProspect(prospect.id, { companyPhone: e.target.value })}
               />
             </label>
+            <label className="lbl full">
+              Company address
+              <input
+                className="field"
+                value={prospect.address}
+                onChange={(e) => updateProspect(prospect.id, { address: e.target.value })}
+              />
+            </label>
+          </div>
+        </section>
+
+        <section className="panel form-section">
+          <h3>Decision maker</h3>
+          <div className="form-grid">
             <label className="lbl">
-              Decision maker
+              Full name
               <input
                 className="field"
                 value={prospect.decisionMaker}
@@ -343,7 +302,7 @@ export function ProspectDetail() {
               />
             </label>
             <label className="lbl">
-              Email
+              Direct email address
               <input
                 className="field"
                 value={prospect.email}
@@ -351,158 +310,281 @@ export function ProspectDetail() {
               />
             </label>
             <label className="lbl">
-              Phone
+              Direct phone number
               <input
                 className="field"
                 value={prospect.phone}
                 onChange={(e) => updateProspect(prospect.id, { phone: e.target.value })}
               />
             </label>
-            <label className="lbl full">
-              LinkedIn
+            <label className="lbl">
+              Extension
               <input
                 className="field"
-                value={prospect.linkedIn}
-                onChange={(e) => updateProspect(prospect.id, { linkedIn: e.target.value })}
+                value={prospect.phoneExt}
+                onChange={(e) => updateProspect(prospect.id, { phoneExt: e.target.value })}
               />
             </label>
             <label className="lbl">
-              Buildings
+              Assistant / gatekeeper name
               <input
                 className="field"
-                type="number"
-                value={prospect.numberOfBuildings}
+                value={prospect.assistantName}
                 onChange={(e) =>
-                  updateProspect(prospect.id, {
-                    numberOfBuildings: Number(e.target.value) || 0,
-                  })
+                  updateProspect(prospect.id, { assistantName: e.target.value })
                 }
               />
             </label>
             <label className="lbl">
-              Est. sq ft
+              Assistant phone
               <input
                 className="field"
-                type="number"
-                value={prospect.estimatedSqFt}
+                value={prospect.assistantPhone}
                 onChange={(e) =>
-                  updateProspect(prospect.id, {
-                    estimatedSqFt: Number(e.target.value) || 0,
-                  })
+                  updateProspect(prospect.id, { assistantPhone: e.target.value })
                 }
               />
             </label>
+          </div>
+        </section>
+
+        <section className="panel form-section">
+          <h3>Dates</h3>
+          <div className="form-grid">
             <label className="lbl">
-              Sales rep
-              <input
-                className="field"
-                value={prospect.salesRep}
-                onChange={(e) => updateProspect(prospect.id, { salesRep: e.target.value })}
-              />
-            </label>
-            <label className="lbl">
-              Next follow-up
+              Date added
               <input
                 className="field"
                 type="date"
-                value={toDateInput(prospect.nextFollowUpAt)}
+                value={toDateInput(prospect.createdAt)}
+                disabled
+                readOnly
+              />
+            </label>
+            <label className="lbl">
+              First email date
+              <input
+                className="field"
+                type="date"
+                value={toDateInput(prospect.firstEmailAt)}
                 onChange={(e) =>
                   updateProspect(prospect.id, {
-                    nextFollowUpAt: fromDateInput(e.target.value),
+                    firstEmailAt: fromDateInput(e.target.value),
                   })
                 }
               />
             </label>
-            <label className="lbl full">
-              Notes
-              <textarea
+            <label className="lbl">
+              First call date
+              <input
                 className="field"
-                rows={3}
-                value={prospect.notes}
-                onChange={(e) => updateProspect(prospect.id, { notes: e.target.value })}
+                type="date"
+                value={toDateInput(prospect.firstCallAt)}
+                onChange={(e) =>
+                  updateProspect(prospect.id, {
+                    firstCallAt: fromDateInput(e.target.value),
+                  })
+                }
+              />
+            </label>
+            <label className="lbl">
+              Last contact date
+              <input
+                className="field"
+                type="date"
+                value={toDateInput(prospect.lastContactAt)}
+                onChange={(e) =>
+                  updateProspect(prospect.id, {
+                    lastContactAt: fromDateInput(e.target.value),
+                  })
+                }
               />
             </label>
           </div>
+        </section>
 
-          <div className="services-block">
-            <span className="lbl">Services needed</span>
-            <div className="service-chips">
-              {SERVICES.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  className={
-                    prospect.servicesNeeded.includes(s.id)
-                      ? 'chip active'
-                      : 'chip'
-                  }
-                  onClick={() => toggleService(s.id)}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
+        <section className="panel form-section">
+          <h3>Notes</h3>
+          <div className="form-grid">
+            <label className="lbl full">
+              Property notes
+              <textarea
+                className="field"
+                rows={2}
+                value={prospect.propertyNotes}
+                onChange={(e) =>
+                  updateProspect(prospect.id, { propertyNotes: e.target.value })
+                }
+              />
+            </label>
+            <label className="lbl full">
+              Conversation notes
+              <textarea
+                className="field"
+                rows={2}
+                value={prospect.conversationNotes}
+                onChange={(e) =>
+                  updateProspect(prospect.id, { conversationNotes: e.target.value })
+                }
+              />
+            </label>
+            <label className="lbl full">
+              Pain points / opportunities
+              <textarea
+                className="field"
+                rows={2}
+                value={prospect.painPoints}
+                onChange={(e) => updateProspect(prospect.id, { painPoints: e.target.value })}
+              />
+            </label>
+            <label className="lbl full">
+              Services discussed
+              <textarea
+                className="field"
+                rows={2}
+                value={prospect.servicesDiscussed}
+                onChange={(e) =>
+                  updateProspect(prospect.id, { servicesDiscussed: e.target.value })
+                }
+              />
+            </label>
           </div>
+        </section>
 
-          <div className="link-row">
-            {prospect.website && (
+        <section className="panel form-section">
+          <h3>Services of interest</h3>
+          <div className="service-chips">
+            {SERVICES.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                className={
+                  prospect.servicesNeeded.includes(s.id) ? 'chip active' : 'chip'
+                }
+                onClick={() => toggleService(s.id)}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel form-section">
+          <h3>Data quality</h3>
+          <div className="form-grid">
+            <label className="lbl">
+              Email verified
+              <select
+                className="field"
+                value={prospect.emailVerified ? 'yes' : 'no'}
+                onChange={(e) =>
+                  updateProspect(prospect.id, {
+                    emailVerified: e.target.value === 'yes',
+                  })
+                }
+              >
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
+            </label>
+            <label className="lbl">
+              Decision maker confirmed
+              <select
+                className="field"
+                value={prospect.decisionMakerConfirmed ? 'yes' : 'no'}
+                onChange={(e) =>
+                  updateProspect(prospect.id, {
+                    decisionMakerConfirmed: e.target.value === 'yes',
+                  })
+                }
+              >
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
+            </label>
+          </div>
+          {prospect.website ? (
+            <div className="link-row">
               <a href={prospect.website} target="_blank" rel="noreferrer">
-                Website
+                Open website
               </a>
-            )}
-            {prospect.googleMapsUrl && (
-              <a href={prospect.googleMapsUrl} target="_blank" rel="noreferrer">
-                Google Maps
-              </a>
-            )}
-            {prospect.linkedIn && (
-              <a href={prospect.linkedIn} target="_blank" rel="noreferrer">
-                LinkedIn
-              </a>
-            )}
-            <span className="muted">Last contact {formatDate(prospect.lastContactAt)}</span>
-          </div>
+            </div>
+          ) : null}
         </section>
 
-        <section className="panel">
-          <div className="panel-head">
-            <h2>Tasks</h2>
-          </div>
-          <form className="inline-row" onSubmit={createTask}>
-            <input
-              ref={taskInputRef}
-              className="field"
-              placeholder="Call Tuesday / Email Friday… (press N)"
-              value={taskTitle}
-              onChange={(e) => setTaskTitle(e.target.value)}
+        <div className="detail-grid">
+          <section className="panel">
+            <div className="panel-head">
+              <h2>Tasks</h2>
+            </div>
+            <form className="inline-row" onSubmit={createTask}>
+              <input
+                ref={taskInputRef}
+                className="field"
+                placeholder="Call Tuesday / Email Friday… (press N)"
+                value={taskTitle}
+                onChange={(e) => setTaskTitle(e.target.value)}
+              />
+              <select
+                className="field"
+                value={taskKind}
+                onChange={(e) => setTaskKind(e.target.value as TaskKind)}
+              >
+                <option value="call">Call</option>
+                <option value="email">Email</option>
+                <option value="visit">Visit</option>
+                <option value="quote">Quote</option>
+                <option value="other">Other</option>
+              </select>
+              <input
+                className="field"
+                type="date"
+                value={taskDue}
+                onChange={(e) => setTaskDue(e.target.value)}
+              />
+              <button type="submit" className="btn">
+                Add
+              </button>
+            </form>
+            <TaskList
+              tasks={tasks}
+              onComplete={completeTask}
+              onDelete={deleteTask}
             />
-            <select
-              className="field"
-              value={taskKind}
-              onChange={(e) => setTaskKind(e.target.value as TaskKind)}
+          </section>
+
+          <section className="panel">
+            <div className="panel-head">
+              <h2>Quick note</h2>
+            </div>
+            <form
+              className="note-form"
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (!note.trim()) return
+                logEvent({
+                  prospectId: prospect.id,
+                  type: 'note',
+                  title: 'Note',
+                  body: note.trim(),
+                  touchContact: false,
+                })
+                setNote('')
+              }}
             >
-              <option value="call">Call</option>
-              <option value="email">Email</option>
-              <option value="visit">Visit</option>
-              <option value="quote">Quote</option>
-              <option value="other">Other</option>
-            </select>
-            <input
-              className="field"
-              type="date"
-              value={taskDue}
-              onChange={(e) => setTaskDue(e.target.value)}
-            />
-            <button type="submit" className="btn">
-              Add
-            </button>
-          </form>
-          <TaskList
-            tasks={tasks}
-            onComplete={completeTask}
-            onDelete={deleteTask}
-          />
-        </section>
+              <textarea
+                className="field"
+                rows={4}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Add to timeline…"
+              />
+              <button type="submit" className="btn">
+                Add to timeline
+              </button>
+            </form>
+          </section>
+        </div>
 
         <section className="panel">
           <div className="panel-head">
@@ -553,44 +635,15 @@ export function ProspectDetail() {
                 </span>
                 <div>
                   <strong>{a.name}</strong>
-                  <span>{formatDate(a.createdAt)}{a.note ? ` · ${a.note}` : ''}</span>
+                  <span>
+                    {formatDate(a.createdAt)}
+                    {a.note ? ` · ${a.note}` : ''}
+                  </span>
                 </div>
               </li>
             ))}
             {attachments.length === 0 && <li className="empty">No attachments yet.</li>}
           </ul>
-        </section>
-
-        <section className="panel">
-          <div className="panel-head">
-            <h2>Quick note</h2>
-          </div>
-          <form
-            className="note-form"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (!note.trim()) return
-              logEvent({
-                prospectId: prospect.id,
-                type: 'note',
-                title: 'Note',
-                body: note.trim(),
-                touchContact: false,
-              })
-              setNote('')
-            }}
-          >
-            <textarea
-              className="field"
-              rows={4}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Site observations, gate codes, decision notes…"
-            />
-            <button type="submit" className="btn">
-              Add to timeline
-            </button>
-          </form>
         </section>
       </div>
 

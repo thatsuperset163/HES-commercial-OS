@@ -338,9 +338,14 @@ export function Emails() {
               <div className="sent-notes-block">
                 <span className="lbl">Prospect notes</span>
                 <p className="sent-notes">
-                  {selectedProspect.notes.trim()
-                    ? selectedProspect.notes
-                    : 'No notes on this prospect.'}
+                  {[
+                    selectedProspect.propertyNotes,
+                    selectedProspect.conversationNotes,
+                    selectedProspect.painPoints,
+                  ]
+                    .map((n) => n.trim())
+                    .filter(Boolean)
+                    .join('\n\n') || 'No notes on this prospect.'}
                 </p>
               </div>
 
