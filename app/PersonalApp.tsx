@@ -9,6 +9,7 @@ import {
 } from "@/lib/dates";
 import {
   getOrCreateDay,
+  hydrateStoreFromCloud,
   loadStore,
   upsertDay,
 } from "@/lib/storage";
@@ -35,8 +36,15 @@ export default function PersonalApp() {
   }, []);
 
   useEffect(() => {
-    refresh(selectedDate);
-    setReady(true);
+    let cancelled = false;
+    void hydrateStoreFromCloud().then(() => {
+      if (cancelled) return;
+      refresh(selectedDate);
+      setReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [selectedDate, refresh]);
 
   const persist = useCallback(

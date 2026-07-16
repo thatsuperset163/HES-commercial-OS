@@ -1,6 +1,6 @@
-# Supabase setup (Commercial Sales OS)
+# Supabase setup (HES HQ + Commercial Sales OS)
 
-Your Sales OS data can live in Supabase so anything you enter on Vercel shows up in the Supabase dashboard.
+Your Sales OS and Blackboard data can live in one Supabase project so changes sync across devices.
 
 ## 1. Create tables (one-time)
 
@@ -27,7 +27,12 @@ Redeploy Vercel after adding vars.
 3. Add/edit a prospect
 4. In Supabase go to **Table Editor** → **`commercial_prospects`**
 
-You’ll also see full backup JSON in **`sales_workspace`**.
+You’ll also see:
+
+- Full Sales backup JSON in **`sales_workspace`**
+- Combined HQ, Personal, and Work state in **`blackboard_workspace`**
+
+Browser storage remains available as an offline backup for both apps.
 
 ## If it says “Cloud: local only”
 

@@ -6,7 +6,7 @@ Private company HQ for **Harris Exterior Solutions**:
 - **Personal / Work** — blackboard checklists + door metrics
 - **Sales** (`/sales`) — commercial pipeline (prospects, emails, analytics)
 
-PIN-protected. Data stays in the browser (`localStorage`). Built for **Vercel**.
+PIN-protected. Data syncs through **Supabase** with browser storage as an offline backup. Built for **Vercel**.
 
 Door hangers and print leave-behinds were removed — this repo is the live HQ app only.
 
@@ -42,7 +42,7 @@ That rebuilds into `public/sales/` (commit those files before deploy).
 
 Copy `.env.example` → `.env.local` and fill in values for local work. On Vercel, add the **same variable names** under Project → Settings → Environment Variables.
 
-**Supabase data:** run `supabase/schema.sql` once in the SQL Editor, then enter prospects in Sales OS. View them under **Table Editor → commercial_prospects**. Details: [`supabase/README.md`](./supabase/README.md).
+**Supabase data:** run the latest `supabase/schema.sql` in the SQL Editor. Sales prospects appear under **Table Editor → commercial_prospects**; combined HQ, Personal, and Work state appears under **blackboard_workspace**. Details: [`supabase/README.md`](./supabase/README.md).
 
 ## Deploy on Vercel
 

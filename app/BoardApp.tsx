@@ -19,6 +19,7 @@ import {
 import {
   exportStoreJson,
   getOrCreateDay,
+  hydrateStoreFromCloud,
   importStoreJson,
   loadStore,
   upsertDay,
@@ -96,8 +97,15 @@ export default function BoardApp() {
   }, []);
 
   useEffect(() => {
-    refresh(selectedDate);
-    setReady(true);
+    let cancelled = false;
+    void hydrateStoreFromCloud().then(() => {
+      if (cancelled) return;
+      refresh(selectedDate);
+      setReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [selectedDate, refresh]);
 
   const persist = useCallback(

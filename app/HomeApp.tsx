@@ -18,6 +18,8 @@ import {
 
   getOrCreateDay,
 
+  hydrateStoreFromCloud,
+
   loadStore,
 
   upsertDay,
@@ -76,7 +78,19 @@ export default function HomeApp() {
 
   useEffect(() => {
 
-    refresh();
+    let cancelled = false;
+
+    void hydrateStoreFromCloud().then(() => {
+
+      if (!cancelled) refresh();
+
+    });
+
+    return () => {
+
+      cancelled = true;
+
+    };
 
   }, [refresh]);
 
