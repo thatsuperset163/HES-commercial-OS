@@ -12,7 +12,8 @@ const root = dirname(fileURLToPath(import.meta.url));
 const hqRoot = join(root, "..");
 const crmRoot = join(hqRoot, "crm");
 const distDir = join(crmRoot, "dist");
-const targetDir = join(hqRoot, "public", "sales");
+const targetDir = join(hqRoot, "public", "work", "sales");
+const legacyTargetDir = join(hqRoot, "public", "sales");
 
 if (!existsSync(crmRoot)) {
   console.error(`Sales OS not found at: ${crmRoot}`);
@@ -37,8 +38,9 @@ if (!existsSync(distDir)) {
 }
 
 rmSync(targetDir, { recursive: true, force: true });
+rmSync(legacyTargetDir, { recursive: true, force: true });
 mkdirSync(dirname(targetDir), { recursive: true });
 cpSync(distDir, targetDir, { recursive: true });
 
 console.log(`Synced Sales OS → ${targetDir}`);
-console.log("Open http://localhost:3000/sales/ after starting HQ.");
+console.log("Open http://localhost:3000/work/sales/ after starting HQ.");

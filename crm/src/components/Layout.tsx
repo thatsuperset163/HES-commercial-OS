@@ -95,7 +95,7 @@ export function Layout() {
             src={`${import.meta.env.BASE_URL}brand/logo-lockup-white.svg`}
             alt="Harris Exterior Solutions"
           />
-          <p>Commercial sales OS</p>
+          <p>Commercial Sales</p>
         </div>
         <nav className="sidebar-nav">
           {links.map((l) => (
@@ -110,8 +110,8 @@ export function Layout() {
           ))}
         </nav>
         <div className="sidebar-foot">
-          <a className="ghost-btn" href="/">
-            ← HES HQ
+          <a className="ghost-btn" href="/work">
+            ← Work
           </a>
         </div>
       </aside>
