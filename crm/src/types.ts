@@ -43,6 +43,13 @@ export type TimelineEventType =
 
 export type AttachmentKind = 'photo' | 'document' | 'quote' | 'other'
 
+export const CURRENT_SALES_STATE_SCHEMA_VERSION = 2
+
+export interface ProspectCompatibility {
+  /** Original stage value retained when a legacy/unknown stage is normalized. */
+  legacyStage?: string
+}
+
 export interface Prospect {
   id: string
   /** Company name */
@@ -87,6 +94,7 @@ export interface Prospect {
   salesRep: string
   createdAt: string
   updatedAt: string
+  compatibility?: ProspectCompatibility
 }
 
 export interface Task {
@@ -141,6 +149,7 @@ export interface Attachment {
 }
 
 export interface SalesState {
+  schemaVersion: typeof CURRENT_SALES_STATE_SCHEMA_VERSION
   prospects: Prospect[]
   tasks: Task[]
   timeline: TimelineEvent[]

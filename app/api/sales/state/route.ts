@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin, supabaseConfigured } from "@/lib/supabase";
 
 type SalesStatePayload = {
+  schemaVersion?: unknown;
   prospects?: unknown[];
   tasks?: unknown[];
   timeline?: unknown[];
@@ -112,6 +113,12 @@ export async function PUT(req: Request) {
   }
 
   const state = {
+    schemaVersion:
+      typeof body.schemaVersion === "number" &&
+      Number.isInteger(body.schemaVersion) &&
+      body.schemaVersion > 0
+        ? body.schemaVersion
+        : 1,
     prospects: Array.isArray(body.prospects) ? body.prospects : [],
     tasks: Array.isArray(body.tasks) ? body.tasks : [],
     timeline: Array.isArray(body.timeline) ? body.timeline : [],

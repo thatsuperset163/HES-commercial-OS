@@ -1,7 +1,7 @@
 import type { SalesState } from '../types'
 import { daysAgo } from '../lib/dates'
 import { EMAIL_SIGNATURE } from '../lib/templates'
-import { emptyProspectDraft } from '../types'
+import { CURRENT_SALES_STATE_SCHEMA_VERSION, emptyProspectDraft } from '../types'
 
 const now = () => new Date().toISOString()
 
@@ -28,6 +28,7 @@ function schoolProspect(
 
 /** Default CRM: school leads + email templates. No fake demo companies. */
 export const SEED: SalesState = {
+  schemaVersion: CURRENT_SALES_STATE_SCHEMA_VERSION,
   prospects: [
     schoolProspect('ps-reagan', 'Reagan High School', 'Pfafftown'),
     schoolProspect('ps-east-forsyth', 'East Forsyth High School', 'Kernersville'),

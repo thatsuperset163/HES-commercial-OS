@@ -219,12 +219,12 @@ export function SalesProvider({ children }: { children: ReactNode }) {
 
   const deleteProspect = useCallback((id: string) => {
     setState((s) => ({
+      ...s,
       prospects: s.prospects.filter((p) => p.id !== id),
       tasks: s.tasks.filter((t) => t.prospectId !== id),
       timeline: s.timeline.filter((e) => e.prospectId !== id),
       sentEmails: s.sentEmails.filter((e) => e.prospectId !== id),
       attachments: s.attachments.filter((a) => a.prospectId !== id),
-      templates: s.templates,
     }))
   }, [])
 

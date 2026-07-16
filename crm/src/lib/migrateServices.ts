@@ -1,15 +1,52 @@
 import type {
+  Attachment,
+  AttachmentKind,
+  EmailTemplate,
   PipelineStage,
   Prospect,
   ProspectPriority,
   SalesState,
+  SentEmail,
   ServiceType,
-} from '../types'
-import { INDUSTRIES, SERVICES, STAGES, emptyProspectDraft } from '../types'
+  Task,
+  TaskKind,
+  TimelineEvent,
+  TimelineEventType,
+} from '../types.ts'
+import {
+  CURRENT_SALES_STATE_SCHEMA_VERSION,
+  INDUSTRIES,
+  SERVICES,
+  STAGES,
+  emptyProspectDraft,
+} from '../types.ts'
 
 const VALID_SERVICE = new Set(SERVICES.map((s) => s.id))
 const VALID_STAGE = new Set(STAGES.map((s) => s.id))
 const VALID_INDUSTRY = new Set(INDUSTRIES as readonly string[])
+const VALID_TASK_KIND = new Set<TaskKind>(['call', 'email', 'visit', 'quote', 'other'])
+const VALID_TIMELINE_TYPE = new Set<TimelineEventType>([
+  'note',
+  'research',
+  'email',
+  'call',
+  'voicemail',
+  'follow_up',
+  'meeting',
+  'site_visit',
+  'quote',
+  'stage_change',
+  'task_created',
+  'task_completed',
+  'attachment',
+  'other',
+])
+const VALID_ATTACHMENT_KIND = new Set<AttachmentKind>([
+  'photo',
+  'document',
+  'quote',
+  'other',
+])
 
 const LEGACY_SERVICE_MAP: Record<string, ServiceType> = {
   pressure_washing: 'pressure_washing',
@@ -67,26 +104,15 @@ const LEGACY_INDUSTRY_MAP: Record<string, string> = {
   'Office Park': 'Office Park',
 }
 
-/** Original demo seed prospect IDs — always strip so fake CRM data stays gone. */
-const DEMO_PROSPECT_IDS = new Set([
-  'p1',
-  'p2',
-  'p3',
-  'p4',
-  'p5',
-  'p6',
-  'p7',
-  'p8',
-])
-
 export function migrateService(id: string): ServiceType | null {
   if (VALID_SERVICE.has(id as ServiceType)) return id as ServiceType
   return LEGACY_SERVICE_MAP[id] ?? null
 }
 
-export function migrateServicesNeeded(services: string[] | undefined): ServiceType[] {
+export function migrateServicesNeeded(services: unknown): ServiceType[] {
   const next: ServiceType[] = []
-  for (const raw of services ?? []) {
+  if (!Array.isArray(services)) return next
+  for (const raw of services) {
     const mapped = migrateService(String(raw))
     if (mapped && !next.includes(mapped)) next.push(mapped)
   }
@@ -119,20 +145,80 @@ function asBool(v: unknown, fallback = false) {
   return typeof v === 'boolean' ? v : fallback
 }
 
-function asIso(v: unknown): string | null {
-  if (typeof v !== 'string' || !v.trim()) return null
-  return v
+function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {}
 }
 
-export function migrateProspect(raw: Record<string, unknown>): Prospect {
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : []
+}
+
+function asIdentifier(value: unknown): string {
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  return ''
+}
+
+function isValidDate(value: string): boolean {
+  return value.trim().length > 0 && Number.isFinite(Date.parse(value))
+}
+
+function asIso(value: unknown, fallback: string): string {
+  return typeof value === 'string' && isValidDate(value) ? value : fallback
+}
+
+function asNullableIso(value: unknown): string | null {
+  if (value === null || value === undefined || value === '') return null
+  return typeof value === 'string' && isValidDate(value) ? value : null
+}
+
+function createIdAllocator(prefix: string) {
+  const used = new Set<string>()
+  return (rawId: unknown, index: number) => {
+    const requested = asIdentifier(rawId)
+    const base = requested || `migrated-${prefix}-${index + 1}`
+    let id = base
+    let suffix = 2
+    while (used.has(id)) {
+      id = `${base}-${suffix}`
+      suffix += 1
+    }
+    used.add(id)
+    return id
+  }
+}
+
+function migrateMeta(value: unknown): TimelineEvent['meta'] | undefined {
+  const raw = asRecord(value)
+  const entries = Object.entries(raw).filter(([, item]) =>
+    item === null ||
+    typeof item === 'string' ||
+    typeof item === 'number' ||
+    typeof item === 'boolean',
+  ) as [string, string | number | boolean | null][]
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined
+}
+
+export function migrateProspect(
+  raw: Record<string, unknown>,
+  id = asIdentifier(raw.id) || 'migrated-p-1',
+  defaultTimestamp = new Date().toISOString(),
+): Prospect {
   const draft = emptyProspectDraft(asString(raw.salesRep, 'Will'))
   const legacyNotes = asString(raw.notes)
-  const propertyNotes =
-    asString(raw.propertyNotes) || legacyNotes || ''
+  const propertyNotes = asString(raw.propertyNotes) || legacyNotes
+  const rawStage = asString(raw.stage)
+  const existingCompatibility = asRecord(raw.compatibility)
+  const legacyStage = rawStage && !VALID_STAGE.has(rawStage as PipelineStage)
+    ? rawStage
+    : asString(existingCompatibility.legacyStage)
+  const compatibility = legacyStage ? { legacyStage } : undefined
 
   return {
     ...draft,
-    id: asString(raw.id) || `p-${Date.now()}`,
+    id,
     businessName: asString(raw.businessName),
     industry: migrateIndustry(raw.industry),
     website: asString(raw.website),
@@ -146,51 +232,178 @@ export function migrateProspect(raw: Record<string, unknown>): Prospect {
     phoneExt: asString(raw.phoneExt),
     assistantName: asString(raw.assistantName),
     assistantPhone: asString(raw.assistantPhone),
-    stage: migrateStage(raw.stage),
+    stage: migrateStage(rawStage),
     priority: migratePriority(raw.priority),
-    firstEmailAt: asIso(raw.firstEmailAt),
-    firstCallAt: asIso(raw.firstCallAt),
-    nextFollowUpAt: asIso(raw.nextFollowUpAt),
-    lastContactAt: asIso(raw.lastContactAt),
+    firstEmailAt: asNullableIso(raw.firstEmailAt),
+    firstCallAt: asNullableIso(raw.firstCallAt),
+    nextFollowUpAt: asNullableIso(raw.nextFollowUpAt),
+    lastContactAt: asNullableIso(raw.lastContactAt),
     propertyNotes,
     conversationNotes: asString(raw.conversationNotes),
     painPoints: asString(raw.painPoints),
     servicesDiscussed: asString(raw.servicesDiscussed),
-    servicesNeeded: migrateServicesNeeded(
-      raw.servicesNeeded as string[] | undefined,
-    ),
+    servicesNeeded: migrateServicesNeeded(raw.servicesNeeded),
     emailVerified: asBool(raw.emailVerified),
     decisionMakerConfirmed: asBool(raw.decisionMakerConfirmed),
     salesRep: asString(raw.salesRep, 'Will'),
-    createdAt: asString(raw.createdAt) || new Date().toISOString(),
-    updatedAt: asString(raw.updatedAt) || new Date().toISOString(),
+    createdAt: asIso(raw.createdAt, defaultTimestamp),
+    updatedAt: asIso(raw.updatedAt, defaultTimestamp),
+    ...(compatibility ? { compatibility } : {}),
   }
 }
 
-function stripDemoRecords(state: SalesState): SalesState {
-  const prospects = state.prospects.filter((p) => !DEMO_PROSPECT_IDS.has(p.id))
-  const keepIds = new Set(prospects.map((p) => p.id))
+function migrateTask(
+  raw: Record<string, unknown>,
+  id: string,
+  defaultTimestamp: string,
+): Task {
+  const kind = asString(raw.kind) as TaskKind
   return {
-    ...state,
-    prospects,
-    tasks: (state.tasks ?? []).filter((t) => keepIds.has(t.prospectId)),
-    timeline: (state.timeline ?? []).filter((e) => keepIds.has(e.prospectId)),
-    sentEmails: (state.sentEmails ?? []).filter((e) =>
-      keepIds.has(e.prospectId),
-    ),
-    attachments: (state.attachments ?? []).filter((a) =>
-      keepIds.has(a.prospectId),
-    ),
+    id,
+    prospectId: asIdentifier(raw.prospectId),
+    title: asString(raw.title),
+    kind: VALID_TASK_KIND.has(kind) ? kind : 'other',
+    dueAt: asIso(raw.dueAt, defaultTimestamp),
+    done: asBool(raw.done),
+    completedAt: asNullableIso(raw.completedAt),
+    salesRep: asString(raw.salesRep, 'Will'),
+    createdAt: asIso(raw.createdAt, defaultTimestamp),
   }
 }
 
-/** Normalize persisted state for the decision-maker CRM model. */
-export function migrateState(state: SalesState): SalesState {
-  const stripped = stripDemoRecords(state)
+function migrateTimelineEvent(
+  raw: Record<string, unknown>,
+  id: string,
+  defaultTimestamp: string,
+): TimelineEvent {
+  const type = asString(raw.type) as TimelineEventType
+  const normalizedType = VALID_TIMELINE_TYPE.has(type) ? type : 'other'
+  const prospectId = asIdentifier(raw.prospectId)
+  const title = asString(raw.title)
+  const body = asString(raw.body)
+  const existingSearchableText = asString(raw.searchableText).trim()
+  const searchableText = (
+    existingSearchableText ||
+    [title, body, normalizedType, prospectId].join(' ')
+  ).trim().toLowerCase()
+  const meta = migrateMeta(raw.meta)
+
   return {
-    ...stripped,
-    prospects: stripped.prospects.map((p) =>
-      migrateProspect(p as unknown as Record<string, unknown>),
-    ),
+    id,
+    prospectId,
+    type: normalizedType,
+    title,
+    body,
+    searchableText,
+    ...(meta ? { meta } : {}),
+    createdAt: asIso(raw.createdAt, defaultTimestamp),
+  }
+}
+
+function migrateTemplate(
+  raw: Record<string, unknown>,
+  id: string,
+  defaultTimestamp: string,
+): EmailTemplate {
+  return {
+    id,
+    name: asString(raw.name),
+    subject: asString(raw.subject),
+    body: asString(raw.body),
+    createdAt: asIso(raw.createdAt, defaultTimestamp),
+    updatedAt: asIso(raw.updatedAt, defaultTimestamp),
+  }
+}
+
+function migrateSentEmail(
+  raw: Record<string, unknown>,
+  id: string,
+  defaultTimestamp: string,
+): SentEmail {
+  const templateId = asIdentifier(raw.templateId)
+  return {
+    id,
+    prospectId: asIdentifier(raw.prospectId),
+    templateId: templateId || null,
+    subject: asString(raw.subject),
+    body: asString(raw.body),
+    sentAt: asIso(raw.sentAt, defaultTimestamp),
+  }
+}
+
+function migrateAttachment(
+  raw: Record<string, unknown>,
+  id: string,
+  defaultTimestamp: string,
+): Attachment {
+  const kind = asString(raw.kind) as AttachmentKind
+  return {
+    id,
+    prospectId: asIdentifier(raw.prospectId),
+    name: asString(raw.name),
+    kind: VALID_ATTACHMENT_KIND.has(kind) ? kind : 'other',
+    url: asString(raw.url),
+    note: asString(raw.note),
+    createdAt: asIso(raw.createdAt, defaultTimestamp),
+  }
+}
+
+/** Normalize all persisted collections without discarding user records. */
+export function migrateState(state: unknown): SalesState {
+  const raw = asRecord(state)
+  const defaultTimestamp = new Date().toISOString()
+  const prospectId = createIdAllocator('p')
+  const taskId = createIdAllocator('t')
+  const timelineId = createIdAllocator('tl')
+  const templateId = createIdAllocator('tpl')
+  const sentEmailId = createIdAllocator('se')
+  const attachmentId = createIdAllocator('a')
+
+  return {
+    schemaVersion: CURRENT_SALES_STATE_SCHEMA_VERSION,
+    prospects: asArray(raw.prospects).map((item, index) => {
+      const record = asRecord(item)
+      return migrateProspect(
+        record,
+        prospectId(record.id, index),
+        defaultTimestamp,
+      )
+    }),
+    tasks: asArray(raw.tasks).map((item, index) => {
+      const record = asRecord(item)
+      return migrateTask(record, taskId(record.id, index), defaultTimestamp)
+    }),
+    timeline: asArray(raw.timeline).map((item, index) => {
+      const record = asRecord(item)
+      return migrateTimelineEvent(
+        record,
+        timelineId(record.id, index),
+        defaultTimestamp,
+      )
+    }),
+    templates: asArray(raw.templates).map((item, index) => {
+      const record = asRecord(item)
+      return migrateTemplate(
+        record,
+        templateId(record.id, index),
+        defaultTimestamp,
+      )
+    }),
+    sentEmails: asArray(raw.sentEmails).map((item, index) => {
+      const record = asRecord(item)
+      return migrateSentEmail(
+        record,
+        sentEmailId(record.id, index),
+        defaultTimestamp,
+      )
+    }),
+    attachments: asArray(raw.attachments).map((item, index) => {
+      const record = asRecord(item)
+      return migrateAttachment(
+        record,
+        attachmentId(record.id, index),
+        defaultTimestamp,
+      )
+    }),
   }
 }
