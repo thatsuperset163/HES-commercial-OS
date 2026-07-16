@@ -110,10 +110,23 @@
   z-index: 60;
 }
 
+.overlay-backdrop.prospect-overlay {
+  place-items: start center;
+  overflow-y: auto;
+  padding:
+    max(0.75rem, env(safe-area-inset-top))
+    max(0.75rem, env(safe-area-inset-right))
+    max(0.75rem, env(safe-area-inset-bottom))
+    max(0.75rem, env(safe-area-inset-left));
+  z-index: 80;
+}
+
 .modal {
   width: min(920px, 100%);
-  max-height: 92vh;
-  overflow: auto;
+  max-height: calc(100vh - 1.5rem);
+  max-height: calc(100dvh - 1.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .prospect-form-modal {

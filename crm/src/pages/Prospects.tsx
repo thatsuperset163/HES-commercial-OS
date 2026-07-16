@@ -297,7 +297,10 @@ export function Prospects() {
       </div>
 
       {showNew && (
-        <div className="overlay-backdrop" onClick={() => setShowNew(false)}>
+        <div
+          className="overlay-backdrop prospect-overlay"
+          onClick={() => setShowNew(false)}
+        >
           <form
             className="modal panel prospect-form-modal"
             onClick={(e) => e.stopPropagation()}
