@@ -8,6 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.ts",
     "sync:sales": "node scripts/sync-sales.mjs"
   },
   "dependencies": {
