@@ -1,3 +1,7 @@
+import type { Job } from "./jobs/types";
+
+export type { Job, JobStatus, JobInput } from "./jobs/types";
+
 export type MetricKey =
   | "doors"
   | "conversations"
@@ -51,6 +55,8 @@ export type DayEntry = {
 
 export type BoardStore = {
   days: Record<string, DayEntry>;
+  /** Jobs OS entities — synced with blackboard cloud state. */
+  jobs: Job[];
 };
 
 export const METRIC_LABELS: Record<MetricKey, string> = {

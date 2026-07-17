@@ -111,10 +111,10 @@ export default function HomeApp() {
           </section>
 
           <section className="hq-card sales-launch">
-            <p className="hq-eyebrow">Commercial Sales</p>
-            <h2>Build the next account</h2>
-            <p>Prospecting, follow-ups, quotes, and pipeline analytics live inside Work.</p>
-            <a href="/work/sales/" className="hq-btn">Enter Sales OS →</a>
+            <p className="hq-eyebrow">Work operating systems</p>
+            <h2>Sales · Jobs · Money…</h2>
+            <p>Peer OSes for pipeline, field jobs, cash, leads, and reputation.</p>
+            <Link href="/work" className="hq-btn">Open Work →</Link>
           </section>
         </div>
 
