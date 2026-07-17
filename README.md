@@ -3,9 +3,11 @@
 Private company HQ for **Harris Exterior Solutions**:
 
 - **HQ** — daily overview
-- **Personal** — daily focus, six personal pillars (train, golf, clean, faith, people), journal, and streak
-- **Work** — priorities, operating metrics, notes, and progress
-- **Commercial Sales** (`/work/sales/`) — Work subsection for prospects, emails, and analytics
+- **Work** — launcher for peer operating systems
+- **Sales OS** (`/work/sales/`) — commercial pipeline & outreach
+- **Jobs OS** (`/work/jobs`) — schedule → run → done
+- **Next Work OSes** — Money, Inbox/Leads, Reputation (see `docs/OS-ROADMAP.md`)
+- **Personal** — parked for now (pillars already exist at `/personal`)
 
 PIN-protected. Data syncs through **Supabase** with browser storage as an offline backup. Built for **Vercel**.
 

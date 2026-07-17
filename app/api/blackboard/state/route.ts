@@ -60,6 +60,16 @@ export async function PUT(request: Request) {
       { status: 400 },
     );
   }
+  const jobs =
+    state && typeof state === "object"
+      ? (state as { jobs?: unknown }).jobs
+      : undefined;
+  if (jobs !== undefined && !Array.isArray(jobs)) {
+    return NextResponse.json(
+      { ok: false, reason: "invalid_jobs_state" },
+      { status: 400 },
+    );
+  }
 
   const updatedAt = new Date().toISOString();
   const { error } = await supabase.from("blackboard_workspace").upsert({

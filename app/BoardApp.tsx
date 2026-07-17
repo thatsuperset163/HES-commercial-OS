@@ -1,239 +1,200 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { DayEntry, MetricKey, Metrics } from "@/lib/types";
-import { METRIC_LABELS } from "@/lib/types";
-import { addDays, formatDisplayDate, formatShortDate, getWeekKeys, todayKey } from "@/lib/dates";
-import { getOrCreateDay, hydrateStoreFromCloud, loadStore, upsertDay } from "@/lib/storage";
+import { formatDisplayDate, todayKey } from "@/lib/dates";
+import { buildJobNextActions } from "@/lib/jobs/nextActions";
+import { jobStatusLabel } from "@/lib/jobs/types";
 import {
-  allTimeRangeLabel,
-  getProgressRange,
-  listActiveHistory,
-  sumMetrics,
-  sumMetricsInRange,
-  type ProgressRange,
-} from "@/lib/progress";
+  hydrateStoreFromCloud,
+  listJobs,
+  loadStore,
+} from "@/lib/storage";
 import AppShell from "./AppShell";
 
-type View = "today" | "week" | "progress";
-
-const RANGE_CHIPS: { id: ProgressRange; label: string }[] = [
-  { id: "week", label: "This week" },
-  { id: "month", label: "This month" },
-  { id: "quarter", label: "This quarter" },
-  { id: "all", label: "All time" },
+const PEER_OS = [
+  {
+    id: "sales",
+    name: "Sales OS",
+    purpose: "Commercial pipeline, outreach, follow-ups",
+    href: "/work/sales/",
+    status: "live" as const,
+    external: true,
+  },
+  {
+    id: "jobs",
+    name: "Jobs OS",
+    purpose: "Schedule → run → done",
+    href: "/work/jobs",
+    status: "live" as const,
+    external: false,
+  },
+  {
+    id: "money",
+    name: "Money OS",
+    purpose: "Unbilled + unpaid → cash in",
+    href: "/work/money",
+    status: "next" as const,
+    external: false,
+  },
+  {
+    id: "leads",
+    name: "Inbox / Leads",
+    purpose: "Same-day inbound response",
+    href: "/work/leads",
+    status: "later" as const,
+    external: false,
+  },
+  {
+    id: "reputation",
+    name: "Reputation OS",
+    purpose: "Reviews and referrals after jobs",
+    href: "/work/reputation",
+    status: "later" as const,
+    external: false,
+  },
 ];
 
-function activityScore(metrics: Metrics) {
-  return Object.values(metrics).reduce((sum, value) => sum + value, 0);
+function money(value: number | null) {
+  if (value == null || !Number.isFinite(value)) return "";
+  return `$${Math.round(value).toLocaleString("en-US")}`;
 }
 
 export default function BoardApp() {
   const [ready, setReady] = useState(false);
-  const [view, setView] = useState<View>("today");
-  const [selectedDate, setSelectedDate] = useState(todayKey);
-  const [day, setDay] = useState<DayEntry | null>(null);
-  const [weekDays, setWeekDays] = useState<DayEntry[]>([]);
-  const [progressRange, setProgressRange] = useState<ProgressRange>("week");
-  const [historyTick, setHistoryTick] = useState(0);
-  const [toast, setToast] = useState(false);
-
-  const refresh = useCallback((date: string) => {
-    const store = loadStore();
-    const entry = getOrCreateDay(store, date);
-    if (!store.days[date]) upsertDay(store, entry);
-    setDay(entry);
-    setWeekDays(getWeekKeys(date).map((key) => getOrCreateDay(store, key)));
-    setHistoryTick((value) => value + 1);
-  }, []);
+  const [tick, setTick] = useState(0);
+  const date = todayKey();
 
   useEffect(() => {
     let cancelled = false;
     void hydrateStoreFromCloud().then(() => {
       if (cancelled) return;
-      refresh(selectedDate);
+      setTick((value) => value + 1);
       setReady(true);
     });
     return () => {
       cancelled = true;
     };
-  }, [selectedDate, refresh]);
-
-  const persist = useCallback((next: DayEntry) => {
-    const store = loadStore();
-    upsertDay(store, next);
-    setDay(next);
-    const updated = loadStore();
-    setWeekDays(getWeekKeys(next.date).map((key) => getOrCreateDay(updated, key)));
-    setHistoryTick((value) => value + 1);
-    setToast(true);
-    window.setTimeout(() => setToast(false), 900);
   }, []);
 
-  const weekTotals = useMemo(() => sumMetrics(weekDays), [weekDays]);
-  const progressData = useMemo(() => {
-    const store = loadStore();
-    const range = getProgressRange(progressRange, selectedDate);
+  const snapshot = useMemo(() => {
+    const jobs = listJobs(loadStore());
+    const actions = buildJobNextActions(jobs);
     return {
-      totals: sumMetricsInRange(store, range),
-      label: progressRange === "all" ? allTimeRangeLabel(store) : range.label,
-      history: listActiveHistory(store, 30),
+      jobs,
+      top: actions[0] ?? null,
+      unbilled: jobs.filter((job) => job.status === "done").length,
+      todayCount: jobs.filter(
+        (job) => job.status === "scheduled" && job.scheduledDate === date,
+      ).length,
     };
-    // historyTick keeps cloud/local saves reflected in this aggregate.
+    // tick refreshes after hydrate
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [progressRange, selectedDate, historyTick]);
+  }, [date, tick]);
 
-  if (!ready || !day) {
-    return <AppShell><p className="brand-sub">Loading work…</p></AppShell>;
-  }
+  const refresh = useCallback(() => {
+    setTick((value) => value + 1);
+  }, []);
 
-  const businessGoal = day.goals.find((goal) => goal.category === "business");
-
-  function updateFocus(text: string) {
-    if (!businessGoal || !day) return;
-    persist({
-      ...day,
-      goals: day.goals.map((goal) =>
-        goal.id === businessGoal.id ? { ...goal, text } : goal
-      ),
-    });
-  }
-
-  function updateMetric(key: MetricKey, value: number) {
-    if (!day) return;
-    persist({ ...day, metrics: { ...day.metrics, [key]: Math.max(0, value) } });
+  if (!ready) {
+    return (
+      <AppShell>
+        <p className="brand-sub">Loading work…</p>
+      </AppShell>
+    );
   }
 
   return (
     <AppShell>
       <div className="page-intro">
         <div>
-          <p className="hq-eyebrow">Operations desk</p>
-          <h2>{view === "today" ? formatDisplayDate(selectedDate) : "Work performance"}</h2>
-          <p>Priorities, field activity, and commercial growth in one operating view.</p>
+          <p className="hq-eyebrow">Work</p>
+          <h2>{formatDisplayDate(date)}</h2>
+          <p>Peer operating systems — pick a lane, do the next move.</p>
         </div>
-        <a className="btn accent sales-shortcut" href="/work/sales/">Open Commercial Sales →</a>
+        <button type="button" className="btn secondary" onClick={refresh}>
+          Refresh
+        </button>
       </div>
 
-      <div className="work-toolbar">
-        <div className="tabs tabs-3" role="tablist">
-          {(["today", "week", "progress"] as View[]).map((name) => (
-            <button key={name} type="button" className={`tab ${view === name ? "active" : ""}`} onClick={() => setView(name)}>
-              {name === "today" ? "Day" : name[0].toUpperCase() + name.slice(1)}
-            </button>
-          ))}
-        </div>
-        {view !== "progress" ? (
-          <div className="date-nav compact">
-            <button type="button" className="nav-btn" onClick={() => setSelectedDate((date) => addDays(date, -1))}>‹</button>
-            <button type="button" className="nav-btn primary" onClick={() => setSelectedDate(todayKey())}>Today</button>
-            <button type="button" className="nav-btn" onClick={() => setSelectedDate((date) => addDays(date, 1))}>›</button>
+      {snapshot.top ? (
+        <section className="panel focus-panel jobs-focus" aria-label="Do this next">
+          <div className="panel-head">
+            <h2 className="panel-title">Do this next</h2>
+            <span className="panel-meta">From Jobs OS</span>
           </div>
-        ) : null}
-      </div>
+          <div className="jobs-focus-body">
+            <strong>{snapshot.top.title}</strong>
+            <p>{snapshot.top.reason}</p>
+            <p className="jobs-focus-meta">
+              {jobStatusLabel(snapshot.top.status)}
+              {snapshot.top.amount != null ? ` · ${money(snapshot.top.amount)}` : ""}
+            </p>
+          </div>
+          <div className="row-actions">
+            <Link className="btn accent" href="/work/jobs">
+              Open in Jobs OS →
+            </Link>
+          </div>
+        </section>
+      ) : (
+        <section className="panel">
+          <p className="empty-state">
+            No urgent job actions. Open an OS below — or add a job to get a queue.
+          </p>
+        </section>
+      )}
 
-      {view === "today" ? (
-        <div className="content-grid work-grid">
-          <section className="panel focus-panel">
-            <div className="panel-head">
-              <h2 className="panel-title">Work priority</h2>
-              <span className="panel-meta">Editable daily focus</span>
-            </div>
-            <textarea className="field focus-field" value={businessGoal?.text ?? ""} onChange={(event) => updateFocus(event.target.value)} placeholder="What creates the most leverage today?" />
-          </section>
-
-          <section className="panel metrics-panel">
-            <div className="panel-head">
-              <h2 className="panel-title">Operating metrics</h2>
-              <span className="panel-meta">Tap or type to update</span>
-            </div>
-            <div className="metrics-grid">
-              {(Object.keys(METRIC_LABELS) as MetricKey[]).map((key) => (
-                <div key={key} className="metric-card">
-                  <span className="label">{METRIC_LABELS[key]}</span>
-                  <div className="stepper">
-                    <button type="button" onClick={() => updateMetric(key, (day.metrics[key] || 0) - 1)}>−</button>
-                    <input type="number" min={0} inputMode="numeric" value={day.metrics[key] || 0} onChange={(event) => updateMetric(key, Number(event.target.value) || 0)} />
-                    <button type="button" onClick={() => updateMetric(key, (day.metrics[key] || 0) + 1)}>+</button>
-                  </div>
+      <section className="panel">
+        <div className="panel-head">
+          <h2 className="panel-title">Operating systems</h2>
+          <span className="panel-meta">
+            {snapshot.todayCount} jobs today · {snapshot.unbilled} unbilled
+          </span>
+        </div>
+        <div className="os-grid">
+          {PEER_OS.map((os) => {
+            const live = os.status === "live";
+            const body = (
+              <>
+                <div className="os-card-top">
+                  <h3>{os.name}</h3>
+                  <span className={`os-pill ${os.status}`}>
+                    {os.status === "live"
+                      ? "Live"
+                      : os.status === "next"
+                        ? "Next up"
+                        : "Later"}
+                  </span>
                 </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="panel notes-panel">
-            <div className="panel-head">
-              <h2 className="panel-title">Work notes</h2>
-              <span className="panel-meta">Wins · follow-ups · details</span>
-            </div>
-            <textarea className="field textarea journal-field" value={day.notes} onChange={(event) => persist({ ...day, notes: event.target.value })} placeholder="Capture job details, next moves, and open loops…" />
-          </section>
-
-          <section className="panel sales-panel">
-            <p className="hq-eyebrow">Commercial Sales</p>
-            <h2>Pipeline and outreach</h2>
-            <p>Move from daily operations into the dedicated prospecting, follow-up, quoting, and analytics workspace.</p>
-            <a className="btn accent" href="/work/sales/">Launch Sales OS →</a>
-          </section>
+                <p>{os.purpose}</p>
+                <span className="os-card-cta">
+                  {live ? "Enter →" : "Queued in roadmap"}
+                </span>
+              </>
+            );
+            if (!live) {
+              return (
+                <article key={os.id} className="os-card muted">
+                  {body}
+                </article>
+              );
+            }
+            if (os.external) {
+              return (
+                <a key={os.id} className="os-card" href={os.href}>
+                  {body}
+                </a>
+              );
+            }
+            return (
+              <Link key={os.id} className="os-card" href={os.href}>
+                {body}
+              </Link>
+            );
+          })}
         </div>
-      ) : null}
-
-      {view === "week" ? (
-        <div className="content-grid">
-          <section className="panel">
-            <div className="panel-head"><h2 className="panel-title">Week totals</h2><span className="panel-meta">Monday–Sunday</span></div>
-            <MetricTotals metrics={weekTotals} />
-          </section>
-          <section className="panel">
-            <div className="panel-head"><h2 className="panel-title">Daily movement</h2><span className="panel-meta">Open any day</span></div>
-            <div className="week-grid">
-              {weekDays.map((entry) => (
-                <button key={entry.date} type="button" className={`week-day ${entry.date === todayKey() ? "today" : ""}`} onClick={() => { setSelectedDate(entry.date); setView("today"); }}>
-                  <div className="dow">{formatShortDate(entry.date)}</div>
-                  <div className="stats">{(Object.keys(METRIC_LABELS) as MetricKey[]).map((key) => <span className="stat" key={key}>{METRIC_LABELS[key]} {entry.metrics[key]}</span>)}</div>
-                  <div className="total">{activityScore(entry.metrics)}</div>
-                </button>
-              ))}
-            </div>
-          </section>
-        </div>
-      ) : null}
-
-      {view === "progress" ? (
-        <div className="content-grid">
-          <section className="panel">
-            <div className="panel-head"><h2 className="panel-title">Period summary</h2><span className="panel-meta">{progressData.label}</span></div>
-            <div className="range-chips">{RANGE_CHIPS.map((chip) => <button key={chip.id} type="button" className={`range-chip ${progressRange === chip.id ? "active" : ""}`} onClick={() => setProgressRange(chip.id)}>{chip.label}</button>)}</div>
-            <div className="summary-spacer"><MetricTotals metrics={progressData.totals} /></div>
-          </section>
-          <section className="panel">
-            <div className="panel-head"><h2 className="panel-title">Recent operating days</h2><span className="panel-meta">Metrics and notes</span></div>
-            {progressData.history.length ? (
-              <div className="week-grid">
-                {progressData.history.map(({ entry }) => (
-                  <button key={entry.date} type="button" className={`week-day ${entry.date === todayKey() ? "today" : ""}`} onClick={() => { setSelectedDate(entry.date); setView("today"); }}>
-                    <div className="dow">{formatShortDate(entry.date)}</div>
-                    <div className="stats">{entry.notes?.trim() ? entry.notes.slice(0, 100) : "Metrics logged"}</div>
-                    <div className="total">{activityScore(entry.metrics)}</div>
-                  </button>
-                ))}
-              </div>
-            ) : <p className="empty-state">Operating days will appear here after metrics or notes are logged.</p>}
-          </section>
-        </div>
-      ) : null}
-
-      <div className={`save-toast ${toast ? "show" : ""}`} aria-live="polite">Saved</div>
+      </section>
     </AppShell>
-  );
-}
-
-function MetricTotals({ metrics }: { metrics: Metrics }) {
-  return (
-    <div className="week-totals">
-      {(Object.keys(METRIC_LABELS) as MetricKey[]).map((key) => (
-        <div key={key} className="total-tile"><strong>{metrics[key]}</strong><span>{METRIC_LABELS[key]}</span></div>
-      ))}
-    </div>
   );
 }

@@ -1,9 +1,10 @@
-import type { BoardStore, DayEntry } from "./types";
+import type { BoardStore, DayEntry, Job } from "./types";
 import {
   createDayEntry,
   needsMorningRebuild,
   normalizeDayEntry,
 } from "./defaults";
+import { normalizeJobs } from "./jobs/model";
 
 const STORAGE_KEY = "hes-blackboard-v1";
 const CLOUD_ENDPOINT = "/api/blackboard/state";
@@ -14,13 +15,15 @@ let cloudEnabled = false;
 let cloudSaveTimer: number | null = null;
 
 function emptyStore(): BoardStore {
-  return { days: {} };
+  return { days: {}, jobs: [] };
 }
 
-function isBoardStore(value: unknown): value is BoardStore {
-  if (!value || typeof value !== "object") return false;
+function normalizeStore(value: unknown): BoardStore | null {
+  if (!value || typeof value !== "object") return null;
   const days = (value as { days?: unknown }).days;
-  return Boolean(days && typeof days === "object" && !Array.isArray(days));
+  if (!days || typeof days !== "object" || Array.isArray(days)) return null;
+  const jobs = normalizeJobs((value as { jobs?: unknown }).jobs);
+  return { days: days as BoardStore["days"], jobs };
 }
 
 function saveLocalStore(store: BoardStore): void {
@@ -58,21 +61,23 @@ export function loadStore(): BoardStore {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyStore();
-    const parsed = JSON.parse(raw) as unknown;
-    if (!isBoardStore(parsed)) return emptyStore();
-    return parsed;
+    return normalizeStore(JSON.parse(raw) as unknown) ?? emptyStore();
   } catch {
     return emptyStore();
   }
 }
 
 export function saveStore(store: BoardStore): void {
-  saveLocalStore(store);
-  scheduleCloudSave(store);
+  const normalized = {
+    days: store.days,
+    jobs: normalizeJobs(store.jobs),
+  };
+  saveLocalStore(normalized);
+  scheduleCloudSave(normalized);
 }
 
 /**
- * Hydrate the shared HQ / Personal / Work store from Supabase once per page load.
+ * Hydrate the shared HQ / Work store from Supabase once per page load.
  * Browser storage remains the fallback and is uploaded when the cloud is empty.
  */
 export function hydrateStoreFromCloud(): Promise<BoardStore> {
@@ -92,20 +97,27 @@ export function hydrateStoreFromCloud(): Promise<BoardStore> {
       if (!response.ok) return local;
 
       const body = (await response.json()) as { state?: unknown };
-      if (!isBoardStore(body.state)) return local;
+      const cloud = normalizeStore(body.state);
+      if (!cloud) return local;
 
       cloudEnabled = true;
-      const cloud = body.state;
-      const cloudIsEmpty = Object.keys(cloud.days).length === 0;
-      const localHasData = Object.keys(local.days).length > 0;
+      const cloudIsEmpty =
+        Object.keys(cloud.days).length === 0 && cloud.jobs.length === 0;
+      const localHasData =
+        Object.keys(local.days).length > 0 || local.jobs.length > 0;
 
       if (cloudIsEmpty && localHasData) {
         await putCloudStore(local);
         return local;
       }
 
-      saveLocalStore(cloud);
-      return cloud;
+      // Prefer cloud days; merge jobs if cloud has none but local does.
+      const merged: BoardStore = {
+        days: cloud.days,
+        jobs: cloud.jobs.length ? cloud.jobs : local.jobs,
+      };
+      saveLocalStore(merged);
+      return merged;
     } catch {
       return local;
     }
@@ -163,17 +175,53 @@ export function getOrCreateDay(store: BoardStore, date: string): DayEntry {
 }
 
 export function upsertDay(store: BoardStore, entry: DayEntry): BoardStore {
+  const current = loadStore();
   const next: BoardStore = {
     days: {
+      ...current.days,
       ...store.days,
       [entry.date]: {
         ...entry,
         updatedAt: new Date().toISOString(),
       },
     },
+    jobs: normalizeJobs(store.jobs ?? current.jobs),
   };
   saveStore(next);
   return next;
+}
+
+export function listJobs(store?: BoardStore): Job[] {
+  return normalizeJobs((store ?? loadStore()).jobs);
+}
+
+export function saveJobs(jobs: Job[], store?: BoardStore): BoardStore {
+  const current = store ?? loadStore();
+  const next: BoardStore = {
+    days: current.days,
+    jobs: normalizeJobs(jobs),
+  };
+  saveStore(next);
+  return next;
+}
+
+export function upsertJob(job: Job, store?: BoardStore): BoardStore {
+  const current = store ?? loadStore();
+  const jobs = listJobs(current);
+  const index = jobs.findIndex((row) => row.id === job.id);
+  const nextJobs =
+    index >= 0
+      ? jobs.map((row) => (row.id === job.id ? job : row))
+      : [job, ...jobs];
+  return saveJobs(nextJobs, current);
+}
+
+export function removeJob(jobId: string, store?: BoardStore): BoardStore {
+  const current = store ?? loadStore();
+  return saveJobs(
+    listJobs(current).filter((job) => job.id !== jobId),
+    current,
+  );
 }
 
 export function exportStoreJson(store: BoardStore): string {
@@ -181,10 +229,8 @@ export function exportStoreJson(store: BoardStore): string {
 }
 
 export function importStoreJson(raw: string): BoardStore {
-  const parsed = JSON.parse(raw) as BoardStore;
-  if (!parsed?.days || typeof parsed.days !== "object") {
-    throw new Error("Invalid blackboard file");
-  }
+  const parsed = normalizeStore(JSON.parse(raw) as unknown);
+  if (!parsed) throw new Error("Invalid blackboard file");
   saveStore(parsed);
   return parsed;
 }
