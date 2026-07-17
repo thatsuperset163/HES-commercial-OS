@@ -38,17 +38,22 @@ import {
   type ReferenceData,
 } from '../lib/salesApi'
 import {
+  PIPELINE_TO_V2,
   activityToTimeline,
   assistantPayloadFromProspect,
   companyPayloadFromProspect,
   contactPayloadFromProspect,
   opportunityPayloadFromProspect,
   opportunityToProspect,
-  PIPELINE_TO_V2,
   splitProspectPatch,
   taskFromV2,
   taskTypeToV2,
 } from '../lib/v2Adapter'
+import {
+  boardStageId,
+  pipelineForBoardMove,
+  type BoardStageId,
+} from '../lib/pipelineBoard'
 
 function stageLabel(stage: PipelineStage) {
   return STAGES.find((s) => s.id === stage)?.label ?? stage
@@ -96,6 +101,7 @@ interface SalesContextValue {
   updateProspect: (id: string, patch: Partial<Prospect>) => void
   deleteProspect: (id: string) => void
   setStage: (id: string, stage: PipelineStage, note?: string) => void
+  moveBoardStage: (id: string, stageId: string) => void
   addTask: (input: {
     prospectId: string
     title: string
@@ -679,6 +685,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           ...s,
           prospects: touchProspect(s.prospects, id, {
             stage,
+            opportunityStageId: PIPELINE_TO_V2[stage].stage_id,
             ...(stage === 'won' || stage === 'lost' ? { nextFollowUpAt: null } : {}),
           }),
           timeline: [event, ...s.timeline],
@@ -708,6 +715,83 @@ export function SalesProvider({ children }: { children: ReactNode }) {
             note ||
             `Moved from ${stageLabel(current?.stage ?? 'not_contacted')} to ${stageLabel(stage)}`,
           metadata: { from: current?.stage ?? null, to: stage },
+        })
+        if (!opp.ok) markError()
+        else {
+          markSynced()
+          void refreshDashboard()
+        }
+      })()
+    },
+    [touchProspect, markError, markSynced, refreshDashboard],
+  )
+
+  const moveBoardStage = useCallback(
+    (id: string, stageId: string) => {
+      const target = stageId as BoardStageId
+      const allowed = [
+        'prospecting',
+        'discovery',
+        'site_visit',
+        'proposal',
+        'negotiation',
+        'won',
+        'lost',
+      ]
+      if (!allowed.includes(target)) return
+
+      setState((s) => {
+        const prev = s.prospects.find((p) => p.id === id)
+        if (!prev) return s
+        if (boardStageId(prev) === target) return s
+        const mapped = pipelineForBoardMove(prev.stage, target)
+        const label =
+          target.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+        const event = makeTimeline(
+          id,
+          'stage_change',
+          label,
+          `Moved to ${label}`,
+          `${prev.businessName} ${target}`,
+          { from: boardStageId(prev), to: target },
+        )
+        return {
+          ...s,
+          prospects: touchProspect(s.prospects, id, {
+            stage: mapped.stage,
+            opportunityStageId: target,
+            ...(target === 'won' || target === 'lost'
+              ? { nextFollowUpAt: null }
+              : {}),
+          }),
+          timeline: [event, ...s.timeline],
+        }
+      })
+
+      if (apiModeRef.current !== 'v2') return
+      void (async () => {
+        const current = stateRef.current.prospects.find((p) => p.id === id)
+        const mapped = pipelineForBoardMove(
+          current?.stage ?? 'not_contacted',
+          target,
+        )
+        const opp = await salesApi.updateOpportunity(id, {
+          stage_id: target,
+          lead_status: mapped.lead_status,
+          next_follow_up_at:
+            target === 'won' || target === 'lost' ? null : undefined,
+          closed_at:
+            target === 'won' || target === 'lost'
+              ? new Date().toISOString()
+              : null,
+        })
+        await salesApi.createActivity({
+          opportunity_id: id,
+          company_id: current?.companyId || id,
+          activity_type: 'stage_change',
+          subject: `Moved to ${target}`,
+          body: `Pipeline stage set to ${target}`,
+          metadata: { to: target },
         })
         if (!opp.ok) markError()
         else {
@@ -1250,6 +1334,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       updateProspect,
       deleteProspect,
       setStage,
+      moveBoardStage,
       addTask,
       completeTask,
       rescheduleTask,
@@ -1277,6 +1362,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       updateProspect,
       deleteProspect,
       setStage,
+      moveBoardStage,
       addTask,
       completeTask,
       rescheduleTask,

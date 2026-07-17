@@ -142,6 +142,7 @@ export function ShortcutHelp({ onClose }: { onClose: () => void }) {
         <ul className="help-list">
           <li><span className="kbd">⌘/Ctrl K</span> Search everywhere</li>
           <li><span className="kbd">G</span> then <span className="kbd">D</span> Today</li>
+          <li><span className="kbd">G</span> then <span className="kbd">L</span> Pipeline</li>
           <li><span className="kbd">G</span> then <span className="kbd">P</span> Prospects</li>
           <li><span className="kbd">G</span> then <span className="kbd">E</span> Emails</li>
           <li><span className="kbd">G</span> then <span className="kbd">A</span> Analytics</li>
