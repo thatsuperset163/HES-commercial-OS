@@ -1,120 +1,71 @@
 "use client";
 
-
-
 import Image from "next/image";
-
 import Link from "next/link";
-
 import { usePathname } from "next/navigation";
-
 import { type ReactNode } from "react";
 
-
-
 const NAV = [
-
-  { href: "/", label: "HQ", match: (path: string) => path === "/" },
-
+  { href: "/", label: "HQ", icon: "H", match: (path: string) => path === "/" },
   {
-
     href: "/personal",
-
     label: "Personal",
-
+    icon: "P",
     match: (path: string) => path.startsWith("/personal"),
-
   },
-
   {
-
     href: "/work",
-
     label: "Work",
-
+    icon: "W",
     match: (path: string) => path.startsWith("/work"),
-
   },
-
 ] as const;
 
-
-
 export default function AppShell({ children }: { children: ReactNode }) {
-
   const pathname = usePathname();
 
-
-
   const current =
-
     NAV.find((item) => item.match(pathname)) ?? NAV[0];
 
-
-
   async function logout() {
-
     await fetch("/api/auth", { method: "DELETE" });
-
     window.location.href = "/login";
-
   }
 
-
-
   return (
-
     <main className="app-shell">
-
       <aside className="shell-sidebar">
-
         <div className="brand-lockup">
-
           <Image
-
             className="brand-logo"
-
             src="/hes-logo.png"
-
             alt="Harris Exterior Solutions"
-
             width={144}
-
             height={144}
-
             priority
-
           />
-
           <div className="brand-block">
-
             <p className="brand-eyebrow">Harris Exterior</p>
-
             <h1 className="brand-title">HES OS</h1>
-
           </div>
-
         </div>
         <nav className="hq-nav" aria-label="Sections">
-
-        {NAV.map((item) =>
-
-            <Link
-
-              key={item.href}
-
-              href={item.href}
-
-              className={`hq-nav-link${item.match(pathname) ? " active" : ""}`}
-
-            >
-
-              {item.label}
-
-            </Link>
-
-        )}
-
+          {NAV.map((item) => {
+            const active = item.match(pathname);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`hq-nav-link${active ? " active" : ""}`}
+                aria-current={active ? "page" : undefined}
+              >
+                <span className="hq-nav-icon" aria-hidden="true">
+                  {item.icon}
+                </span>
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
         </nav>
         <div className="sidebar-foot">
           <span className="sync-dot" aria-hidden />
@@ -140,10 +91,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
         </header>
         <div className="shell-content">{children}</div>
       </section>
-
     </main>
-
   );
-
 }
-

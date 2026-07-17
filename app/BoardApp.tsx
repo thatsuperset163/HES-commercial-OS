@@ -60,6 +60,29 @@ function money(value: number | null) {
   return `$${Math.round(value).toLocaleString("en-US")}`;
 }
 
+function urgencyChipClass(urgency: string) {
+  if (urgency === "overdue") return "status-chip overdue";
+  if (urgency === "today") return "status-chip due-today";
+  if (urgency === "money") return "status-chip warning";
+  return "status-chip neutral";
+}
+
+function urgencyChipLabel(urgency: string) {
+  if (urgency === "overdue") return "Overdue";
+  if (urgency === "today") return "Due today";
+  if (urgency === "money") return "Bill it";
+  return "Soon";
+}
+
+function osMetric(
+  osId: string,
+  snapshot: { todayCount: number; unbilled: number },
+) {
+  if (osId === "jobs") return `${snapshot.todayCount} scheduled today`;
+  if (osId === "money") return `${snapshot.unbilled} unbilled`;
+  return null;
+}
+
 export default function BoardApp() {
   const [ready, setReady] = useState(false);
   const [tick, setTick] = useState(0);
@@ -117,11 +140,28 @@ export default function BoardApp() {
         </button>
       </div>
 
+      <section className="today-summary-strip" aria-label="Today at a glance">
+        <div className="today-summary-item">
+          <span className="today-summary-label">Jobs today</span>
+          <strong>{snapshot.todayCount}</strong>
+        </div>
+        <div className="today-summary-item">
+          <span className="today-summary-label">Unbilled</span>
+          <strong>{snapshot.unbilled}</strong>
+        </div>
+        <div className="today-summary-item">
+          <span className="today-summary-label">Next action</span>
+          <strong>{snapshot.top ? snapshot.top.title : "Clear board"}</strong>
+        </div>
+      </section>
+
       {snapshot.top ? (
         <section className="panel focus-panel jobs-focus" aria-label="Do this next">
           <div className="panel-head">
             <h2 className="panel-title">Do this next</h2>
-            <span className="panel-meta">From Jobs OS</span>
+            <span className={urgencyChipClass(snapshot.top.urgency)}>
+              {urgencyChipLabel(snapshot.top.urgency)}
+            </span>
           </div>
           <div className="jobs-focus-body">
             <strong>{snapshot.top.title}</strong>
@@ -132,7 +172,7 @@ export default function BoardApp() {
             </p>
           </div>
           <div className="row-actions">
-            <Link className="btn accent" href="/work/jobs">
+            <Link className="btn primary" href="/work/jobs">
               Open in Jobs OS →
             </Link>
           </div>
@@ -155,6 +195,7 @@ export default function BoardApp() {
         <div className="os-grid">
           {PEER_OS.map((os) => {
             const live = os.status === "live";
+            const metric = live ? osMetric(os.id, snapshot) : null;
             const body = (
               <>
                 <div className="os-card-top">
@@ -168,27 +209,28 @@ export default function BoardApp() {
                   </span>
                 </div>
                 <p>{os.purpose}</p>
+                {metric ? <span className="os-card-metric">{metric}</span> : null}
                 <span className="os-card-cta">
-                  {live ? "Enter →" : "Queued in roadmap"}
+                  {live ? "Enter →" : "Coming soon"}
                 </span>
               </>
             );
             if (!live) {
               return (
-                <article key={os.id} className="os-card muted">
+                <article key={os.id} className={`os-card muted os-${os.id}`}>
                   {body}
                 </article>
               );
             }
             if (os.external) {
               return (
-                <a key={os.id} className="os-card" href={os.href}>
+                <a key={os.id} className={`os-card os-${os.id}`} href={os.href}>
                   {body}
                 </a>
               );
             }
             return (
-              <Link key={os.id} className="os-card" href={os.href}>
+              <Link key={os.id} className={`os-card os-${os.id}`} href={os.href}>
                 {body}
               </Link>
             );

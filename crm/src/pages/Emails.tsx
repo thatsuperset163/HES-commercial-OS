@@ -342,7 +342,7 @@ export function Emails() {
                 </Fact>
               </dl>
 
-              <div className="brief-block">
+              <div className="brief-block next-step">
                 <h3>What to do next</h3>
                 <p>{suggestedNextStep(prospect, Boolean(lastSent))}</p>
               </div>
@@ -412,7 +412,7 @@ export function Emails() {
           <div className="composer-actions">
             <button
               type="button"
-              className="btn"
+              className="btn ai"
               disabled={!prospect}
               onClick={() => prospect && fillFromProspect(prospect.id, smartKind)}
             >
@@ -496,7 +496,7 @@ export function Emails() {
           <div className="composer-foot">
             {gmailHref && (
               <a
-                className="btn"
+                className="btn primary"
                 href={gmailHref}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -520,7 +520,7 @@ export function Emails() {
             </button>
             <button
               type="button"
-              className="btn"
+              className="btn success"
               disabled={!prospect || !body}
               onClick={confirmSent}
             >
@@ -603,7 +603,7 @@ export function Emails() {
                 </Link>
                 <button
                   type="button"
-                  className="btn"
+                  className="btn primary"
                   onClick={() => {
                     setProspectId(selectedProspect.id)
                     setSubject(
