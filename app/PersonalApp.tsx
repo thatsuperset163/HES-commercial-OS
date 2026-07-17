@@ -1,13 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChecklistItem, DayEntry } from "@/lib/types";
 import { addDays, formatDisplayDate, formatShortDate, todayKey } from "@/lib/dates";
+import {
+  getHuntPlanForDate,
+  getNextHuntAction,
+} from "@/lib/huntCoach";
 import { getRealmStreaks } from "@/lib/progress";
 import {
   getOrCreateDay,
   hydrateStoreFromCloud,
   loadStore,
+  saveIdeaLot,
   upsertDay,
 } from "@/lib/storage";
 import AppShell from "./AppShell";
@@ -16,14 +22,17 @@ export default function PersonalApp() {
   const [ready, setReady] = useState(false);
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [day, setDay] = useState<DayEntry | null>(null);
+  const [ideaLot, setIdeaLot] = useState("");
   const [toast, setToast] = useState(false);
   const [streak, setStreak] = useState(0);
+  const ideaSaveTimer = useRef<number | null>(null);
 
   const refresh = useCallback((date: string) => {
     const store = loadStore();
     const entry = getOrCreateDay(store, date);
     if (!store.days[date]) upsertDay(store, entry);
     setDay(entry);
+    setIdeaLot(store.ideaLot ?? "");
     setStreak(getRealmStreaks(store, todayKey()).personal);
   }, []);
 
@@ -40,13 +49,17 @@ export default function PersonalApp() {
   }, [selectedDate, refresh]);
 
   const persist = useCallback((next: DayEntry) => {
-    const store = loadStore();
-    upsertDay(store, next);
+    upsertDay(loadStore(), next);
     setDay(next);
-    setStreak(getRealmStreaks(store, todayKey()).personal);
+    setStreak(getRealmStreaks(loadStore(), todayKey()).personal);
     setToast(true);
     window.setTimeout(() => setToast(false), 900);
   }, []);
+
+  const plan = useMemo(
+    () => getHuntPlanForDate(selectedDate),
+    [selectedDate],
+  );
 
   const recent = useMemo(() => {
     if (!ready) return [];
@@ -64,38 +77,45 @@ export default function PersonalApp() {
     );
   }
 
-  const personalGoal = day.goals.find((goal) => goal.category === "personal");
-  const checklist = day.dailyChecklist;
+  const currentDay = day;
+  const hunt = currentDay.huntChecklist ?? [];
+  const nextAction = getNextHuntAction(hunt);
+  const huntDone = hunt.filter((item) => item.done).length;
+  const isToday = selectedDate === todayKey();
+  const checklist = currentDay.dailyChecklist;
   const checklistDone = checklist.filter((item) => item.done).length;
 
-  function updateFocus(text: string) {
-    if (!personalGoal || !day) return;
+  function toggleHuntItem(item: ChecklistItem) {
     persist({
-      ...day,
-      goals: day.goals.map((goal) =>
-        goal.id === personalGoal.id ? { ...goal, text } : goal
+      ...currentDay,
+      huntChecklist: hunt.map((row) =>
+        row.id === item.id ? { ...row, done: !row.done } : row,
       ),
     });
   }
 
-  function toggleFocusDone() {
-    if (!personalGoal || !day) return;
-    persist({
-      ...day,
-      goals: day.goals.map((goal) =>
-        goal.id === personalGoal.id ? { ...goal, done: !goal.done } : goal
-      ),
-    });
+  function completeNext() {
+    if (!nextAction) return;
+    toggleHuntItem(nextAction);
   }
 
   function toggleChecklistItem(item: ChecklistItem) {
-    if (!day) return;
     persist({
-      ...day,
-      dailyChecklist: day.dailyChecklist.map((row) =>
-        row.id === item.id ? { ...row, done: !row.done } : row
+      ...currentDay,
+      dailyChecklist: currentDay.dailyChecklist.map((row) =>
+        row.id === item.id ? { ...row, done: !row.done } : row,
       ),
     });
+  }
+
+  function updateIdeaLot(text: string) {
+    setIdeaLot(text);
+    if (ideaSaveTimer.current) window.clearTimeout(ideaSaveTimer.current);
+    ideaSaveTimer.current = window.setTimeout(() => {
+      saveIdeaLot(text);
+      setToast(true);
+      window.setTimeout(() => setToast(false), 900);
+    }, 400);
   }
 
   return (
@@ -104,7 +124,10 @@ export default function PersonalApp() {
         <div>
           <p className="hq-eyebrow">Personal command center</p>
           <h2>{formatDisplayDate(selectedDate)}</h2>
-          <p>One focus. Six personal pillars. A note for the day.</p>
+          <p>
+            One next action. Park every other idea. Find work without getting
+            lost.
+          </p>
         </div>
         <div className="personal-intro-side">
           <div className="streak-tile personal-streak" aria-label="Personal streak">
@@ -142,41 +165,95 @@ export default function PersonalApp() {
         </div>
       </div>
 
+      <section className="hunt-coach" aria-label="Do this next">
+        <div className="hunt-coach-top">
+          <p className="hq-eyebrow">Do this next</p>
+          <span className="panel-meta">
+            {huntDone}/{hunt.length} · {plan.name}
+          </span>
+        </div>
+
+        {nextAction ? (
+          <>
+            <h3 className="hunt-next-label">{nextAction.label}</h3>
+            <p className="hunt-mission">
+              <strong>Today&apos;s mission:</strong> {plan.mission}
+            </p>
+            <p className="hunt-why">{plan.why}</p>
+            <div className="hunt-actions">
+              <button
+                type="button"
+                className="btn primary"
+                onClick={completeNext}
+                disabled={!isToday}
+              >
+                I did this
+              </button>
+              <Link href={plan.salesHref} className="btn">
+                Open Sales
+              </Link>
+            </div>
+            {!isToday ? (
+              <p className="hunt-note">
+                Viewing another day — switch to Today to check items off.
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <h3 className="hunt-next-label">You cleared today&apos;s hunt list.</h3>
+            <p className="hunt-mission">
+              Mission was: {plan.mission} Protect the win. Do not invent a new
+              project tonight.
+            </p>
+            <div className="hunt-actions">
+              <Link href={plan.salesHref} className="btn primary">
+                Review Sales
+              </Link>
+            </div>
+          </>
+        )}
+
+        <ul className="checklist hunt-checklist">
+          {hunt.map((item) => (
+            <li key={item.id}>
+              <label className={`check-row ${item.done ? "done" : ""}`}>
+                <input
+                  type="checkbox"
+                  checked={item.done}
+                  disabled={!isToday}
+                  onChange={() => toggleHuntItem(item)}
+                />
+                <span>{item.label}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </section>
+
       <div className="content-grid personal-grid">
-        <section className="panel focus-panel">
+        <section className="panel parking-panel">
           <div className="panel-head">
-            <h2 className="panel-title">Today&apos;s focus</h2>
-            <span className="panel-meta">
-              {personalGoal?.done ? "Done" : "In progress"}
-            </span>
+            <h2 className="panel-title">Idea parking lot</h2>
+            <span className="panel-meta">Dump it · stay on mission</span>
           </div>
-          <label className="field-label" htmlFor="personal-focus">
-            What deserves your attention?
-          </label>
+          <p className="hunt-why">
+            New idea popped up? Write it here and go back to{" "}
+            <strong>Do this next</strong>. Do not start building it.
+          </p>
           <textarea
-            id="personal-focus"
-            className="field focus-field"
-            value={personalGoal?.text ?? ""}
-            onChange={(event) => updateFocus(event.target.value)}
-            placeholder="Name the personal focus for this day…"
+            className="field textarea journal-field"
+            placeholder="Website colors, new app feature, random business idea…"
+            value={ideaLot}
+            onChange={(event) => updateIdeaLot(event.target.value)}
           />
-          <label
-            className={`check-row focus-done-row ${personalGoal?.done ? "done" : ""}`}
-          >
-            <input
-              type="checkbox"
-              checked={Boolean(personalGoal?.done)}
-              onChange={toggleFocusDone}
-            />
-            <span>Mark focus done for today</span>
-          </label>
         </section>
 
         <section className="panel checklist-panel">
           <div className="panel-head">
             <h2 className="panel-title">Daily pillars</h2>
             <span className="panel-meta">
-              {checklistDone}/{checklist.length} · personal only
+              {checklistDone}/{checklist.length} · after the hunt
             </span>
           </div>
           <ul className="checklist">
@@ -202,10 +279,10 @@ export default function PersonalApp() {
           </div>
           <textarea
             className="field textarea journal-field"
-            placeholder="What are you thinking, learning, or carrying today?"
-            value={day.personalNotes}
+            placeholder="What happened on the hunt? Who answered? What hurt?"
+            value={currentDay.personalNotes}
             onChange={(event) =>
-              persist({ ...day, personalNotes: event.target.value })
+              persist({ ...currentDay, personalNotes: event.target.value })
             }
           />
         </section>

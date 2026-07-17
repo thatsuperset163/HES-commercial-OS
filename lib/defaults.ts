@@ -6,6 +6,7 @@ import type {
 } from "./types";
 import { EMPTY_METRICS } from "./types";
 import { PERSONAL_PILLAR_IDS, PERSONAL_PILLARS } from "./personalPillars";
+import { normalizeHuntChecklist } from "./huntCoach";
 
 export { PERSONAL_PILLAR_IDS, PERSONAL_PILLARS } from "./personalPillars";
 
@@ -427,6 +428,7 @@ export function createDayEntry(date: string): DayEntry {
     morningWorkChecklist: buildMorningWorkChecklist(date),
     afternoonWorkChecklist: withDone(AFTERNOON_WORK_DEFAULTS),
     outreach: pickDailyOutreach(date),
+    huntChecklist: normalizeHuntChecklist(date, undefined),
     goals: pickDailyGoals(date),
     metrics: { ...EMPTY_METRICS },
     notes: "",
@@ -457,6 +459,7 @@ export function normalizeDayEntry(entry: DayEntry): DayEntry {
       ? entry.afternoonWorkChecklist
       : fresh.afternoonWorkChecklist,
     outreach: normalizeOutreach(entry.date, entry.outreach),
+    huntChecklist: normalizeHuntChecklist(entry.date, entry.huntChecklist),
     goals: normalizeGoals(entry.date, entry.goals),
     metrics: { ...EMPTY_METRICS, ...entry.metrics },
     notes: entry.notes ?? "",
