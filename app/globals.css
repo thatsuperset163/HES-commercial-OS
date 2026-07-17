@@ -1734,8 +1734,76 @@ a.tab {
   border-top: var(--hairline) solid var(--line);
 }
 
+.hunt-step-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+.hunt-step-link:hover {
+  color: var(--color-primary);
+}
+
 .parking-panel {
   grid-column: 1 / -1;
+}
+
+.pipeline-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: 0.55rem;
+  margin: 0 0 1rem;
+}
+
+.pipeline-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.7rem 0.75rem;
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+  min-height: 4.5rem;
+}
+
+.pipeline-chip:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 45%, var(--line));
+}
+
+.pipeline-chip-label {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pipeline-chip strong {
+  font-size: 1.25rem;
+  line-height: 1.1;
+}
+
+.pipeline-chip-attn {
+  color: var(--color-warning);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.pipeline-chip-attn.muted {
+  color: var(--muted);
+}
+
+.hq-pipeline {
+  margin-bottom: 1rem;
+}
+
+.hq-work-next-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+  font-weight: 700;
 }
 
 .personal-streak {

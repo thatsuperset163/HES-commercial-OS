@@ -1,10 +1,29 @@
-import type { BoardStore, DayEntry, Job } from "./types";
+import type {
+  BoardStore,
+  DayEntry,
+  ExpenseDoc,
+  InvoiceDoc,
+  Job,
+  QuoteDoc,
+  ServiceRequest,
+  WorkClient,
+  WorkTask,
+} from "./types";
 import {
   createDayEntry,
   needsMorningRebuild,
   normalizeDayEntry,
 } from "./defaults";
 import { normalizeJobs } from "./jobs/model";
+import {
+  mergeByUpdatedAt,
+  normalizeClients,
+  normalizeExpenses,
+  normalizeInvoices,
+  normalizeQuotes,
+  normalizeRequests,
+  normalizeTasks,
+} from "./work/model";
 
 const STORAGE_KEY = "hes-blackboard-v1";
 const CLOUD_ENDPOINT = "/api/blackboard/state";
@@ -26,8 +45,52 @@ let localOnlyAlerted = false;
 let saveErrorAlerted = false;
 const statusListeners = new Set<(status: BlackboardCloudStatus) => void>();
 
+function emptyPipeline() {
+  return {
+    clients: [] as WorkClient[],
+    requests: [] as ServiceRequest[],
+    tasks: [] as WorkTask[],
+    quotes: [] as QuoteDoc[],
+    invoices: [] as InvoiceDoc[],
+    expenses: [] as ExpenseDoc[],
+  };
+}
+
 function emptyStore(): BoardStore {
-  return { days: {}, jobs: [], ideaLot: "" };
+  return { days: {}, jobs: [], ...emptyPipeline(), ideaLot: "" };
+}
+
+function packStore(store: BoardStore): BoardStore {
+  return {
+    days: store.days,
+    jobs: normalizeJobs(store.jobs),
+    clients: normalizeClients(store.clients),
+    requests: normalizeRequests(store.requests),
+    tasks: normalizeTasks(store.tasks),
+    quotes: normalizeQuotes(store.quotes),
+    invoices: normalizeInvoices(store.invoices),
+    expenses: normalizeExpenses(store.expenses),
+    ideaLot: store.ideaLot ?? "",
+  };
+}
+
+function withPipeline(
+  base: BoardStore,
+  patch: Partial<BoardStore>,
+): BoardStore {
+  return packStore({
+    ...base,
+    ...patch,
+    days: patch.days ?? base.days,
+    jobs: patch.jobs ?? base.jobs,
+    clients: patch.clients ?? base.clients,
+    requests: patch.requests ?? base.requests,
+    tasks: patch.tasks ?? base.tasks,
+    quotes: patch.quotes ?? base.quotes,
+    invoices: patch.invoices ?? base.invoices,
+    expenses: patch.expenses ?? base.expenses,
+    ideaLot: patch.ideaLot ?? base.ideaLot ?? "",
+  });
 }
 
 function setCloudStatus(next: BlackboardCloudStatus): void {
@@ -73,14 +136,33 @@ function normalizeStore(value: unknown): BoardStore | null {
   if (!value || typeof value !== "object") return null;
   const days = (value as { days?: unknown }).days;
   if (!days || typeof days !== "object" || Array.isArray(days)) return null;
-  const jobs = normalizeJobs((value as { jobs?: unknown }).jobs);
-  const ideaLotRaw = (value as { ideaLot?: unknown }).ideaLot;
-  const ideaLot = typeof ideaLotRaw === "string" ? ideaLotRaw : "";
-  return { days: days as BoardStore["days"], jobs, ideaLot };
+  const raw = value as Record<string, unknown>;
+  const ideaLot = typeof raw.ideaLot === "string" ? raw.ideaLot : "";
+  return {
+    days: days as BoardStore["days"],
+    jobs: normalizeJobs(raw.jobs),
+    clients: normalizeClients(raw.clients),
+    requests: normalizeRequests(raw.requests),
+    tasks: normalizeTasks(raw.tasks),
+    quotes: normalizeQuotes(raw.quotes),
+    invoices: normalizeInvoices(raw.invoices),
+    expenses: normalizeExpenses(raw.expenses),
+    ideaLot,
+  };
 }
 
 function storeHasData(store: BoardStore): boolean {
-  return Object.keys(store.days).length > 0 || store.jobs.length > 0;
+  return (
+    Object.keys(store.days).length > 0 ||
+    store.jobs.length > 0 ||
+    store.clients.length > 0 ||
+    store.requests.length > 0 ||
+    store.tasks.length > 0 ||
+    store.quotes.length > 0 ||
+    store.invoices.length > 0 ||
+    store.expenses.length > 0 ||
+    Boolean(store.ideaLot?.trim())
+  );
 }
 
 function newerIso(a: string | undefined, b: string | undefined): boolean {
@@ -103,26 +185,18 @@ function mergeDays(
   return out;
 }
 
-function mergeJobs(local: Job[], cloud: Job[]): Job[] {
-  const map = new Map<string, Job>();
-  for (const job of local) map.set(job.id, job);
-  for (const job of cloud) {
-    const existing = map.get(job.id);
-    if (!existing || newerIso(job.updatedAt, existing.updatedAt)) {
-      map.set(job.id, job);
-    }
-  }
-  return [...map.values()].sort((a, b) =>
-    newerIso(b.updatedAt, a.updatedAt) ? 1 : -1,
-  );
-}
-
 function mergeStores(local: BoardStore, cloud: BoardStore): BoardStore {
   const localIdea = local.ideaLot?.trim() ?? "";
   const cloudIdea = cloud.ideaLot?.trim() ?? "";
   return {
     days: mergeDays(local.days, cloud.days),
-    jobs: mergeJobs(local.jobs, cloud.jobs),
+    jobs: mergeByUpdatedAt(local.jobs, cloud.jobs),
+    clients: mergeByUpdatedAt(local.clients, cloud.clients),
+    requests: mergeByUpdatedAt(local.requests, cloud.requests),
+    tasks: mergeByUpdatedAt(local.tasks, cloud.tasks),
+    quotes: mergeByUpdatedAt(local.quotes, cloud.quotes),
+    invoices: mergeByUpdatedAt(local.invoices, cloud.invoices),
+    expenses: mergeByUpdatedAt(local.expenses, cloud.expenses),
     ideaLot: localIdea || cloudIdea,
   };
 }
@@ -204,11 +278,7 @@ export function loadStore(): BoardStore {
 }
 
 export function saveStore(store: BoardStore): void {
-  const normalized = {
-    days: store.days,
-    jobs: normalizeJobs(store.jobs),
-    ideaLot: store.ideaLot ?? "",
-  };
+  const normalized = packStore(store);
   saveLocalStore(normalized);
   scheduleCloudSave(normalized);
 }
@@ -353,20 +423,23 @@ export function getOrCreateDay(store: BoardStore, date: string): DayEntry {
 
 export function upsertDay(store: BoardStore, entry: DayEntry): BoardStore {
   const current = loadStore();
-  const next: BoardStore = {
-    days: {
-      ...current.days,
-      ...store.days,
-      [entry.date]: {
-        ...entry,
-        updatedAt: new Date().toISOString(),
+  return saveStoreReturn(
+    withPipeline(current, {
+      days: {
+        ...current.days,
+        ...store.days,
+        [entry.date]: {
+          ...entry,
+          updatedAt: new Date().toISOString(),
+        },
       },
-    },
-    jobs: normalizeJobs(store.jobs ?? current.jobs),
-    ideaLot: store.ideaLot ?? current.ideaLot ?? "",
-  };
-  saveStore(next);
-  return next;
+    }),
+  );
+}
+
+function saveStoreReturn(store: BoardStore): BoardStore {
+  saveStore(store);
+  return packStore(store);
 }
 
 export function listJobs(store?: BoardStore): Job[] {
@@ -375,24 +448,12 @@ export function listJobs(store?: BoardStore): Job[] {
 
 export function saveJobs(jobs: Job[], store?: BoardStore): BoardStore {
   const current = store ?? loadStore();
-  const next: BoardStore = {
-    days: current.days,
-    jobs: normalizeJobs(jobs),
-    ideaLot: current.ideaLot ?? "",
-  };
-  saveStore(next);
-  return next;
+  return saveStoreReturn(withPipeline(current, { jobs }));
 }
 
 export function saveIdeaLot(text: string, store?: BoardStore): BoardStore {
   const current = store ?? loadStore();
-  const next: BoardStore = {
-    days: current.days,
-    jobs: current.jobs,
-    ideaLot: text,
-  };
-  saveStore(next);
-  return next;
+  return saveStoreReturn(withPipeline(current, { ideaLot: text }));
 }
 
 export function upsertJob(job: Job, store?: BoardStore): BoardStore {
@@ -411,6 +472,132 @@ export function removeJob(jobId: string, store?: BoardStore): BoardStore {
   return saveJobs(
     listJobs(current).filter((job) => job.id !== jobId),
     current,
+  );
+}
+
+function upsertList<T extends { id: string }>(
+  list: T[],
+  row: T,
+): T[] {
+  const index = list.findIndex((item) => item.id === row.id);
+  if (index >= 0) return list.map((item) => (item.id === row.id ? row : item));
+  return [row, ...list];
+}
+
+export function listClients(store?: BoardStore): WorkClient[] {
+  return normalizeClients((store ?? loadStore()).clients);
+}
+export function upsertClient(row: WorkClient, store?: BoardStore): BoardStore {
+  const current = store ?? loadStore();
+  return saveStoreReturn(
+    withPipeline(current, { clients: upsertList(listClients(current), row) }),
+  );
+}
+export function removeClient(id: string, store?: BoardStore): BoardStore {
+  const current = store ?? loadStore();
+  return saveStoreReturn(
+    withPipeline(current, {
+      clients: listClients(current).filter((row) => row.id !== id),
+    }),
+  );
+}
+
+export function listRequests(store?: BoardStore): ServiceRequest[] {
+  return normalizeRequests((store ?? loadStore()).requests);
+}
+export function upsertRequest(
+  row: ServiceRequest,
+  store?: BoardStore,
+): BoardStore {
+  const current = store ?? loadStore();
+  return saveStoreReturn(
+    withPipeline(current, {
+      requests: upsertList(listRequests(current), row),
+    }),
+  );
+}
+export function removeRequest(id: string, store?: BoardStore): BoardStore {
+  const current = store ?? loadStore();
+  return saveStoreReturn(
+    withPipeline(current, {
+      requests: listRequests(current).filter((row) => row.id !== id),
+    }),
+  );
+}
+
+export function listTasks(store?: BoardStore): WorkTask[] {
+  return normalizeTasks((store ?? loadStore()).tasks);
+}
+export function upsertTask(row: WorkTask, store?: BoardStore): BoardStore {
+  const current = store ?? loadStore();
+  return saveStoreReturn(
+    withPipeline(current, { tasks: upsertList(listTasks(current), row) }),
+  );
+}
+export function removeTask(id: string, store?: BoardStore): BoardStore {
+  const current = store ?? loadStore();
+  return saveStoreReturn(
+    withPipeline(current, {
+      tasks: listTasks(current).filter((row) => row.id !== id),
+    }),
+  );
+}
+
+export function listQuotes(store?: BoardStore): QuoteDoc[] {
+  return normalizeQuotes((store ?? loadStore()).quotes);
+}
+export function upsertQuote(row: QuoteDoc, store?: BoardStore): BoardStore {
+  const current = store ?? loadStore();
+  return saveStoreReturn(
+    withPipeline(current, { quotes: upsertList(listQuotes(current), row) }),
+  );
+}
+export function removeQuote(id: string, store?: BoardStore): BoardStore {
+  const current = store ?? loadStore();
+  return saveStoreReturn(
+    withPipeline(current, {
+      quotes: listQuotes(current).filter((row) => row.id !== id),
+    }),
+  );
+}
+
+export function listInvoices(store?: BoardStore): InvoiceDoc[] {
+  return normalizeInvoices((store ?? loadStore()).invoices);
+}
+export function upsertInvoice(row: InvoiceDoc, store?: BoardStore): BoardStore {
+  const current = store ?? loadStore();
+  return saveStoreReturn(
+    withPipeline(current, {
+      invoices: upsertList(listInvoices(current), row),
+    }),
+  );
+}
+export function removeInvoice(id: string, store?: BoardStore): BoardStore {
+  const current = store ?? loadStore();
+  return saveStoreReturn(
+    withPipeline(current, {
+      invoices: listInvoices(current).filter((row) => row.id !== id),
+    }),
+  );
+}
+
+export function listExpenses(store?: BoardStore): ExpenseDoc[] {
+  return normalizeExpenses((store ?? loadStore()).expenses);
+}
+export function upsertExpense(row: ExpenseDoc, store?: BoardStore): BoardStore {
+  const current = store ?? loadStore();
+  return saveStoreReturn(
+    withPipeline(current, {
+      expenses: upsertList(listExpenses(current), row),
+    }),
+  );
+}
+export function removeExpense(id: string, store?: BoardStore): BoardStore {
+  const current = store ?? loadStore();
+  return saveStoreReturn(
+    withPipeline(current, {
+      expenses: listExpenses(current).filter((row) => row.id !== id),
+    }),
   );
 }
 

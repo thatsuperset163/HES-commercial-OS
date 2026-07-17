@@ -1,6 +1,23 @@
 import type { Job } from "./jobs/types";
+import type {
+  ExpenseDoc,
+  InvoiceDoc,
+  QuoteDoc,
+  ServiceRequest,
+  WorkClient,
+  WorkTask,
+} from "./work/types";
 
 export type { Job, JobStatus, JobInput } from "./jobs/types";
+export type {
+  ExpenseDoc,
+  InvoiceDoc,
+  QuoteDoc,
+  ServiceRequest,
+  WorkClient,
+  WorkDeskId,
+  WorkTask,
+} from "./work/types";
 
 export type MetricKey =
   | "doors"
@@ -59,6 +76,12 @@ export type BoardStore = {
   days: Record<string, DayEntry>;
   /** Jobs OS entities — synced with blackboard cloud state. */
   jobs: Job[];
+  clients: WorkClient[];
+  requests: ServiceRequest[];
+  tasks: WorkTask[];
+  quotes: QuoteDoc[];
+  invoices: InvoiceDoc[];
+  expenses: ExpenseDoc[];
   /** ADHD idea parking lot — capture distractions without switching tasks. */
   ideaLot?: string;
 };

@@ -40,7 +40,16 @@ export async function GET() {
 
   return NextResponse.json({
     ok: true,
-    state: data?.state ?? { days: {}, jobs: [] },
+    state: data?.state ?? {
+      days: {},
+      jobs: [],
+      clients: [],
+      requests: [],
+      tasks: [],
+      quotes: [],
+      invoices: [],
+      expenses: [],
+    },
     updatedAt: data?.updated_at ?? null,
     durable: supabaseServiceRoleConfigured(),
   });
@@ -81,6 +90,27 @@ export async function PUT(request: Request) {
       { ok: false, reason: "invalid_jobs_state" },
       { status: 400 },
     );
+  }
+
+  const pipelineKeys = [
+    "clients",
+    "requests",
+    "tasks",
+    "quotes",
+    "invoices",
+    "expenses",
+  ] as const;
+  for (const key of pipelineKeys) {
+    const value =
+      state && typeof state === "object"
+        ? (state as Record<string, unknown>)[key]
+        : undefined;
+    if (value !== undefined && !Array.isArray(value)) {
+      return NextResponse.json(
+        { ok: false, reason: `invalid_${key}_state` },
+        { status: 400 },
+      );
+    }
   }
 
   const updatedAt = new Date().toISOString();

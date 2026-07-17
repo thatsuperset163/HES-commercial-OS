@@ -8,6 +8,10 @@ import { formatDisplayDate, formatShortDate, todayKey } from "@/lib/dates";
 import { getLastNDayCharts } from "@/lib/charts";
 import { getRealmStreaks } from "@/lib/progress";
 import { getOrCreateDay, hydrateStoreFromCloud, loadStore, upsertDay } from "@/lib/storage";
+import {
+  buildPipelineCounts,
+  buildPipelineNextActions,
+} from "@/lib/work/pipeline";
 import AppShell from "./AppShell";
 import { BarChart } from "./BarChart";
 
@@ -42,9 +46,13 @@ export default function HomeApp() {
       .filter((entry) => entry.date !== date && (entry.notes?.trim() || entry.personalNotes?.trim()))
       .sort((a, b) => (a.date < b.date ? 1 : -1))
       .slice(0, 4);
+    const pipeline = buildPipelineCounts(store);
+    const workActions = buildPipelineNextActions(store);
     return {
       charts,
       recent,
+      pipeline,
+      workTop: workActions[0] ?? null,
       personalStreak: getRealmStreaks(store, date).personal,
       totals: {
         doors: charts.reduce((sum, point) => sum + point.doors, 0),
@@ -88,13 +96,41 @@ export default function HomeApp() {
           ))}
         </section>
 
+        <section className="pipeline-strip hq-pipeline" aria-label="Work pipeline">
+          {snapshot.pipeline.map((item) => (
+            <Link key={item.id} href={item.href} className="pipeline-chip">
+              <span className="pipeline-chip-label">{item.label}</span>
+              <strong>{item.count}</strong>
+              {item.attention > 0 ? (
+                <span className="pipeline-chip-attn">{item.attention} open</span>
+              ) : (
+                <span className="pipeline-chip-attn muted">Clear</span>
+              )}
+            </Link>
+          ))}
+        </section>
+
+        {snapshot.workTop ? (
+          <section className="hq-card hq-work-next">
+            <div className="hq-section-head">
+              <h2>Work · do this next</h2>
+              <span className="hq-pill">Live</span>
+            </div>
+            <p className="hq-work-next-title">{snapshot.workTop.title}</p>
+            <p>{snapshot.workTop.reason}</p>
+            <Link href={snapshot.workTop.href} className="hq-link">
+              Open in Work →
+            </Link>
+          </section>
+        ) : null}
+
         <div className="hq-split">
           <section className="hq-card focus-summary">
             <div className="hq-section-head"><h2>Current focus</h2><span className="hq-pill">Today</span></div>
             <div className="hq-focus-grid">
               <article className="hq-focus-card">
                 <span className="hq-kicker">Personal</span>
-                <p>{personalFocus || "Set today’s personal direction."}</p>
+                <p>{personalFocus || "Open Personal for today’s hunt coach."}</p>
                 <p className="hq-focus-meta">
                   {personalGoal?.done ? "Focus done · " : ""}
                   Checklist {personalChecklistDone}/{personalChecklistTotal}
@@ -104,7 +140,7 @@ export default function HomeApp() {
               </article>
               <article className="hq-focus-card">
                 <span className="hq-kicker">Work</span>
-                <p>{workFocus || "Set today’s work priority."}</p>
+                <p>{workFocus || snapshot.workTop?.title || "Open Work and pick a desk."}</p>
                 <Link href="/work" className="hq-link">Open Work →</Link>
               </article>
             </div>
@@ -113,7 +149,10 @@ export default function HomeApp() {
           <section className="hq-card sales-launch">
             <p className="hq-eyebrow">Work operating systems</p>
             <h2>Get to work, Son</h2>
-            <p>Peer OSes for pipeline, field jobs, cash, leads, and reputation.</p>
+            <p>
+              Requests, clients, quotes, jobs, invoices, tasks, and expenses —
+              live under Work, visible here.
+            </p>
             <Link href="/work" className="hq-btn">Open Work →</Link>
           </section>
         </div>
