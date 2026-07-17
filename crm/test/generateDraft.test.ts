@@ -40,7 +40,8 @@ test('generates first outreach email from prospect card fields', () => {
   assert.match(draft.body, /Austin/)
   assert.match(draft.body, /Pressure Washing|pressure washing/i)
   assert.match(draft.body, /staining|curb appeal/i)
-  assert.match(draft.mailtoHref, /^mailto:jordan@oakridge\.com/)
+  assert.match(draft.gmailHref, /^https:\/\/mail\.google\.com\/mail\/\?/)
+  assert.match(draft.gmailHref, /jordan%40oakridge\.com|jordan@oakridge\.com/)
   assert.ok(draft.contextLines.some((line) => line.includes('jordan@oakridge.com')))
 })
 
@@ -80,7 +81,7 @@ test('flags missing email instead of inventing one', () => {
   )
 
   assert.equal(draft.to, '')
-  assert.equal(draft.mailtoHref, '')
+  assert.equal(draft.gmailHref, '')
   assert.ok(draft.missing.includes('email address'))
   assert.match(draft.body, /No Email LLC/)
 })

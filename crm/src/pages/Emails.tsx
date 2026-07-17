@@ -4,15 +4,14 @@ import { useSales } from '../store/SalesContext'
 import {
   followUpBody,
   followUpSubject,
-  personalize,
   withEmailSignature,
-  defaultTemplateBody,
   EMAIL_SIGNATURE,
   serviceLabels,
 } from '../lib/templates'
 import {
   actionGenerateLabel,
   generateActionDraft,
+  gmailComposeHref,
 } from '../lib/generateDraft'
 import {
   formatDate,
@@ -85,7 +84,7 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function Emails() {
-  const { state, saveTemplate, deleteTemplate, markEmailSent, logCall } = useSales()
+  const { state, markEmailSent, logCall } = useSales()
   const [params, setParams] = useSearchParams()
   const initialProspect = params.get('prospect') ?? state.prospects[0]?.id ?? ''
   const initialSent = params.get('sent')
@@ -93,7 +92,6 @@ export function Emails() {
   const generateKind = asTaskKind(params.get('kind'))
 
   const [prospectId, setProspectId] = useState(initialProspect)
-  const [templateId, setTemplateId] = useState('')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState(() =>
     params.get('prospect') && !params.get('sent') && !shouldGenerate
@@ -103,10 +101,6 @@ export function Emails() {
   const [draftMeta, setDraftMeta] = useState<ReturnType<
     typeof generateActionDraft
   > | null>(null)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [tplName, setTplName] = useState('')
-  const [tplSubject, setTplSubject] = useState('')
-  const [tplBody, setTplBody] = useState('')
   const [copied, setCopied] = useState(false)
   const [logged, setLogged] = useState(false)
   const [selectedSentId, setSelectedSentId] = useState<string | null>(initialSent)
@@ -169,7 +163,6 @@ export function Emails() {
     setDraftMeta(draft)
     setSubject(draft.subject)
     setBody(draft.body)
-    setTemplateId('')
     setCopied(false)
     setLogged(false)
   }
@@ -198,50 +191,6 @@ export function Emails() {
     setParams(next, { replace: true })
   }
 
-  function applyTemplate(id: string) {
-    const tpl = state.templates.find((t) => t.id === id)
-    if (!tpl || !prospect || !id) return
-    setTemplateId(id)
-    setSubject(personalize(tpl.subject, prospect))
-    setBody(personalize(tpl.body, prospect))
-    setDraftMeta(null)
-    setCopied(false)
-    setLogged(false)
-  }
-
-  function startEdit(id?: string) {
-    if (id) {
-      const tpl = state.templates.find((t) => t.id === id)
-      if (!tpl) return
-      setEditingId(id)
-      setTplName(tpl.name)
-      setTplSubject(tpl.subject)
-      setTplBody(withEmailSignature(tpl.body))
-    } else {
-      setEditingId('new')
-      setTplName('')
-      setTplSubject('Exterior cleaning for {{businessName}}')
-      setTplBody(defaultTemplateBody())
-    }
-  }
-
-  function saveTpl(e: React.FormEvent) {
-    e.preventDefault()
-    const saved = saveTemplate({
-      id: editingId === 'new' ? undefined : editingId ?? undefined,
-      name: tplName,
-      subject: tplSubject,
-      body: withEmailSignature(tplBody),
-    })
-    setEditingId(null)
-    setTemplateId(saved.id)
-    if (prospect) {
-      setSubject(personalize(saved.subject, prospect))
-      setBody(personalize(saved.body, prospect))
-      setDraftMeta(null)
-    }
-  }
-
   const isScript =
     draftMeta?.channel === 'call' || draftMeta?.channel === 'visit'
   const composerTitle = isScript
@@ -249,6 +198,11 @@ export function Emails() {
       ? 'Call script'
       : 'Visit brief'
     : 'Email draft'
+
+  const gmailHref =
+    !isScript && prospect?.email
+      ? gmailComposeHref(prospect.email, subject, body)
+      : ''
 
   const location = prospect
     ? [prospect.address, prospect.city, prospect.state].filter(Boolean).join(', ')
@@ -261,7 +215,7 @@ export function Emails() {
           <p className="eyebrow">Outreach</p>
           <h1>Emails</h1>
           <p className="lede">
-            Write from the prospect brief — generate, copy, send, and log.
+            Generate from the prospect brief, open in Gmail, then mark sent.
           </p>
         </div>
       </header>
@@ -475,7 +429,13 @@ export function Emails() {
             <p className="composer-to">
               To:{' '}
               {prospect.email ? (
-                <a href={`mailto:${prospect.email}`}>{prospect.email}</a>
+                <a
+                  href={gmailComposeHref(prospect.email, subject || '', body || '')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {prospect.email}
+                </a>
               ) : (
                 <em>No email on file</em>
               )}
@@ -491,95 +451,6 @@ export function Emails() {
               Missing on card: {draftMeta.missing.join(', ')}. Draft still
               generated — fill those fields for better outreach.
             </p>
-          )}
-
-          <div className="template-row">
-            <label className="lbl grow">
-              Template <span className="opt">Optional</span>
-              <select
-                className="field"
-                value={templateId}
-                onChange={(e) => {
-                  const id = e.target.value
-                  setTemplateId(id)
-                  if (id) applyTemplate(id)
-                }}
-              >
-                <option value="">None — use Generate</option>
-                {state.templates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              className="btn secondary"
-              onClick={() => startEdit(templateId || undefined)}
-            >
-              {templateId ? 'Edit template' : 'New template'}
-            </button>
-            {templateId && (
-              <button
-                type="button"
-                className="btn ghost"
-                onClick={() => {
-                  if (confirm('Delete this template?')) {
-                    deleteTemplate(templateId)
-                    setTemplateId('')
-                  }
-                }}
-              >
-                Delete
-              </button>
-            )}
-          </div>
-
-          {editingId && (
-            <form className="tpl-edit" onSubmit={saveTpl}>
-              <label className="lbl">
-                Name
-                <input
-                  className="field"
-                  value={tplName}
-                  onChange={(e) => setTplName(e.target.value)}
-                  required
-                />
-              </label>
-              <label className="lbl">
-                Subject
-                <input
-                  className="field"
-                  value={tplSubject}
-                  onChange={(e) => setTplSubject(e.target.value)}
-                  required
-                />
-              </label>
-              <label className="lbl">
-                Body (use {'{{businessName}}'}, {'{{decisionMaker}}'},{' '}
-                {'{{services}}'}, {'{{propertyNotes}}'}, {'{{signature}}'}, …)
-                <textarea
-                  className="field"
-                  rows={7}
-                  value={tplBody}
-                  onChange={(e) => setTplBody(e.target.value)}
-                  required
-                />
-              </label>
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="btn secondary"
-                  onClick={() => setEditingId(null)}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn">
-                  Save template
-                </button>
-              </div>
-            </form>
           )}
 
           {!isScript && (
@@ -604,9 +475,14 @@ export function Emails() {
           </label>
 
           <div className="composer-foot">
-            {draftMeta?.mailtoHref && (
-              <a className="btn" href={draftMeta.mailtoHref}>
-                Open in mail app
+            {gmailHref && (
+              <a
+                className="btn"
+                href={gmailHref}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open in Gmail
               </a>
             )}
             {isScript && draftMeta?.channel === 'call' && prospect && (
@@ -643,7 +519,7 @@ export function Emails() {
                     prospectId: prospect!.id,
                     subject: subject || '(no subject)',
                     body: withEmailSignature(body),
-                    templateId: templateId || null,
+                    templateId: null,
                   })
                   setLogged(true)
                   setBody(withEmailSignature(body))
@@ -733,7 +609,6 @@ export function Emails() {
                       ),
                     )
                     setBody(followUpBody(selectedProspect, selectedSent.body))
-                    setTemplateId('')
                     setDraftMeta(null)
                     setCopied(false)
                     setLogged(false)
