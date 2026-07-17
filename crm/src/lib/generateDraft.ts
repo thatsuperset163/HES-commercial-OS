@@ -23,7 +23,8 @@ export interface GeneratedDraft {
   phone: string
   subject: string
   body: string
-  mailtoHref: string
+  /** Opens Gmail compose in the browser with To / subject / body filled. */
+  gmailHref: string
   contextLines: string[]
   missing: string[]
 }
@@ -233,12 +234,17 @@ function visitBrief(p: Prospect): string {
     .join('\n')
 }
 
-function mailtoHref(to: string, subject: string, body: string) {
-  const params = new URLSearchParams()
-  if (subject) params.set('subject', subject)
-  if (body) params.set('body', body)
-  const query = params.toString()
-  return `mailto:${to}${query ? `?${query}` : ''}`
+/** Gmail web compose — uses the Google account already signed into the browser. */
+export function gmailComposeHref(to: string, subject: string, body: string) {
+  if (!to.trim()) return ''
+  const params = new URLSearchParams({
+    view: 'cm',
+    fs: '1',
+    to: to.trim(),
+    su: subject,
+    body,
+  })
+  return `https://mail.google.com/mail/?${params.toString()}`
 }
 
 /** Build a ready-to-send outreach draft from the prospect card. */
@@ -265,6 +271,7 @@ export function generateActionDraft(
 
   if (channel === 'call') {
     const script = callScript(prospect)
+    const email = emailBodies(prospect, 'call')
     return {
       intent,
       kind,
@@ -274,13 +281,7 @@ export function generateActionDraft(
       phone,
       subject: `Call script — ${prospect.businessName}`,
       body: script,
-      mailtoHref: to
-        ? mailtoHref(
-            to,
-            emailBodies(prospect, 'call').subject,
-            emailBodies(prospect, 'call').body,
-          )
-        : '',
+      gmailHref: gmailComposeHref(to, email.subject, email.body),
       contextLines,
       missing,
     }
@@ -288,6 +289,7 @@ export function generateActionDraft(
 
   if (channel === 'visit') {
     const brief = visitBrief(prospect)
+    const email = emailBodies(prospect, 'site_visit')
     return {
       intent,
       kind,
@@ -297,13 +299,7 @@ export function generateActionDraft(
       phone,
       subject: `Site visit — ${prospect.businessName}`,
       body: brief,
-      mailtoHref: to
-        ? mailtoHref(
-            to,
-            emailBodies(prospect, 'site_visit').subject,
-            emailBodies(prospect, 'site_visit').body,
-          )
-        : '',
+      gmailHref: gmailComposeHref(to, email.subject, email.body),
       contextLines,
       missing,
     }
@@ -326,7 +322,7 @@ export function generateActionDraft(
     phone,
     subject,
     body: drafted.body,
-    mailtoHref: to ? mailtoHref(to, subject, drafted.body) : '',
+    gmailHref: gmailComposeHref(to, subject, drafted.body),
     contextLines,
     missing,
   }
