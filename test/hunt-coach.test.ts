@@ -12,6 +12,11 @@ test("hunt week covers every weekday once", () => {
   const days = HUNT_WEEK.map((plan) => plan.weekday).sort();
   assert.deepEqual(days, [0, 1, 2, 3, 4, 5, 6]);
   assert.ok(HUNT_WEEK.every((plan) => plan.actions.length === 5));
+  assert.ok(
+    HUNT_WEEK.every((plan) =>
+      plan.actions.every((action) => action.href.startsWith("/")),
+    ),
+  );
 });
 
 test("Friday plan is convert / close day", () => {
@@ -19,7 +24,8 @@ test("Friday plan is convert / close day", () => {
   const plan = getHuntPlanForDate("2026-07-17");
   assert.equal(plan.weekday, 5);
   assert.match(plan.name, /Friday/i);
-  assert.match(plan.mission, /quote|decision|referral/i);
+  assert.match(plan.mission, /quote|invoice|decision/i);
+  assert.equal(plan.actions[0]?.href, "/work/quotes");
 });
 
 test("next hunt action is the first incomplete item", () => {

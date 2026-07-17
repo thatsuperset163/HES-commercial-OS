@@ -3,62 +3,16 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatDisplayDate, todayKey } from "@/lib/dates";
-import { buildJobNextActions } from "@/lib/jobs/nextActions";
-import { jobStatusLabel } from "@/lib/jobs/types";
+import { WORK_DESKS } from "@/lib/work/catalog";
+import {
+  buildPipelineCounts,
+  buildPipelineNextActions,
+} from "@/lib/work/pipeline";
 import {
   hydrateStoreFromCloud,
-  listJobs,
   loadStore,
 } from "@/lib/storage";
 import AppShell from "./AppShell";
-
-const PEER_OS = [
-  {
-    id: "sales",
-    name: "Sales OS",
-    purpose: "Commercial pipeline, outreach, follow-ups",
-    href: "/work/sales/",
-    status: "live" as const,
-    external: true,
-  },
-  {
-    id: "jobs",
-    name: "Jobs OS",
-    purpose: "Schedule → run → done",
-    href: "/work/jobs",
-    status: "live" as const,
-    external: false,
-  },
-  {
-    id: "money",
-    name: "Money OS",
-    purpose: "Unbilled + unpaid → cash in",
-    href: "/work/money",
-    status: "next" as const,
-    external: false,
-  },
-  {
-    id: "leads",
-    name: "Inbox / Leads",
-    purpose: "Same-day inbound response",
-    href: "/work/leads",
-    status: "later" as const,
-    external: false,
-  },
-  {
-    id: "reputation",
-    name: "Reputation OS",
-    purpose: "Reviews and referrals after jobs",
-    href: "/work/reputation",
-    status: "later" as const,
-    external: false,
-  },
-];
-
-function money(value: number | null) {
-  if (value == null || !Number.isFinite(value)) return "";
-  return `$${Math.round(value).toLocaleString("en-US")}`;
-}
 
 function urgencyChipClass(urgency: string) {
   if (urgency === "overdue") return "status-chip overdue";
@@ -70,17 +24,8 @@ function urgencyChipClass(urgency: string) {
 function urgencyChipLabel(urgency: string) {
   if (urgency === "overdue") return "Overdue";
   if (urgency === "today") return "Due today";
-  if (urgency === "money") return "Bill it";
+  if (urgency === "money") return "Money";
   return "Soon";
-}
-
-function osMetric(
-  osId: string,
-  snapshot: { todayCount: number; unbilled: number },
-) {
-  if (osId === "jobs") return `${snapshot.todayCount} scheduled today`;
-  if (osId === "money") return `${snapshot.unbilled} unbilled`;
-  return null;
 }
 
 export default function BoardApp() {
@@ -101,17 +46,14 @@ export default function BoardApp() {
   }, []);
 
   const snapshot = useMemo(() => {
-    const jobs = listJobs(loadStore());
-    const actions = buildJobNextActions(jobs);
+    const store = loadStore();
+    const counts = buildPipelineCounts(store);
+    const actions = buildPipelineNextActions(store);
     return {
-      jobs,
+      counts,
       top: actions[0] ?? null,
-      unbilled: jobs.filter((job) => job.status === "done").length,
-      todayCount: jobs.filter(
-        (job) => job.status === "scheduled" && job.scheduledDate === date,
-      ).length,
+      actions,
     };
-    // tick refreshes after hydrate
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, tick]);
 
@@ -133,26 +75,27 @@ export default function BoardApp() {
         <div>
           <p className="hq-eyebrow">Work</p>
           <h2>{formatDisplayDate(date)}</h2>
-          <p>Peer operating systems — pick a lane, do the next move.</p>
+          <p>
+            Steady pipeline — tap a desk, do the next move, come back.
+          </p>
         </div>
         <button type="button" className="btn secondary" onClick={refresh}>
           Refresh
         </button>
       </div>
 
-      <section className="today-summary-strip" aria-label="Today at a glance">
-        <div className="today-summary-item">
-          <span className="today-summary-label">Jobs today</span>
-          <strong>{snapshot.todayCount}</strong>
-        </div>
-        <div className="today-summary-item">
-          <span className="today-summary-label">Unbilled</span>
-          <strong>{snapshot.unbilled}</strong>
-        </div>
-        <div className="today-summary-item">
-          <span className="today-summary-label">Next action</span>
-          <strong>{snapshot.top ? snapshot.top.title : "Clear board"}</strong>
-        </div>
+      <section className="pipeline-strip" aria-label="Work pipeline">
+        {snapshot.counts.map((item) => (
+          <Link key={item.id} href={item.href} className="pipeline-chip">
+            <span className="pipeline-chip-label">{item.label}</span>
+            <strong>{item.count}</strong>
+            {item.attention > 0 ? (
+              <span className="pipeline-chip-attn">{item.attention} need you</span>
+            ) : (
+              <span className="pipeline-chip-attn muted">Clear</span>
+            )}
+          </Link>
+        ))}
       </section>
 
       {snapshot.top ? (
@@ -166,75 +109,50 @@ export default function BoardApp() {
           <div className="jobs-focus-body">
             <strong>{snapshot.top.title}</strong>
             <p>{snapshot.top.reason}</p>
-            <p className="jobs-focus-meta">
-              {jobStatusLabel(snapshot.top.status)}
-              {snapshot.top.amount != null ? ` · ${money(snapshot.top.amount)}` : ""}
-            </p>
           </div>
           <div className="row-actions">
-            <Link className="btn primary" href="/work/jobs">
-              Open in Jobs OS →
+            <Link className="btn primary" href={snapshot.top.href}>
+              Open {WORK_DESKS.find((d) => d.id === snapshot.top?.deskId)?.name ?? "desk"} →
             </Link>
           </div>
         </section>
       ) : (
         <section className="panel">
           <p className="empty-state">
-            No urgent job actions. Open an OS below — or add a job to get a queue.
+            Pipeline is quiet. Open a desk below and add a request, client, quote,
+            or job.
           </p>
         </section>
       )}
 
       <section className="panel">
         <div className="panel-head">
-          <h2 className="panel-title">Operating systems</h2>
-          <span className="panel-meta">
-            {snapshot.todayCount} jobs today · {snapshot.unbilled} unbilled
-          </span>
+          <h2 className="panel-title">Work desks</h2>
+          <span className="panel-meta">Each one is a real place to work</span>
         </div>
         <div className="os-grid">
-          {PEER_OS.map((os) => {
-            const live = os.status === "live";
-            const metric = live ? osMetric(os.id, snapshot) : null;
-            const body = (
-              <>
-                <div className="os-card-top">
-                  <h3>{os.name}</h3>
-                  <span className={`os-pill ${os.status}`}>
-                    {os.status === "live"
-                      ? "Live"
-                      : os.status === "next"
-                        ? "Next up"
-                        : "Later"}
-                  </span>
-                </div>
-                <p>{os.purpose}</p>
-                {metric ? <span className="os-card-metric">{metric}</span> : null}
-                <span className="os-card-cta">
-                  {live ? "Enter →" : "Coming soon"}
-                </span>
-              </>
-            );
-            if (!live) {
-              return (
-                <article key={os.id} className={`os-card muted os-${os.id}`}>
-                  {body}
-                </article>
-              );
-            }
-            if (os.external) {
-              return (
-                <a key={os.id} className={`os-card os-${os.id}`} href={os.href}>
-                  {body}
-                </a>
-              );
-            }
-            return (
-              <Link key={os.id} className={`os-card os-${os.id}`} href={os.href}>
-                {body}
-              </Link>
-            );
-          })}
+          <a className="os-card os-sales" href="/work/sales/">
+            <div className="os-card-top">
+              <h3>Sales OS</h3>
+              <span className="os-pill live">Live</span>
+            </div>
+            <p>Commercial pipeline & outreach</p>
+            <span className="os-card-cta">Enter →</span>
+          </a>
+          {WORK_DESKS.map((desk) => (
+            <Link key={desk.id} className={`os-card os-${desk.id}`} href={desk.href}>
+              <div className="os-card-top">
+                <h3>{desk.name}</h3>
+                <span className="os-pill live">Live</span>
+              </div>
+              <p>{desk.purpose}</p>
+              <span className="os-card-metric">
+                {snapshot.counts.find((c) => c.id === desk.id)?.attention ?? 0} need
+                attention
+              </span>
+              <span className="os-card-cta">Enter →</span>
+            </Link>
+          ))}
         </div>
       </section>
     </AppShell>

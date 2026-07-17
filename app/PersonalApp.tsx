@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChecklistItem, DayEntry } from "@/lib/types";
 import { addDays, formatDisplayDate, formatShortDate, todayKey } from "@/lib/dates";
 import {
+  getHuntActionMeta,
   getHuntPlanForDate,
   getNextHuntAction,
 } from "@/lib/huntCoach";
@@ -80,6 +81,9 @@ export default function PersonalApp() {
   const currentDay = day;
   const hunt = currentDay.huntChecklist ?? [];
   const nextAction = getNextHuntAction(hunt);
+  const nextMeta = nextAction
+    ? getHuntActionMeta(selectedDate, nextAction.id)
+    : null;
   const huntDone = hunt.filter((item) => item.done).length;
   const isToday = selectedDate === todayKey();
   const checklist = currentDay.dailyChecklist;
@@ -181,17 +185,19 @@ export default function PersonalApp() {
             </p>
             <p className="hunt-why">{plan.why}</p>
             <div className="hunt-actions">
+              {nextMeta ? (
+                <Link href={nextMeta.href} className="btn primary">
+                  {nextMeta.cta}
+                </Link>
+              ) : null}
               <button
                 type="button"
-                className="btn primary"
+                className="btn"
                 onClick={completeNext}
                 disabled={!isToday}
               >
                 I did this
               </button>
-              <Link href={plan.salesHref} className="btn">
-                Open Sales
-              </Link>
             </div>
             {!isToday ? (
               <p className="hunt-note">
@@ -207,27 +213,38 @@ export default function PersonalApp() {
               project tonight.
             </p>
             <div className="hunt-actions">
-              <Link href={plan.salesHref} className="btn primary">
-                Review Sales
+              <Link href="/work" className="btn primary">
+                Open Work
               </Link>
             </div>
           </>
         )}
 
         <ul className="checklist hunt-checklist">
-          {hunt.map((item) => (
-            <li key={item.id}>
-              <label className={`check-row ${item.done ? "done" : ""}`}>
-                <input
-                  type="checkbox"
-                  checked={item.done}
-                  disabled={!isToday}
-                  onChange={() => toggleHuntItem(item)}
-                />
-                <span>{item.label}</span>
-              </label>
-            </li>
-          ))}
+          {hunt.map((item) => {
+            const meta = getHuntActionMeta(selectedDate, item.id);
+            return (
+              <li key={item.id}>
+                <label className={`check-row ${item.done ? "done" : ""}`}>
+                  <input
+                    type="checkbox"
+                    checked={item.done}
+                    disabled={!isToday}
+                    onChange={() => toggleHuntItem(item)}
+                  />
+                  <span>
+                    {meta ? (
+                      <Link href={meta.href} className="hunt-step-link">
+                        {item.label}
+                      </Link>
+                    ) : (
+                      item.label
+                    )}
+                  </span>
+                </label>
+              </li>
+            );
+          })}
         </ul>
       </section>
 
