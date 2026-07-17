@@ -41,6 +41,11 @@ function primaryActionLabel(status: JobStatus) {
   return null;
 }
 
+function primaryActionButtonClass(status: JobStatus, small = false) {
+  const base = status === "done" ? "btn success" : "btn primary";
+  return small ? `${base} small` : base;
+}
+
 export default function JobsApp() {
   const [ready, setReady] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -152,7 +157,7 @@ export default function JobsApp() {
           <Link href="/work" className="btn secondary">
             Work home
           </Link>
-          <button type="button" className="btn accent" onClick={() => setShowNew(true)}>
+          <button type="button" className="btn primary" onClick={() => setShowNew(true)}>
             Add job
           </button>
         </div>
@@ -179,7 +184,7 @@ export default function JobsApp() {
             {primaryActionLabel(top.status) ? (
               <button
                 type="button"
-                className="btn accent"
+                className={primaryActionButtonClass(top.status)}
                 onClick={() => {
                   const job = jobs.find((row) => row.id === top.jobId);
                   if (job) advance(job);
@@ -321,7 +326,7 @@ export default function JobsApp() {
                 <button type="button" className="btn secondary" onClick={() => setShowNew(false)}>
                   Cancel
                 </button>
-                <button type="submit" className="btn accent">
+                <button type="submit" className="btn primary">
                   Save job
                 </button>
               </div>
@@ -360,7 +365,7 @@ function JobRow({
       </div>
       <div className="jobs-row-actions">
         {action ? (
-          <button type="button" className="btn small accent" onClick={onAdvance}>
+          <button type="button" className={primaryActionButtonClass(job.status, true)} onClick={onAdvance}>
             {action}
           </button>
         ) : null}

@@ -173,7 +173,7 @@ export function ProspectDetail() {
           </p>
         </div>
         <div className="detail-actions">
-          <Link className="btn" to={`/emails?prospect=${prospect.id}`}>
+          <Link className="btn primary" to={`/emails?prospect=${prospect.id}`}>
             Draft email
           </Link>
           <button
@@ -224,7 +224,7 @@ export function ProspectDetail() {
           </div>
           <div className="action-ctas focus-ctas">
             <Link
-              className="btn"
+              className="btn ai"
               to={generateEmailPath(nextAction.prospectId, nextAction.kind)}
             >
               {actionGenerateLabel(nextAction.kind)}
@@ -232,7 +232,7 @@ export function ProspectDetail() {
             {nextAction.taskId && (
               <button
                 type="button"
-                className="btn secondary"
+                className="btn success"
                 onClick={() => completeTask(nextAction.taskId!)}
               >
                 Done

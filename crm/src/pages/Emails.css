@@ -67,13 +67,33 @@
 }
 
 .brief-fact a {
-  color: #b6efcd;
+  color: var(--color-primary);
 }
 
 .brief-block {
   padding-top: 0.75rem;
   border-top: 1px solid var(--line);
   min-width: 0;
+}
+
+.brief-block:first-of-type,
+.brief-facts + .brief-block {
+  border-top: none;
+  padding-top: 0;
+}
+
+.brief-block.next-step {
+  margin-top: 0.25rem;
+  padding: 0.75rem 0.85rem 0.75rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--color-warning) 30%, var(--line));
+  border-left: 3px solid var(--color-warning);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--color-warning) 6%, var(--bg));
+}
+
+.brief-block.next-step h3 {
+  color: var(--text);
+  font-weight: 700;
 }
 
 .brief-block h3 {
@@ -131,7 +151,8 @@
 }
 
 .brief-last-email:hover {
-  border-color: color-mix(in srgb, var(--green) 40%, var(--line));
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--line));
+  background: var(--bg-soft);
 }
 
 .brief-list {
@@ -184,30 +205,44 @@
 }
 
 .composer-to a {
-  color: #b6efcd;
+  color: var(--color-primary);
 }
 
 .draft-missing {
   margin: 0;
   font-size: 0.8rem;
-  color: #e0c37a;
+  color: var(--color-warning);
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(212, 160, 23, 0.28);
+  border-radius: 6px;
+  background: rgba(212, 160, 23, 0.08);
   overflow-wrap: anywhere;
 }
 
 .draft-missing a {
-  color: #b6efcd;
+  color: var(--color-primary);
   font-weight: 650;
+}
+
+.composer textarea.field {
+  background: var(--bg-soft);
+  line-height: 1.5;
+  min-height: 16rem;
 }
 
 .send-loop {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  padding: 0.75rem 0.85rem;
-  border: 1px solid var(--line);
+  padding: 0.85rem 0.95rem;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, var(--line));
   border-radius: var(--radius);
-  background: var(--bg);
+  background: color-mix(in srgb, var(--color-primary) 4%, var(--bg));
   min-width: 0;
+}
+
+.send-loop .lbl {
+  color: var(--text);
 }
 
 .send-loop-note {
@@ -274,6 +309,12 @@
   background: var(--bg-soft);
 }
 
+.sent-row[aria-current='true'],
+.sent-row.active {
+  background: rgba(59, 130, 246, 0.1);
+  outline: 1px solid rgba(59, 130, 246, 0.25);
+}
+
 .sent-row strong,
 .sent-row span {
   display: block;
@@ -324,8 +365,12 @@
   word-break: break-word;
 }
 
+.sent-meta a {
+  color: var(--color-primary);
+}
+
 .sent-meta a:hover {
-  color: #b6efcd;
+  color: color-mix(in srgb, var(--color-primary) 80%, #fff);
 }
 
 .sent-subject {

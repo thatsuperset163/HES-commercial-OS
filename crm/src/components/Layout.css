@@ -55,12 +55,12 @@
 
 .nav-link:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .nav-link.active {
-  background: var(--green-dim);
-  color: #b6efcd;
+  background: rgba(59, 130, 246, 0.14);
+  color: #93c5fd;
 }
 
 .sidebar-foot {
@@ -80,18 +80,18 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .sync-pill.synced {
-  color: #b6efcd;
+  color: #86efac;
   background: var(--green-dim);
 }
 
 .sync-pill.error,
 .sync-pill.offline {
-  color: #f0b4b4;
-  background: rgba(196, 84, 84, 0.15);
+  color: #fda4af;
+  background: rgba(225, 29, 72, 0.14);
 }
 
 .ghost-btn {
@@ -160,7 +160,7 @@
 }
 
 .utility-btn:hover {
-  border-color: var(--green);
+  border-color: var(--color-primary);
   color: var(--text);
 }
 
