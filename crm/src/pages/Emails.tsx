@@ -1,14 +1,26 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useSales } from '../store/SalesContext'
-import { followUpBody, followUpSubject, personalize, withEmailSignature, defaultTemplateBody, EMAIL_SIGNATURE, serviceLabels } from '../lib/templates'
+import {
+  followUpBody,
+  followUpSubject,
+  personalize,
+  withEmailSignature,
+  defaultTemplateBody,
+  EMAIL_SIGNATURE,
+  serviceLabels,
+} from '../lib/templates'
+import {
+  actionGenerateLabel,
+  generateActionDraft,
+} from '../lib/generateDraft'
 import {
   formatDate,
   formatDateTime,
   isOverdue,
   isToday,
 } from '../lib/dates'
-import { STAGES } from '../types'
+import { STAGES, type TaskKind } from '../types'
 import './Emails.css'
 
 function followUpLabel(nextFollowUpAt: string | null) {
@@ -18,17 +30,31 @@ function followUpLabel(nextFollowUpAt: string | null) {
   return `Scheduled · ${formatDate(nextFollowUpAt)}`
 }
 
+function asTaskKind(value: string | null): TaskKind {
+  if (value === 'call' || value === 'email' || value === 'visit' || value === 'quote' || value === 'other') {
+    return value
+  }
+  return 'email'
+}
+
 export function Emails() {
-  const { state, saveTemplate, deleteTemplate, markEmailSent } = useSales()
+  const { state, saveTemplate, deleteTemplate, markEmailSent, logCall } = useSales()
   const [params, setParams] = useSearchParams()
   const initialProspect = params.get('prospect') ?? state.prospects[0]?.id ?? ''
   const initialSent = params.get('sent')
+  const shouldGenerate = params.get('generate') === '1'
+  const generateKind = asTaskKind(params.get('kind'))
 
   const [prospectId, setProspectId] = useState(initialProspect)
   const [templateId, setTemplateId] = useState(state.templates[0]?.id ?? '')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState(() =>
-    params.get('prospect') && !params.get('sent') ? EMAIL_SIGNATURE : '',
+    params.get('prospect') && !params.get('sent') && !shouldGenerate
+      ? EMAIL_SIGNATURE
+      : '',
+  )
+  const [draftMeta, setDraftMeta] = useState<ReturnType<typeof generateActionDraft> | null>(
+    null,
   )
   const [editingId, setEditingId] = useState<string | null>(null)
   const [tplName, setTplName] = useState('')
@@ -61,6 +87,33 @@ export function Emails() {
     [selectedSent, state.prospects],
   )
 
+  function fillFromProspect(nextProspectId: string, kind: TaskKind = 'email') {
+    const p = state.prospects.find((x) => x.id === nextProspectId)
+    if (!p) return
+    const prior = state.sentEmails.find((e) => e.prospectId === nextProspectId)
+    const draft = generateActionDraft(p, kind, {
+      lastEmailBody: prior?.body,
+      lastEmailSubject: prior?.subject,
+    })
+    setProspectId(nextProspectId)
+    setDraftMeta(draft)
+    setSubject(draft.subject)
+    setBody(draft.body)
+    setTemplateId('')
+    setCopied(false)
+    setLogged(false)
+  }
+
+  useEffect(() => {
+    if (!shouldGenerate || !initialProspect) return
+    fillFromProspect(initialProspect, generateKind)
+    const next = new URLSearchParams(params)
+    next.delete('generate')
+    setParams(next, { replace: true })
+    // Only auto-run when arriving from Today / generate link.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   function openSent(id: string) {
     setSelectedSentId(id)
     const next = new URLSearchParams(params)
@@ -81,17 +134,14 @@ export function Emails() {
     setTemplateId(id)
     setSubject(personalize(tpl.subject, prospect))
     setBody(personalize(tpl.body, prospect))
+    setDraftMeta(null)
     setCopied(false)
     setLogged(false)
   }
 
   function generateFollowUp() {
     if (!prospect) return
-    setSubject(followUpSubject(lastSent?.subject ?? `Exterior cleaning for ${prospect.businessName}`))
-    setBody(followUpBody(prospect, lastSent?.body))
-    setTemplateId('')
-    setCopied(false)
-    setLogged(false)
+    fillFromProspect(prospect.id, lastSent ? 'email' : generateKind)
   }
 
   function startEdit(id?: string) {
@@ -122,6 +172,14 @@ export function Emails() {
     setTemplateId(saved.id)
   }
 
+  const isScript =
+    draftMeta?.channel === 'call' || draftMeta?.channel === 'visit'
+  const composerTitle = isScript
+    ? draftMeta?.channel === 'call'
+      ? 'Call script'
+      : 'Visit brief'
+    : 'Email draft'
+
   return (
     <div className="page emails-page">
       <header className="page-header">
@@ -129,7 +187,7 @@ export function Emails() {
           <p className="eyebrow">Outreach</p>
           <h1>Emails</h1>
           <p className="lede">
-            Templates, personalized drafts, follow-ups — then log what you sent.
+            Auto-filled drafts from the prospect card — then copy, send, and log.
           </p>
         </div>
       </header>
@@ -176,7 +234,7 @@ export function Emails() {
                 <input className="field" value={tplSubject} onChange={(e) => setTplSubject(e.target.value)} required />
               </label>
               <label className="lbl">
-                Body (use {'{{businessName}}'}, {'{{decisionMaker}}'}, {'{{services}}'}, {'{{signature}}'}, …)
+                Body (use {'{{businessName}}'}, {'{{decisionMaker}}'}, {'{{services}}'}, {'{{propertyNotes}}'}, {'{{signature}}'}, …)
                 <textarea className="field" rows={8} value={tplBody} onChange={(e) => setTplBody(e.target.value)} required />
               </label>
               <div className="modal-actions">
@@ -198,7 +256,10 @@ export function Emails() {
               <select
                 className="field"
                 value={prospectId}
-                onChange={(e) => setProspectId(e.target.value)}
+                onChange={(e) => {
+                  setProspectId(e.target.value)
+                  setDraftMeta(null)
+                }}
               >
                 {state.prospects
                   .filter((p) => p.stage !== 'lost')
@@ -212,71 +273,154 @@ export function Emails() {
             <div className="composer-actions">
               <button
                 type="button"
+                className="btn"
+                disabled={!prospect}
+                onClick={() => prospect && fillFromProspect(prospect.id, 'email')}
+              >
+                {actionGenerateLabel('email')}
+              </button>
+              <button
+                type="button"
                 className="btn secondary"
                 disabled={!prospect || !templateId}
                 onClick={() => applyTemplate(templateId)}
               >
                 Apply template
               </button>
-              <button type="button" className="btn secondary" disabled={!prospect} onClick={generateFollowUp}>
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={!prospect}
+                onClick={generateFollowUp}
+              >
                 Generate follow-up
               </button>
             </div>
           </div>
 
           {prospect && (
-            <p className="prospect-snap muted">
-              {prospect.email || 'No email on file'} · {prospect.city} ·{' '}
-              {serviceLabels(prospect.servicesNeeded)}
-            </p>
+            <div className="recipient-card">
+              <div className="recipient-main">
+                <p className="recipient-kicker">{composerTitle}</p>
+                <strong>{prospect.decisionMaker || 'Decision maker'}</strong>
+                <span>
+                  {prospect.jobTitle ? `${prospect.jobTitle} · ` : ''}
+                  {prospect.businessName}
+                </span>
+                <span className="recipient-to">
+                  To:{' '}
+                  {prospect.email ? (
+                    <a href={`mailto:${prospect.email}`}>{prospect.email}</a>
+                  ) : (
+                    <em>No email on file — add it on the prospect card</em>
+                  )}
+                </span>
+                {(prospect.phone || prospect.companyPhone) && (
+                  <span>
+                    Phone:{' '}
+                    <a href={`tel:${(prospect.phone || prospect.companyPhone).replace(/\D/g, '')}`}>
+                      {prospect.phone || prospect.companyPhone}
+                    </a>
+                  </span>
+                )}
+              </div>
+              <ul className="recipient-facts">
+                {prospect.industry && <li>{prospect.industry}</li>}
+                {(prospect.city || prospect.state || prospect.address) && (
+                  <li>
+                    {[prospect.address, prospect.city, prospect.state]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </li>
+                )}
+                {serviceLabels(prospect.servicesNeeded) && (
+                  <li>Services: {serviceLabels(prospect.servicesNeeded)}</li>
+                )}
+                {prospect.propertyNotes.trim() && (
+                  <li>Property: {prospect.propertyNotes.trim()}</li>
+                )}
+                {prospect.painPoints.trim() && (
+                  <li>Needs: {prospect.painPoints.trim()}</li>
+                )}
+              </ul>
+              {draftMeta && draftMeta.missing.length > 0 && (
+                <p className="draft-missing">
+                  Missing on card: {draftMeta.missing.join(', ')}. Draft still
+                  generated — fill those fields for better outreach.
+                </p>
+              )}
+            </div>
           )}
 
+          {!isScript && (
+            <label className="lbl">
+              Subject
+              <input className="field" value={subject} onChange={(e) => setSubject(e.target.value)} />
+            </label>
+          )}
           <label className="lbl">
-            Subject
-            <input className="field" value={subject} onChange={(e) => setSubject(e.target.value)} />
-          </label>
-          <label className="lbl">
-            Body
+            {isScript ? 'Script / brief' : 'Body'}
             <textarea
               className="field"
-              rows={14}
+              rows={isScript ? 16 : 14}
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="Select a template or generate a follow-up."
+              placeholder="Generate from the prospect card or apply a template."
             />
           </label>
 
           <div className="composer-foot">
+            {draftMeta?.mailtoHref && (
+              <a className="btn" href={draftMeta.mailtoHref}>
+                Open in mail app
+              </a>
+            )}
+            {isScript && draftMeta?.channel === 'call' && prospect && (
+              <button
+                type="button"
+                className="btn"
+                onClick={() => logCall(prospect.id, 'Call logged from generated script')}
+              >
+                Log call
+              </button>
+            )}
             <button
               type="button"
               className="btn secondary"
               disabled={!body}
               onClick={async () => {
                 await navigator.clipboard.writeText(
-                  subject ? `${subject}\n\n${body}` : body,
+                  !isScript && subject ? `${subject}\n\n${body}` : body,
                 )
                 setCopied(true)
               }}
             >
               {copied ? 'Copied' : 'Copy'}
             </button>
-            <button
-              type="button"
-              className="btn"
-              disabled={!prospect || !body}
-              onClick={() => {
-                markEmailSent({
-                  prospectId: prospect!.id,
-                  subject: subject || '(no subject)',
-                  body: withEmailSignature(body),
-                  templateId: templateId || null,
-                })
-                setLogged(true)
-                setBody(withEmailSignature(body))
-              }}
-            >
-              {logged ? 'Logged as sent' : 'Mark sent'}
-            </button>
+            {!isScript && (
+              <button
+                type="button"
+                className="btn"
+                disabled={!prospect || !body}
+                onClick={() => {
+                  markEmailSent({
+                    prospectId: prospect!.id,
+                    subject: subject || '(no subject)',
+                    body: withEmailSignature(body),
+                    templateId: templateId || null,
+                  })
+                  setLogged(true)
+                  setBody(withEmailSignature(body))
+                }}
+              >
+                {logged ? 'Logged as sent' : 'Mark sent'}
+              </button>
+            )}
+            {prospect && (
+              <Link className="btn secondary" to={`/prospects/${prospect.id}`}>
+                Open prospect
+              </Link>
+            )}
           </div>
         </section>
       </div>
@@ -369,6 +513,7 @@ export function Emails() {
                     )
                     setBody(followUpBody(selectedProspect, selectedSent.body))
                     setTemplateId('')
+                    setDraftMeta(null)
                     setCopied(false)
                     setLogged(false)
                     closeSent()

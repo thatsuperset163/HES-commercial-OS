@@ -1,5 +1,5 @@
-import type { Prospect, ServiceType } from '../types'
-import { SERVICES } from '../types'
+import type { Prospect, ServiceType } from '../types.ts'
+import { SERVICES } from '../types.ts'
 
 const SERVICE_LABEL: Record<ServiceType, string> = Object.fromEntries(
   SERVICES.map((s) => [s.id, s.label]),
@@ -43,6 +43,7 @@ export function personalize(template: string, prospect: Prospect) {
     decisionMaker: prospect.decisionMaker,
     jobTitle: prospect.jobTitle,
     city: prospect.city || prospect.address,
+    state: prospect.state || '',
     industry: prospect.industry,
     services: serviceLabels(prospect.servicesNeeded),
     salesRep: prospect.salesRep,
@@ -50,6 +51,11 @@ export function personalize(template: string, prospect: Prospect) {
     email: prospect.email,
     address: prospect.address,
     companyPhone: prospect.companyPhone,
+    propertyNotes: prospect.propertyNotes,
+    painPoints: prospect.painPoints,
+    conversationNotes: prospect.conversationNotes,
+    servicesDiscussed: prospect.servicesDiscussed,
+    assistantName: prospect.assistantName,
     signature: EMAIL_SIGNATURE,
   }
 
