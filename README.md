@@ -3,7 +3,7 @@
 Private company HQ for **Harris Exterior Solutions**:
 
 - **HQ** — daily overview
-- **Personal** — daily focus, checklist, journal, and streak
+- **Personal** — daily focus, six personal pillars (train, golf, clean, faith, people), journal, and streak
 - **Work** — priorities, operating metrics, notes, and progress
 - **Commercial Sales** (`/work/sales/`) — Work subsection for prospects, emails, and analytics
 
