@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useSales } from '../store/SalesContext'
 import {
@@ -20,7 +20,7 @@ import {
   isOverdue,
   isToday,
 } from '../lib/dates'
-import { STAGES, type TaskKind } from '../types'
+import { STAGES, type Prospect, type TaskKind } from '../types'
 import './Emails.css'
 
 function followUpLabel(nextFollowUpAt: string | null) {
@@ -31,10 +31,57 @@ function followUpLabel(nextFollowUpAt: string | null) {
 }
 
 function asTaskKind(value: string | null): TaskKind {
-  if (value === 'call' || value === 'email' || value === 'visit' || value === 'quote' || value === 'other') {
+  if (
+    value === 'call' ||
+    value === 'email' ||
+    value === 'visit' ||
+    value === 'quote' ||
+    value === 'other'
+  ) {
     return value
   }
   return 'email'
+}
+
+function suggestedNextStep(p: Prospect, hasSentEmail: boolean) {
+  if (isOverdue(p.nextFollowUpAt)) {
+    return 'Follow-up is overdue — send or call today.'
+  }
+  if (isToday(p.nextFollowUpAt)) {
+    return 'Follow-up due today — finish this touch, then set the next date.'
+  }
+  switch (p.stage) {
+    case 'not_contacted':
+      return hasSentEmail
+        ? 'First email logged — call if no reply in 2–3 days.'
+        : 'Send first outreach, then schedule a follow-up call.'
+    case 'email_sent':
+    case 'follow_up_due':
+      return 'Call the decision maker and confirm interest or timing.'
+    case 'called':
+    case 'left_voicemail':
+      return 'Send a short email referencing the call and propose a site visit.'
+    case 'spoke_with_dm':
+    case 'interested':
+      return 'Book a site visit or send a rough scope based on their notes.'
+    case 'site_visit_scheduled':
+      return 'Confirm access details and prep the visit brief.'
+    case 'proposal_sent':
+      return 'Follow up on the proposal — ask what would make a yes easy.'
+    case 'future_opportunity':
+      return 'Light nurture now; set a future check-in date.'
+    default:
+      return 'Use the draft, then log the send and set the next follow-up.'
+  }
+}
+
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="brief-fact">
+      <dt>{label}</dt>
+      <dd>{children}</dd>
+    </div>
+  )
 }
 
 export function Emails() {
@@ -46,16 +93,16 @@ export function Emails() {
   const generateKind = asTaskKind(params.get('kind'))
 
   const [prospectId, setProspectId] = useState(initialProspect)
-  const [templateId, setTemplateId] = useState(state.templates[0]?.id ?? '')
+  const [templateId, setTemplateId] = useState('')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState(() =>
     params.get('prospect') && !params.get('sent') && !shouldGenerate
       ? EMAIL_SIGNATURE
       : '',
   )
-  const [draftMeta, setDraftMeta] = useState<ReturnType<typeof generateActionDraft> | null>(
-    null,
-  )
+  const [draftMeta, setDraftMeta] = useState<ReturnType<
+    typeof generateActionDraft
+  > | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [tplName, setTplName] = useState('')
   const [tplSubject, setTplSubject] = useState('')
@@ -69,9 +116,32 @@ export function Emails() {
     [state.prospects, prospectId],
   )
 
-  const lastSent = useMemo(
-    () => state.sentEmails.find((e) => e.prospectId === prospectId),
+  const prospectSent = useMemo(
+    () =>
+      state.sentEmails
+        .filter((e) => e.prospectId === prospectId)
+        .sort((a, b) => b.sentAt.localeCompare(a.sentAt)),
     [state.sentEmails, prospectId],
+  )
+
+  const lastSent = prospectSent[0]
+
+  const recentActivity = useMemo(
+    () =>
+      state.timeline
+        .filter((e) => e.prospectId === prospectId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, 5),
+    [state.timeline, prospectId],
+  )
+
+  const openTasks = useMemo(
+    () =>
+      state.tasks
+        .filter((t) => t.prospectId === prospectId && !t.done)
+        .sort((a, b) => a.dueAt.localeCompare(b.dueAt))
+        .slice(0, 3),
+    [state.tasks, prospectId],
   )
 
   const selectedSent = useMemo(
@@ -130,18 +200,13 @@ export function Emails() {
 
   function applyTemplate(id: string) {
     const tpl = state.templates.find((t) => t.id === id)
-    if (!tpl || !prospect) return
+    if (!tpl || !prospect || !id) return
     setTemplateId(id)
     setSubject(personalize(tpl.subject, prospect))
     setBody(personalize(tpl.body, prospect))
     setDraftMeta(null)
     setCopied(false)
     setLogged(false)
-  }
-
-  function generateFollowUp() {
-    if (!prospect) return
-    fillFromProspect(prospect.id, lastSent ? 'email' : generateKind)
   }
 
   function startEdit(id?: string) {
@@ -170,6 +235,11 @@ export function Emails() {
     })
     setEditingId(null)
     setTemplateId(saved.id)
+    if (prospect) {
+      setSubject(personalize(saved.subject, prospect))
+      setBody(personalize(saved.body, prospect))
+      setDraftMeta(null)
+    }
   }
 
   const isScript =
@@ -180,6 +250,10 @@ export function Emails() {
       : 'Visit brief'
     : 'Email draft'
 
+  const location = prospect
+    ? [prospect.address, prospect.city, prospect.state].filter(Boolean).join(', ')
+    : ''
+
   return (
     <div className="page emails-page">
       <header className="page-header">
@@ -187,58 +261,318 @@ export function Emails() {
           <p className="eyebrow">Outreach</p>
           <h1>Emails</h1>
           <p className="lede">
-            Auto-filled drafts from the prospect card — then copy, send, and log.
+            Write from the prospect brief — generate, copy, send, and log.
           </p>
         </div>
       </header>
 
       <div className="emails-layout">
-        <section className="panel">
+        <section className="panel brief-panel">
           <div className="panel-head">
-            <h2>Templates</h2>
-            <button type="button" className="btn small secondary" onClick={() => startEdit()}>
-              New
-            </button>
+            <h2>Prospect brief</h2>
+            {prospect && (
+              <Link className="btn small secondary" to={`/prospects/${prospect.id}`}>
+                Edit card
+              </Link>
+            )}
           </div>
-          <ul className="tpl-list">
-            {state.templates.map((t) => (
-              <li key={t.id}>
-                <button type="button" className="tpl-btn" onClick={() => applyTemplate(t.id)}>
-                  <strong>{t.name}</strong>
-                  <span>{t.subject}</span>
-                </button>
-                <div className="tpl-actions">
-                  <button type="button" className="btn ghost small" onClick={() => startEdit(t.id)}>
-                    Edit
-                  </button>
+
+          <label className="lbl">
+            Who are you writing?
+            <select
+              className="field"
+              value={prospectId}
+              onChange={(e) => {
+                setProspectId(e.target.value)
+                setDraftMeta(null)
+                setLogged(false)
+                setCopied(false)
+              }}
+            >
+              {state.prospects
+                .filter((p) => p.stage !== 'lost')
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.businessName} — {p.decisionMaker || 'No decision maker'}
+                  </option>
+                ))}
+            </select>
+          </label>
+
+          {!prospect ? (
+            <p className="empty">Select a prospect to see their brief.</p>
+          ) : (
+            <>
+              <div className="brief-hero">
+                <strong>{prospect.decisionMaker || 'Decision maker needed'}</strong>
+                <span>
+                  {prospect.jobTitle ? `${prospect.jobTitle} · ` : ''}
+                  {prospect.businessName}
+                </span>
+                <span className="brief-stage">
+                  {STAGES.find((s) => s.id === prospect.stage)?.label ?? prospect.stage}
+                  {' · '}
+                  {prospect.priority} priority
+                </span>
+              </div>
+
+              <dl className="brief-facts">
+                <Fact label="Email">
+                  {prospect.email ? (
+                    <a href={`mailto:${prospect.email}`}>{prospect.email}</a>
+                  ) : (
+                    <em>Missing — add on prospect card</em>
+                  )}
+                </Fact>
+                <Fact label="Phone">
+                  {prospect.phone || prospect.companyPhone ? (
+                    <a
+                      href={`tel:${(prospect.phone || prospect.companyPhone).replace(/\D/g, '')}`}
+                    >
+                      {prospect.phone || prospect.companyPhone}
+                    </a>
+                  ) : (
+                    <em>Missing</em>
+                  )}
+                </Fact>
+                <Fact label="Company">{prospect.businessName || '—'}</Fact>
+                {prospect.industry && <Fact label="Industry">{prospect.industry}</Fact>}
+                {location && <Fact label="Location">{location}</Fact>}
+                {serviceLabels(prospect.servicesNeeded) && (
+                  <Fact label="Services">
+                    {serviceLabels(prospect.servicesNeeded)}
+                  </Fact>
+                )}
+                <Fact label="Follow-up">{followUpLabel(prospect.nextFollowUpAt)}</Fact>
+                <Fact label="Last contact">
+                  {prospect.lastContactAt
+                    ? formatDate(prospect.lastContactAt)
+                    : 'Never contacted'}
+                </Fact>
+              </dl>
+
+              <div className="brief-block">
+                <h3>What to do next</h3>
+                <p>{suggestedNextStep(prospect, Boolean(lastSent))}</p>
+              </div>
+
+              {(prospect.propertyNotes.trim() ||
+                prospect.painPoints.trim() ||
+                prospect.conversationNotes.trim() ||
+                prospect.servicesDiscussed.trim()) && (
+                <div className="brief-block">
+                  <h3>From the card</h3>
+                  {prospect.propertyNotes.trim() && (
+                    <p>
+                      <span>Property</span>
+                      {prospect.propertyNotes}
+                    </p>
+                  )}
+                  {prospect.painPoints.trim() && (
+                    <p>
+                      <span>Needs</span>
+                      {prospect.painPoints}
+                    </p>
+                  )}
+                  {prospect.servicesDiscussed.trim() && (
+                    <p>
+                      <span>Discussed</span>
+                      {prospect.servicesDiscussed}
+                    </p>
+                  )}
+                  {prospect.conversationNotes.trim() && (
+                    <p>
+                      <span>Conversation</span>
+                      {prospect.conversationNotes}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {lastSent && (
+                <div className="brief-block">
+                  <h3>Last email</h3>
                   <button
                     type="button"
-                    className="btn ghost small"
-                    onClick={() => deleteTemplate(t.id)}
+                    className="brief-last-email"
+                    onClick={() => openSent(lastSent.id)}
                   >
-                    Delete
+                    <strong>{lastSent.subject}</strong>
+                    <span>{formatDateTime(lastSent.sentAt)}</span>
                   </button>
                 </div>
-              </li>
-            ))}
-          </ul>
+              )}
+
+              {openTasks.length > 0 && (
+                <div className="brief-block">
+                  <h3>Open tasks</h3>
+                  <ul className="brief-list">
+                    {openTasks.map((t) => (
+                      <li key={t.id}>
+                        <strong>{t.title}</strong>
+                        <span>
+                          {t.kind} · {formatDate(t.dueAt)}
+                          {isOverdue(t.dueAt) ? ' · overdue' : ''}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {recentActivity.length > 0 && (
+                <div className="brief-block">
+                  <h3>Recent activity</h3>
+                  <ul className="brief-list">
+                    {recentActivity.map((e) => (
+                      <li key={e.id}>
+                        <strong>{e.title}</strong>
+                        <span>
+                          {e.type} · {formatDateTime(e.createdAt)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+        </section>
+
+        <section className="panel composer">
+          <div className="panel-head">
+            <h2>{composerTitle}</h2>
+          </div>
+
+          <div className="composer-actions">
+            <button
+              type="button"
+              className="btn"
+              disabled={!prospect}
+              onClick={() => prospect && fillFromProspect(prospect.id, 'email')}
+            >
+              {actionGenerateLabel('email')}
+            </button>
+            <button
+              type="button"
+              className="btn secondary"
+              disabled={!prospect}
+              onClick={() => prospect && fillFromProspect(prospect.id, 'call')}
+            >
+              {actionGenerateLabel('call')}
+            </button>
+            <button
+              type="button"
+              className="btn secondary"
+              disabled={!prospect}
+              onClick={() => prospect && fillFromProspect(prospect.id, 'quote')}
+            >
+              {actionGenerateLabel('quote')}
+            </button>
+          </div>
+
+          {prospect && (
+            <p className="composer-to">
+              To:{' '}
+              {prospect.email ? (
+                <a href={`mailto:${prospect.email}`}>{prospect.email}</a>
+              ) : (
+                <em>No email on file</em>
+              )}
+              {prospect.decisionMaker
+                ? ` · ${prospect.decisionMaker}`
+                : ''}
+              {` · ${prospect.businessName}`}
+            </p>
+          )}
+
+          {draftMeta && draftMeta.missing.length > 0 && (
+            <p className="draft-missing">
+              Missing on card: {draftMeta.missing.join(', ')}. Draft still
+              generated — fill those fields for better outreach.
+            </p>
+          )}
+
+          <div className="template-row">
+            <label className="lbl grow">
+              Template <span className="opt">Optional</span>
+              <select
+                className="field"
+                value={templateId}
+                onChange={(e) => {
+                  const id = e.target.value
+                  setTemplateId(id)
+                  if (id) applyTemplate(id)
+                }}
+              >
+                <option value="">None — use Generate</option>
+                {state.templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="btn secondary"
+              onClick={() => startEdit(templateId || undefined)}
+            >
+              {templateId ? 'Edit template' : 'New template'}
+            </button>
+            {templateId && (
+              <button
+                type="button"
+                className="btn ghost"
+                onClick={() => {
+                  if (confirm('Delete this template?')) {
+                    deleteTemplate(templateId)
+                    setTemplateId('')
+                  }
+                }}
+              >
+                Delete
+              </button>
+            )}
+          </div>
 
           {editingId && (
             <form className="tpl-edit" onSubmit={saveTpl}>
               <label className="lbl">
                 Name
-                <input className="field" value={tplName} onChange={(e) => setTplName(e.target.value)} required />
+                <input
+                  className="field"
+                  value={tplName}
+                  onChange={(e) => setTplName(e.target.value)}
+                  required
+                />
               </label>
               <label className="lbl">
                 Subject
-                <input className="field" value={tplSubject} onChange={(e) => setTplSubject(e.target.value)} required />
+                <input
+                  className="field"
+                  value={tplSubject}
+                  onChange={(e) => setTplSubject(e.target.value)}
+                  required
+                />
               </label>
               <label className="lbl">
-                Body (use {'{{businessName}}'}, {'{{decisionMaker}}'}, {'{{services}}'}, {'{{propertyNotes}}'}, {'{{signature}}'}, …)
-                <textarea className="field" rows={8} value={tplBody} onChange={(e) => setTplBody(e.target.value)} required />
+                Body (use {'{{businessName}}'}, {'{{decisionMaker}}'},{' '}
+                {'{{services}}'}, {'{{propertyNotes}}'}, {'{{signature}}'}, …)
+                <textarea
+                  className="field"
+                  rows={7}
+                  value={tplBody}
+                  onChange={(e) => setTplBody(e.target.value)}
+                  required
+                />
               </label>
               <div className="modal-actions">
-                <button type="button" className="btn secondary" onClick={() => setEditingId(null)}>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => setEditingId(null)}
+                >
                   Cancel
                 </button>
                 <button type="submit" className="btn">
@@ -247,115 +581,15 @@ export function Emails() {
               </div>
             </form>
           )}
-        </section>
-
-        <section className="panel composer">
-          <div className="composer-top">
-            <label className="lbl">
-              Prospect
-              <select
-                className="field"
-                value={prospectId}
-                onChange={(e) => {
-                  setProspectId(e.target.value)
-                  setDraftMeta(null)
-                }}
-              >
-                {state.prospects
-                  .filter((p) => p.stage !== 'lost')
-                  .map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.businessName} — {p.decisionMaker}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <div className="composer-actions">
-              <button
-                type="button"
-                className="btn"
-                disabled={!prospect}
-                onClick={() => prospect && fillFromProspect(prospect.id, 'email')}
-              >
-                {actionGenerateLabel('email')}
-              </button>
-              <button
-                type="button"
-                className="btn secondary"
-                disabled={!prospect || !templateId}
-                onClick={() => applyTemplate(templateId)}
-              >
-                Apply template
-              </button>
-              <button
-                type="button"
-                className="btn secondary"
-                disabled={!prospect}
-                onClick={generateFollowUp}
-              >
-                Generate follow-up
-              </button>
-            </div>
-          </div>
-
-          {prospect && (
-            <div className="recipient-card">
-              <div className="recipient-main">
-                <p className="recipient-kicker">{composerTitle}</p>
-                <strong>{prospect.decisionMaker || 'Decision maker'}</strong>
-                <span>
-                  {prospect.jobTitle ? `${prospect.jobTitle} · ` : ''}
-                  {prospect.businessName}
-                </span>
-                <span className="recipient-to">
-                  To:{' '}
-                  {prospect.email ? (
-                    <a href={`mailto:${prospect.email}`}>{prospect.email}</a>
-                  ) : (
-                    <em>No email on file — add it on the prospect card</em>
-                  )}
-                </span>
-                {(prospect.phone || prospect.companyPhone) && (
-                  <span>
-                    Phone:{' '}
-                    <a href={`tel:${(prospect.phone || prospect.companyPhone).replace(/\D/g, '')}`}>
-                      {prospect.phone || prospect.companyPhone}
-                    </a>
-                  </span>
-                )}
-              </div>
-              <ul className="recipient-facts">
-                {prospect.industry && <li>{prospect.industry}</li>}
-                {(prospect.city || prospect.state || prospect.address) && (
-                  <li>
-                    {[prospect.address, prospect.city, prospect.state]
-                      .filter(Boolean)
-                      .join(', ')}
-                  </li>
-                )}
-                {serviceLabels(prospect.servicesNeeded) && (
-                  <li>Services: {serviceLabels(prospect.servicesNeeded)}</li>
-                )}
-                {prospect.propertyNotes.trim() && (
-                  <li>Property: {prospect.propertyNotes.trim()}</li>
-                )}
-                {prospect.painPoints.trim() && (
-                  <li>Needs: {prospect.painPoints.trim()}</li>
-                )}
-              </ul>
-              {draftMeta && draftMeta.missing.length > 0 && (
-                <p className="draft-missing">
-                  Missing on card: {draftMeta.missing.join(', ')}. Draft still
-                  generated — fill those fields for better outreach.
-                </p>
-              )}
-            </div>
-          )}
 
           {!isScript && (
             <label className="lbl">
               Subject
-              <input className="field" value={subject} onChange={(e) => setSubject(e.target.value)} />
+              <input
+                className="field"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+              />
             </label>
           )}
           <label className="lbl">
@@ -365,7 +599,7 @@ export function Emails() {
               rows={isScript ? 16 : 14}
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="Generate from the prospect card or apply a template."
+              placeholder="Generate from the prospect brief."
             />
           </label>
 
@@ -379,7 +613,9 @@ export function Emails() {
               <button
                 type="button"
                 className="btn"
-                onClick={() => logCall(prospect.id, 'Call logged from generated script')}
+                onClick={() =>
+                  logCall(prospect.id, 'Call logged from generated script')
+                }
               >
                 Log call
               </button>
@@ -416,11 +652,6 @@ export function Emails() {
                 {logged ? 'Logged as sent' : 'Mark sent'}
               </button>
             )}
-            {prospect && (
-              <Link className="btn secondary" to={`/prospects/${prospect.id}`}>
-                Open prospect
-              </Link>
-            )}
           </div>
         </section>
       </div>
@@ -430,7 +661,11 @@ export function Emails() {
           <>
             <div className="panel-head">
               <h2>Sent email</h2>
-              <button type="button" className="btn small secondary" onClick={closeSent}>
+              <button
+                type="button"
+                className="btn small secondary"
+                onClick={closeSent}
+              >
                 Back to list
               </button>
             </div>
@@ -479,20 +714,6 @@ export function Emails() {
                 <pre className="sent-body">{selectedSent.body}</pre>
               </div>
 
-              <div className="sent-notes-block">
-                <span className="lbl">Prospect notes</span>
-                <p className="sent-notes">
-                  {[
-                    selectedProspect.propertyNotes,
-                    selectedProspect.conversationNotes,
-                    selectedProspect.painPoints,
-                  ]
-                    .map((n) => n.trim())
-                    .filter(Boolean)
-                    .join('\n\n') || 'No notes on this prospect.'}
-                </p>
-              </div>
-
               <div className="sent-detail-actions">
                 <Link
                   className="btn secondary"
@@ -527,10 +748,14 @@ export function Emails() {
         ) : (
           <>
             <div className="panel-head">
-              <h2>Sent emails</h2>
+              <h2>
+                {prospect
+                  ? `Sent to ${prospect.decisionMaker || prospect.businessName}`
+                  : 'Sent emails'}
+              </h2>
             </div>
             <ul className="sent-list">
-              {state.sentEmails.map((e) => {
+              {(prospect ? prospectSent : state.sentEmails).map((e) => {
                 const p = state.prospects.find((x) => x.id === e.prospectId)
                 return (
                   <li key={e.id}>
@@ -550,8 +775,8 @@ export function Emails() {
                   </li>
                 )
               })}
-              {state.sentEmails.length === 0 && (
-                <li className="empty">No emails logged yet.</li>
+              {(prospect ? prospectSent : state.sentEmails).length === 0 && (
+                <li className="empty">No emails logged yet for this prospect.</li>
               )}
             </ul>
           </>
