@@ -36,6 +36,9 @@ export function ProspectDetail() {
     logCall,
     logEvent,
     addAttachment,
+    ensureProspectDetail,
+    reference,
+    apiMode,
   } = useSales()
 
   const prospect = state.prospects.find((p) => p.id === id)
@@ -46,6 +49,12 @@ export function ProspectDetail() {
   const [attachName, setAttachName] = useState('')
   const [attachKind, setAttachKind] = useState<'photo' | 'document' | 'quote' | 'other'>('photo')
   const taskInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (id && apiMode === 'v2') {
+      void ensureProspectDetail(id)
+    }
+  }, [id, apiMode, ensureProspectDetail])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -221,6 +230,37 @@ export function ProspectDetail() {
             }
           />
         </label>
+        <label className="lbl">
+          Job value
+          <input
+            className="field"
+            type="number"
+            min="0"
+            step="100"
+            value={prospect.estimatedJobValue ?? ''}
+            onChange={(e) =>
+              updateProspect(prospect.id, {
+                estimatedJobValue: e.target.value === '' ? null : Number(e.target.value),
+              })
+            }
+          />
+        </label>
+        <label className="lbl">
+          Annual value
+          <input
+            className="field"
+            type="number"
+            min="0"
+            step="100"
+            value={prospect.estimatedAnnualValue ?? ''}
+            onChange={(e) =>
+              updateProspect(prospect.id, {
+                estimatedAnnualValue:
+                  e.target.value === '' ? null : Number(e.target.value),
+              })
+            }
+          />
+        </label>
         <div className="weighted">
           <span>Last contact</span>
           <strong>{formatDate(prospect.lastContactAt)}</strong>
@@ -276,6 +316,42 @@ export function ProspectDetail() {
                 value={prospect.address}
                 onChange={(e) => updateProspect(prospect.id, { address: e.target.value })}
               />
+            </label>
+            <label className="lbl">
+              City
+              <input
+                className="field"
+                value={prospect.city}
+                onChange={(e) => updateProspect(prospect.id, { city: e.target.value })}
+              />
+            </label>
+            <label className="lbl">
+              State
+              <input
+                className="field"
+                value={prospect.state || ''}
+                maxLength={2}
+                onChange={(e) => updateProspect(prospect.id, { state: e.target.value })}
+              />
+            </label>
+            <label className="lbl">
+              Lead source
+              <select
+                className="field"
+                value={prospect.leadSourceId || ''}
+                onChange={(e) =>
+                  updateProspect(prospect.id, {
+                    leadSourceId: e.target.value || null,
+                  })
+                }
+              >
+                <option value="">Unknown</option>
+                {(reference?.leadSources ?? []).map((source) => (
+                  <option key={source.id} value={source.id}>
+                    {source.name}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
         </section>
