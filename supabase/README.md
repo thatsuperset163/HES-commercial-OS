@@ -34,8 +34,9 @@ Configure these locally and in Vercel:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Project Settings → API → publishable/anon key
 - `SUPABASE_SERVICE_ROLE_KEY`: Project Settings → API → service-role secret
 
-`SUPABASE_SERVICE_ROLE_KEY` is **required for normalized app reads and writes**
-and must only be used in server-side code. Never expose it through a
+`SUPABASE_SERVICE_ROLE_KEY` is **required for durable cloud saves across the
+whole site** (normalized Sales reads/writes and recommended for HQ/Jobs
+blackboard) and must only be used in server-side code. Never expose it through a
 `NEXT_PUBLIC_` variable or browser bundle.
 
 RLS is enabled on every normalized table and Phase 1 intentionally creates no
