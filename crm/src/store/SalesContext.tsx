@@ -104,6 +104,7 @@ interface SalesContextValue {
     salesRep?: string
   }) => Task
   completeTask: (taskId: string, logTimeline?: boolean) => void
+  rescheduleTask: (taskId: string, dueAt: string) => void
   deleteTask: (taskId: string) => void
   logEvent: (input: {
     prospectId: string
@@ -843,6 +844,25 @@ export function SalesProvider({ children }: { children: ReactNode }) {
     })()
   }, [markError, markSynced, refreshDashboard])
 
+  const rescheduleTask = useCallback(
+    (taskId: string, dueAt: string) => {
+      setState((s) => ({
+        ...s,
+        tasks: s.tasks.map((t) => (t.id === taskId ? { ...t, dueAt } : t)),
+      }))
+      if (apiModeRef.current !== 'v2') return
+      void (async () => {
+        const result = await salesApi.updateTask(taskId, { due_at: dueAt })
+        if (!result.ok) markError()
+        else {
+          markSynced()
+          void refreshDashboard()
+        }
+      })()
+    },
+    [markError, markSynced, refreshDashboard],
+  )
+
   const deleteTask = useCallback((taskId: string) => {
     setState((s) => ({ ...s, tasks: s.tasks.filter((t) => t.id !== taskId) }))
     if (apiModeRef.current !== 'v2') return
@@ -1232,6 +1252,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       setStage,
       addTask,
       completeTask,
+      rescheduleTask,
       deleteTask,
       logEvent,
       logCall,
@@ -1258,6 +1279,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       setStage,
       addTask,
       completeTask,
+      rescheduleTask,
       deleteTask,
       logEvent,
       logCall,
