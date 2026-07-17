@@ -25,9 +25,10 @@ type Filters = {
 }
 
 export function Prospects() {
-  const { state, upsertProspect } = useSales()
+  const { state, upsertProspect, reference } = useSales()
   const navigate = useNavigate()
   const [showNew, setShowNew] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [services, setServices] = useState<ServiceType[]>([])
   const [filters, setFilters] = useState<Filters>({
     q: '',
@@ -104,41 +105,56 @@ export function Prospects() {
     )
   }
 
-  function createProspect(e: React.FormEvent<HTMLFormElement>) {
+  async function createProspect(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (saving) return
+    setSaving(true)
     const fd = new FormData(e.currentTarget)
+    const jobValueRaw = String(fd.get('estimatedJobValue') || '').trim()
+    const annualValueRaw = String(fd.get('estimatedAnnualValue') || '').trim()
     const base = emptyProspectDraft(String(fd.get('salesRep') || 'Will'))
-    const created = upsertProspect({
-      ...base,
-      businessName: String(fd.get('businessName') || '').trim(),
-      industry: String(fd.get('industry') || 'Other'),
-      website: String(fd.get('website') || '').trim(),
-      companyPhone: String(fd.get('companyPhone') || '').trim(),
-      address: String(fd.get('address') || '').trim(),
-      decisionMaker: String(fd.get('decisionMaker') || '').trim(),
-      jobTitle: String(fd.get('jobTitle') || '').trim(),
-      email: String(fd.get('email') || '').trim(),
-      phone: String(fd.get('phone') || '').trim(),
-      phoneExt: String(fd.get('phoneExt') || '').trim(),
-      assistantName: String(fd.get('assistantName') || '').trim(),
-      assistantPhone: String(fd.get('assistantPhone') || '').trim(),
-      stage: (String(fd.get('stage') || 'not_contacted') as PipelineStage),
-      priority: (String(fd.get('priority') || 'medium') as ProspectPriority),
-      firstEmailAt: fromDateInput(String(fd.get('firstEmailAt') || '')),
-      firstCallAt: fromDateInput(String(fd.get('firstCallAt') || '')),
-      nextFollowUpAt: fromDateInput(String(fd.get('nextFollowUpAt') || '')),
-      lastContactAt: fromDateInput(String(fd.get('lastContactAt') || '')),
-      propertyNotes: String(fd.get('propertyNotes') || '').trim(),
-      conversationNotes: String(fd.get('conversationNotes') || '').trim(),
-      painPoints: String(fd.get('painPoints') || '').trim(),
-      servicesDiscussed: String(fd.get('servicesDiscussed') || '').trim(),
-      servicesNeeded: services,
-      emailVerified: fd.get('emailVerified') === 'yes',
-      decisionMakerConfirmed: fd.get('decisionMakerConfirmed') === 'yes',
-    })
-    setShowNew(false)
-    setServices([])
-    navigate(`/prospects/${created.id}`)
+    try {
+      const created = await upsertProspect({
+        ...base,
+        businessName: String(fd.get('businessName') || '').trim(),
+        industry: String(fd.get('industry') || 'Other'),
+        website: String(fd.get('website') || '').trim(),
+        companyPhone: String(fd.get('companyPhone') || '').trim(),
+        address: String(fd.get('address') || '').trim(),
+        city: String(fd.get('city') || '').trim(),
+        state: String(fd.get('state') || '').trim(),
+        decisionMaker: String(fd.get('decisionMaker') || '').trim(),
+        jobTitle: String(fd.get('jobTitle') || '').trim(),
+        email: String(fd.get('email') || '').trim(),
+        phone: String(fd.get('phone') || '').trim(),
+        phoneExt: String(fd.get('phoneExt') || '').trim(),
+        assistantName: String(fd.get('assistantName') || '').trim(),
+        assistantPhone: String(fd.get('assistantPhone') || '').trim(),
+        stage: (String(fd.get('stage') || 'not_contacted') as PipelineStage),
+        priority: (String(fd.get('priority') || 'medium') as ProspectPriority),
+        firstEmailAt: fromDateInput(String(fd.get('firstEmailAt') || '')),
+        firstCallAt: fromDateInput(String(fd.get('firstCallAt') || '')),
+        nextFollowUpAt: fromDateInput(String(fd.get('nextFollowUpAt') || '')),
+        lastContactAt: fromDateInput(String(fd.get('lastContactAt') || '')),
+        propertyNotes: String(fd.get('propertyNotes') || '').trim(),
+        conversationNotes: String(fd.get('conversationNotes') || '').trim(),
+        painPoints: String(fd.get('painPoints') || '').trim(),
+        servicesDiscussed: String(fd.get('servicesDiscussed') || '').trim(),
+        servicesNeeded: services,
+        emailVerified: fd.get('emailVerified') === 'yes',
+        decisionMakerConfirmed: fd.get('decisionMakerConfirmed') === 'yes',
+        estimatedJobValue: jobValueRaw ? Number(jobValueRaw) : null,
+        estimatedAnnualValue: annualValueRaw ? Number(annualValueRaw) : null,
+        leadSourceId: String(fd.get('leadSourceId') || '').trim() || null,
+      })
+      setShowNew(false)
+      setServices([])
+      navigate(`/prospects/${created.id}`)
+    } catch {
+      window.alert('Could not save prospect to Sales v2. Try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -253,6 +269,7 @@ export function Prospects() {
               <th>Company</th>
               <th>Lead status</th>
               <th>Priority</th>
+              <th>Job value</th>
               <th>Services</th>
               <th>Next follow-up</th>
             </tr>
@@ -272,7 +289,12 @@ export function Prospects() {
                 <td>
                   <div className="biz-link">
                     <strong>{p.businessName}</strong>
-                    <span>{p.industry}</span>
+                    <span>
+                      {p.industry}
+                      {p.city || p.state
+                        ? ` · ${[p.city, p.state].filter(Boolean).join(', ')}`
+                        : ''}
+                    </span>
                   </div>
                 </td>
                 <td>
@@ -284,6 +306,11 @@ export function Prospects() {
                   <span className={`priority-tag ${p.priority}`}>
                     {PRIORITIES.find((x) => x.id === p.priority)?.label}
                   </span>
+                </td>
+                <td>
+                  {p.estimatedJobValue != null
+                    ? `$${Number(p.estimatedJobValue).toLocaleString()}`
+                    : '—'}
                 </td>
                 <td className="services-cell">
                   {serviceLabels(p.servicesNeeded) || '—'}
@@ -346,8 +373,16 @@ export function Prospects() {
                   <input
                     className="field"
                     name="address"
-                    placeholder="Street, city, state, ZIP"
+                    placeholder="Street address"
                   />
+                </label>
+                <label className="lbl">
+                  City
+                  <input className="field" name="city" />
+                </label>
+                <label className="lbl">
+                  State
+                  <input className="field" name="state" placeholder="TX" maxLength={2} />
                 </label>
               </div>
             </section>
@@ -407,6 +442,39 @@ export function Prospects() {
                     {PRIORITIES.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="lbl">
+                  Estimated job value
+                  <input
+                    className="field"
+                    name="estimatedJobValue"
+                    type="number"
+                    min="0"
+                    step="100"
+                    placeholder="4500"
+                  />
+                </label>
+                <label className="lbl">
+                  Estimated annual value
+                  <input
+                    className="field"
+                    name="estimatedAnnualValue"
+                    type="number"
+                    min="0"
+                    step="100"
+                    placeholder="12000"
+                  />
+                </label>
+                <label className="lbl">
+                  Lead source
+                  <select className="field" name="leadSourceId" defaultValue="">
+                    <option value="">Unknown</option>
+                    {(reference?.leadSources ?? []).map((source) => (
+                      <option key={source.id} value={source.id}>
+                        {source.name}
                       </option>
                     ))}
                   </select>
@@ -530,11 +598,16 @@ export function Prospects() {
             </section>
 
             <div className="modal-actions">
-              <button type="button" className="btn secondary" onClick={() => setShowNew(false)}>
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => setShowNew(false)}
+                disabled={saving}
+              >
                 Cancel
               </button>
-              <button type="submit" className="btn">
-                Save prospect
+              <button type="submit" className="btn" disabled={saving}>
+                {saving ? 'Saving…' : 'Save prospect'}
               </button>
             </div>
           </form>

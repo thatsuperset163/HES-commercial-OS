@@ -10,8 +10,17 @@ import {
 import { OPEN_STAGES } from '../types'
 import './Today.css'
 
+function money(value: number | null | undefined) {
+  const n = Number(value || 0)
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(n)
+}
+
 export function Today() {
-  const { state, completeTask, logCall } = useSales()
+  const { state, completeTask, logCall, dashboard, apiMode } = useSales()
 
   const dueTasks = useMemo(
     () =>
@@ -44,6 +53,15 @@ export function Today() {
   )
   const openCount = state.prospects.filter((p) => OPEN_STAGES.includes(p.stage)).length
 
+  const metrics = dashboard?.metrics
+  const followUpsToday = metrics?.todaysFollowUps ?? dueTasks.length
+  const overdueFollowUps = metrics?.overdueFollowUps
+  const newThisWeek = metrics?.newProspectsThisWeek
+  const pipelineJob = metrics?.openPipelineJobValue
+  const pipelineAnnual = metrics?.openPipelineAnnualValue
+  const wonCount = metrics?.wonCount ?? wonMonth.length
+  const lostCount = metrics?.lostCount ?? lost.length
+
   return (
     <div className="page today-page">
       <header className="page-header">
@@ -61,8 +79,12 @@ export function Today() {
 
       <section className="metric-strip" aria-label="Today metrics">
         <div className="metric">
-          <span>Tasks due today</span>
-          <strong>{dueTasks.length}</strong>
+          <span>Follow-ups today</span>
+          <strong>{followUpsToday}</strong>
+        </div>
+        <div className="metric">
+          <span>Overdue follow-ups</span>
+          <strong>{overdueFollowUps ?? dueTasks.filter((t) => isOverdue(t.dueAt)).length}</strong>
         </div>
         <div className="metric">
           <span>Calls due</span>
@@ -85,17 +107,30 @@ export function Today() {
           <strong>{highPriority.length}</strong>
         </div>
         <div className="metric">
-          <span>Won this month</span>
-          <strong>{wonMonth.length}</strong>
+          <span>New this week</span>
+          <strong>{newThisWeek ?? '—'}</strong>
         </div>
         <div className="metric">
-          <span>Lost opportunities</span>
-          <strong>{lost.length}</strong>
+          <span>Open job value</span>
+          <strong>{apiMode === 'v2' ? money(pipelineJob) : '—'}</strong>
+        </div>
+        <div className="metric">
+          <span>Open annual value</span>
+          <strong>{apiMode === 'v2' ? money(pipelineAnnual) : '—'}</strong>
+        </div>
+        <div className="metric">
+          <span>Won</span>
+          <strong>{wonCount}</strong>
+        </div>
+        <div className="metric">
+          <span>Lost</span>
+          <strong>{lostCount}</strong>
         </div>
       </section>
 
       <p className="open-line muted">
         {openCount} open opportunities · focus high-priority decision makers first
+        {apiMode === 'v2' ? ' · metrics from Sales v2' : ''}
       </p>
 
       <section className="panel">
@@ -154,6 +189,33 @@ export function Today() {
           </ul>
         )}
       </section>
+
+      {apiMode === 'v2' && dashboard && dashboard.largestOpportunities.length > 0 && (
+        <section className="panel">
+          <div className="panel-head">
+            <h2>Largest open opportunities</h2>
+          </div>
+          <ul className="action-list">
+            {dashboard.largestOpportunities.slice(0, 5).map((opp) => (
+              <li key={opp.id} className="action-row">
+                <div className="action-main">
+                  <div>
+                    <strong>
+                      <Link to={`/prospects/${opp.id}`}>
+                        {opp.company?.name || opp.name}
+                      </Link>
+                    </strong>
+                    <span>
+                      {money(opp.estimated_job_value)} job ·{' '}
+                      {money(opp.estimated_annual_value)} annual
+                    </span>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   )
 }

@@ -19,15 +19,36 @@ import type {
   TimelineEvent,
   TimelineEventType,
 } from '../types'
-import { STAGES } from '../types'
+import { CURRENT_SALES_STATE_SCHEMA_VERSION, STAGES } from '../types'
 import { uid } from '../lib/dates'
 import {
+  extractLegacyAuxState,
   loadState,
   loadStateFromCloud,
   resetState,
+  saveLegacyAuxToCloud,
   saveState,
   saveStateToCloud,
 } from '../lib/storage'
+import {
+  probeSalesV2,
+  salesApi,
+  type BootstrapData,
+  type DashboardSummary,
+  type ReferenceData,
+} from '../lib/salesApi'
+import {
+  activityToTimeline,
+  assistantPayloadFromProspect,
+  companyPayloadFromProspect,
+  contactPayloadFromProspect,
+  opportunityPayloadFromProspect,
+  opportunityToProspect,
+  PIPELINE_TO_V2,
+  splitProspectPatch,
+  taskFromV2,
+  taskTypeToV2,
+} from '../lib/v2Adapter'
 
 function stageLabel(stage: PipelineStage) {
   return STAGES.find((s) => s.id === stage)?.label ?? stage
@@ -59,13 +80,19 @@ function makeTimeline(
 type ProspectInput = Omit<Prospect, 'id' | 'createdAt' | 'updatedAt'>
 
 export type CloudSyncStatus = 'local' | 'loading' | 'synced' | 'offline' | 'error'
+export type SalesApiMode = 'legacy' | 'v2'
 
 interface SalesContextValue {
   state: SalesState
   ready: boolean
   cloudStatus: CloudSyncStatus
+  apiMode: SalesApiMode
+  dashboard: DashboardSummary | null
+  reference: ReferenceData | null
+  refreshDashboard: () => Promise<void>
+  ensureProspectDetail: (id: string) => Promise<void>
   resetDemo: () => void
-  upsertProspect: (p: ProspectInput | Prospect) => Prospect
+  upsertProspect: (p: ProspectInput | Prospect) => Promise<Prospect>
   updateProspect: (id: string, patch: Partial<Prospect>) => void
   deleteProspect: (id: string) => void
   setStage: (id: string, stage: PipelineStage, note?: string) => void
@@ -88,7 +115,9 @@ interface SalesContextValue {
   logCall: (prospectId: string, body?: string, voicemail?: boolean) => void
   addAttachment: (input: Omit<Attachment, 'id' | 'createdAt'>) => Attachment
   deleteAttachment: (id: string) => void
-  saveTemplate: (t: Omit<EmailTemplate, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => EmailTemplate
+  saveTemplate: (
+    t: Omit<EmailTemplate, 'id' | 'createdAt' | 'updatedAt'> & { id?: string },
+  ) => EmailTemplate
   deleteTemplate: (id: string) => void
   markEmailSent: (input: {
     prospectId: string
@@ -105,20 +134,204 @@ interface SalesContextValue {
 
 const SalesContext = createContext<SalesContextValue | null>(null)
 
+async function loadV2Workspace(bootstrap: BootstrapData): Promise<{
+  state: SalesState
+  dashboard: DashboardSummary
+  reference: ReferenceData
+}> {
+  const [opps, tasks, activities, legacy] = await Promise.all([
+    salesApi.listOpportunities({ page: 1, pageSize: 100, sort: 'updated_at', direction: 'desc' }),
+    salesApi.listTasks({ page: 1, pageSize: 100, sort: 'due_at', direction: 'asc' }),
+    salesApi.listActivities({ page: 1, pageSize: 100, sort: 'occurred_at', direction: 'desc' }),
+    loadStateFromCloud(),
+  ])
+
+  const prospects =
+    opps.ok
+      ? opps.data.data.map((row) => opportunityToProspect(row))
+      : []
+
+  const mappedTasks =
+    tasks.ok
+      ? tasks.data.data.map(taskFromV2).filter((t): t is Task => Boolean(t))
+      : []
+
+  const timeline =
+    activities.ok
+      ? activities.data.data
+          .map(activityToTimeline)
+          .filter((e): e is TimelineEvent => Boolean(e))
+      : []
+
+  const aux =
+    legacy.ok && legacy.state
+      ? extractLegacyAuxState(legacy.state)
+      : extractLegacyAuxState(loadState())
+
+  return {
+    dashboard: bootstrap.dashboard,
+    reference: bootstrap.reference,
+    state: {
+      schemaVersion: CURRENT_SALES_STATE_SCHEMA_VERSION,
+      prospects,
+      tasks: mappedTasks,
+      timeline,
+      templates: aux.templates,
+      sentEmails: aux.sentEmails,
+      attachments: aux.attachments,
+    },
+  }
+}
+
 export function SalesProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<SalesState>(() => loadState())
   const [ready, setReady] = useState(false)
   const [cloudStatus, setCloudStatus] = useState<CloudSyncStatus>('loading')
+  const [apiMode, setApiMode] = useState<SalesApiMode>('legacy')
+  const [dashboard, setDashboard] = useState<DashboardSummary | null>(null)
+  const [reference, setReference] = useState<ReferenceData | null>(null)
   const skipNextCloudSave = useRef(true)
   const saveTimer = useRef<number | null>(null)
   const cloudEnabled = useRef(false)
+  const apiModeRef = useRef<SalesApiMode>('legacy')
+  const stateRef = useRef(state)
+  const detailLoading = useRef(new Set<string>())
+
+  useEffect(() => {
+    stateRef.current = state
+  }, [state])
+
+  useEffect(() => {
+    apiModeRef.current = apiMode
+  }, [apiMode])
+
+  const markError = useCallback(() => setCloudStatus('error'), [])
+  const markSynced = useCallback(() => setCloudStatus('synced'), [])
+
+  const refreshDashboard = useCallback(async () => {
+    if (apiModeRef.current !== 'v2') return
+    const result = await salesApi.dashboard()
+    if (result.ok) setDashboard(result.data)
+  }, [])
+
+  const ensureProspectDetail = useCallback(async (id: string) => {
+    if (apiModeRef.current !== 'v2' || !id || detailLoading.current.has(id)) return
+    detailLoading.current.add(id)
+    try {
+      const current = stateRef.current.prospects.find((p) => p.id === id)
+      const companyId = current?.companyId || id
+
+      const [opp, company, tasks, activities] = await Promise.all([
+        salesApi.getOpportunity(id),
+        salesApi.getCompany(companyId),
+        salesApi.listTasks({
+          opportunityId: id,
+          page: 1,
+          pageSize: 100,
+          sort: 'due_at',
+          direction: 'asc',
+        }),
+        salesApi.listActivities({
+          opportunityId: id,
+          page: 1,
+          pageSize: 100,
+          sort: 'occurred_at',
+          direction: 'desc',
+        }),
+      ])
+
+      if (!opp.ok) return
+
+      const companyRow = company.ok ? company.data : null
+      const contacts = companyRow?.contacts ?? []
+      const primary =
+        contacts.find((c) => c.id === opp.data.primary_contact_id) ||
+        contacts.find((c) => c.is_primary) ||
+        null
+      const assistant =
+        contacts.find(
+          (c) =>
+            c.contact_type === 'gatekeeper' ||
+            (!c.is_primary && c.id !== primary?.id),
+        ) || null
+
+      const prospect = opportunityToProspect(opp.data, {
+        company: companyRow,
+        primary,
+        assistant,
+      })
+
+      const mappedTasks =
+        tasks.ok
+          ? tasks.data.data.map(taskFromV2).filter((t): t is Task => Boolean(t))
+          : []
+      const mappedTimeline =
+        activities.ok
+          ? activities.data.data
+              .map(activityToTimeline)
+              .filter((e): e is TimelineEvent => Boolean(e))
+          : []
+
+      setState((s) => ({
+        ...s,
+        prospects: s.prospects.some((p) => p.id === id)
+          ? s.prospects.map((p) => (p.id === id ? { ...p, ...prospect } : p))
+          : [prospect, ...s.prospects],
+        tasks: [
+          ...mappedTasks,
+          ...s.tasks.filter(
+            (t) => t.prospectId !== id && !mappedTasks.some((m) => m.id === t.id),
+          ),
+        ],
+        timeline: [
+          ...mappedTimeline,
+          ...s.timeline.filter(
+            (e) =>
+              e.prospectId !== id && !mappedTimeline.some((m) => m.id === e.id),
+          ),
+        ],
+      }))
+    } finally {
+      detailLoading.current.delete(id)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
 
     async function hydrate() {
+      const v2 = await probeSalesV2()
+      if (cancelled) return
+
+      if (v2.available) {
+        try {
+          const workspace = await loadV2Workspace(v2.bootstrap)
+          if (cancelled) return
+          cloudEnabled.current = true
+          apiModeRef.current = 'v2'
+          setApiMode('v2')
+          setDashboard(workspace.dashboard)
+          setReference(workspace.reference)
+          setState(workspace.state)
+          saveState(workspace.state)
+          setCloudStatus('synced')
+          setReady(true)
+          window.setTimeout(() => {
+            skipNextCloudSave.current = false
+          }, 0)
+          return
+        } catch {
+          // fall through to legacy
+        }
+      }
+
       const cloud = await loadStateFromCloud()
       if (cancelled) return
+
+      apiModeRef.current = 'legacy'
+      setApiMode('legacy')
+      setDashboard(null)
+      setReference(null)
 
       if (cloud.ok && cloud.state) {
         cloudEnabled.current = true
@@ -157,7 +370,9 @@ export function SalesProvider({ children }: { children: ReactNode }) {
 
     if (saveTimer.current) window.clearTimeout(saveTimer.current)
     saveTimer.current = window.setTimeout(() => {
-      void saveStateToCloud(state).then((ok) => {
+      const saver =
+        apiModeRef.current === 'v2' ? saveLegacyAuxToCloud : saveStateToCloud
+      void saver(state).then((ok) => {
         setCloudStatus(ok ? 'synced' : 'error')
       })
     }, 500)
@@ -177,7 +392,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
     [],
   )
 
-  const upsertProspect = useCallback((p: ProspectInput | Prospect) => {
+  const upsertProspect = useCallback(async (p: ProspectInput | Prospect) => {
     const now = new Date().toISOString()
     if ('id' in p && p.id) {
       const updated = { ...p, updatedAt: now } as Prospect
@@ -185,8 +400,145 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         ...s,
         prospects: s.prospects.map((x) => (x.id === updated.id ? updated : x)),
       }))
+      if (apiModeRef.current === 'v2') {
+        const companyId = updated.companyId || updated.id
+        const splits = splitProspectPatch(updated)
+        const ops: Promise<{ ok: boolean }>[] = []
+        if (Object.keys(splits.company).length) {
+          ops.push(salesApi.updateCompany(companyId, splits.company))
+        }
+        if (updated.primaryContactId && Object.keys(splits.contact).length) {
+          ops.push(
+            salesApi.updateContact(updated.primaryContactId, splits.contact),
+          )
+        }
+        if (Object.keys(splits.opportunity).length) {
+          ops.push(salesApi.updateOpportunity(updated.id, splits.opportunity))
+        }
+        const results = await Promise.all(ops)
+        if (results.some((r) => !r.ok)) markError()
+        else {
+          markSynced()
+          void refreshDashboard()
+        }
+      }
       return updated
     }
+
+    if (apiModeRef.current === 'v2') {
+      const draft: Prospect = {
+        ...(p as ProspectInput),
+        id: uid('p'),
+        createdAt: now,
+        updatedAt: now,
+      }
+
+      const companyRes = await salesApi.createCompany(
+        companyPayloadFromProspect(draft),
+      )
+      if (!companyRes.ok) {
+        markError()
+        throw new Error(companyRes.message)
+      }
+      const companyId = companyRes.data.id
+
+      let primaryContactId: string | null = null
+      if (draft.decisionMaker.trim()) {
+        const contactRes = await salesApi.createContact(
+          contactPayloadFromProspect(companyId, draft, {
+            isPrimary: true,
+            contactType: 'decision_maker',
+          }),
+        )
+        if (contactRes.ok) primaryContactId = contactRes.data.id
+      }
+
+      let assistantContactId: string | undefined
+      if (draft.assistantName.trim()) {
+        const assistantRes = await salesApi.createContact(
+          assistantPayloadFromProspect(companyId, draft),
+        )
+        if (assistantRes.ok) assistantContactId = assistantRes.data.id
+      }
+
+      const oppRes = await salesApi.createOpportunity(
+        opportunityPayloadFromProspect(companyId, primaryContactId, draft),
+      )
+      if (!oppRes.ok) {
+        markError()
+        throw new Error(oppRes.message)
+      }
+
+      const created = opportunityToProspect(oppRes.data, {
+        company: companyRes.data,
+        primary: primaryContactId
+          ? {
+              id: primaryContactId,
+              company_id: companyId,
+              full_name: draft.decisionMaker,
+              job_title: draft.jobTitle || null,
+              email: draft.email || null,
+              phone: draft.phone || null,
+              phone_ext: draft.phoneExt || null,
+              contact_type: 'decision_maker',
+              is_primary: true,
+              email_verified: draft.emailVerified,
+              decision_maker_confirmed: draft.decisionMakerConfirmed,
+              notes: null,
+              created_at: now,
+              updated_at: now,
+              archived_at: null,
+            }
+          : null,
+        assistant: assistantContactId
+          ? {
+              id: assistantContactId,
+              company_id: companyId,
+              full_name: draft.assistantName,
+              job_title: null,
+              email: null,
+              phone: draft.assistantPhone || null,
+              phone_ext: null,
+              contact_type: 'gatekeeper',
+              is_primary: false,
+              email_verified: false,
+              decision_maker_confirmed: false,
+              notes: null,
+              created_at: now,
+              updated_at: now,
+              archived_at: null,
+            }
+          : null,
+      })
+      created.servicesNeeded = draft.servicesNeeded
+
+      const event = makeTimeline(
+        created.id,
+        'other',
+        'Prospect created',
+        created.businessName,
+        `${created.businessName} ${created.city} ${created.decisionMaker}`,
+      )
+
+      await salesApi.createActivity({
+        opportunity_id: created.id,
+        company_id: companyId,
+        contact_id: primaryContactId,
+        activity_type: 'prospect_created',
+        subject: 'Prospect created',
+        body: created.businessName,
+      })
+
+      setState((s) => ({
+        ...s,
+        prospects: [created, ...s.prospects],
+        timeline: [event, ...s.timeline],
+      }))
+      markSynced()
+      void refreshDashboard()
+      return created
+    }
+
     const created: Prospect = {
       ...(p as ProspectInput),
       id: uid('p'),
@@ -206,7 +558,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       timeline: [event, ...s.timeline],
     }))
     return created
-  }, [])
+  }, [markError, markSynced, refreshDashboard])
 
   const updateProspect = useCallback((id: string, patch: Partial<Prospect>) => {
     setState((s) => ({
@@ -215,9 +567,76 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         p.id === id ? { ...p, ...patch, updatedAt: new Date().toISOString() } : p,
       ),
     }))
-  }, [])
+
+    if (apiModeRef.current !== 'v2') return
+
+    void (async () => {
+      const current = stateRef.current.prospects.find((p) => p.id === id)
+      if (!current) return
+      const merged = { ...current, ...patch }
+      const companyId = merged.companyId || id
+      const splits = splitProspectPatch(patch)
+      const ops: Promise<{ ok: boolean }>[] = []
+
+      if (Object.keys(splits.company).length) {
+        ops.push(salesApi.updateCompany(companyId, splits.company))
+      }
+      if (Object.keys(splits.contact).length) {
+        if (merged.primaryContactId) {
+          ops.push(salesApi.updateContact(merged.primaryContactId, splits.contact))
+        } else if (merged.decisionMaker?.trim()) {
+          const created = await salesApi.createContact(
+            contactPayloadFromProspect(companyId, merged, {
+              isPrimary: true,
+              contactType: 'decision_maker',
+            }),
+          )
+          if (created.ok) {
+            setState((s) => ({
+              ...s,
+              prospects: s.prospects.map((p) =>
+                p.id === id ? { ...p, primaryContactId: created.data.id } : p,
+              ),
+            }))
+          } else {
+            markError()
+          }
+        }
+      }
+      if (Object.keys(splits.assistant).length) {
+        if (merged.assistantContactId) {
+          ops.push(
+            salesApi.updateContact(merged.assistantContactId, splits.assistant),
+          )
+        } else if (merged.assistantName?.trim()) {
+          const created = await salesApi.createContact(
+            assistantPayloadFromProspect(companyId, merged),
+          )
+          if (created.ok) {
+            setState((s) => ({
+              ...s,
+              prospects: s.prospects.map((p) =>
+                p.id === id ? { ...p, assistantContactId: created.data.id } : p,
+              ),
+            }))
+          }
+        }
+      }
+      if (Object.keys(splits.opportunity).length) {
+        ops.push(salesApi.updateOpportunity(id, splits.opportunity))
+      }
+
+      const results = await Promise.all(ops)
+      if (results.some((r) => !r.ok)) markError()
+      else {
+        markSynced()
+        void refreshDashboard()
+      }
+    })()
+  }, [markError, markSynced, refreshDashboard])
 
   const deleteProspect = useCallback((id: string) => {
+    const current = stateRef.current.prospects.find((p) => p.id === id)
     setState((s) => ({
       ...s,
       prospects: s.prospects.filter((p) => p.id !== id),
@@ -226,7 +645,21 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       sentEmails: s.sentEmails.filter((e) => e.prospectId !== id),
       attachments: s.attachments.filter((a) => a.prospectId !== id),
     }))
-  }, [])
+
+    if (apiModeRef.current !== 'v2') return
+    void (async () => {
+      const companyId = current?.companyId || id
+      const results = await Promise.all([
+        salesApi.archiveOpportunity(id),
+        salesApi.archiveCompany(companyId),
+      ])
+      if (results.some((r) => !r.ok)) markError()
+      else {
+        markSynced()
+        void refreshDashboard()
+      }
+    })()
+  }, [markError, markSynced, refreshDashboard])
 
   const setStage = useCallback(
     (id: string, stage: PipelineStage, note = '') => {
@@ -250,8 +683,39 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           timeline: [event, ...s.timeline],
         }
       })
+
+      if (apiModeRef.current !== 'v2') return
+      void (async () => {
+        const mapped = PIPELINE_TO_V2[stage]
+        const current = stateRef.current.prospects.find((p) => p.id === id)
+        const opp = await salesApi.updateOpportunity(id, {
+          stage_id: mapped.stage_id,
+          lead_status: mapped.lead_status,
+          next_follow_up_at:
+            stage === 'won' || stage === 'lost' ? null : undefined,
+          closed_at:
+            stage === 'won' || stage === 'lost'
+              ? new Date().toISOString()
+              : null,
+        })
+        await salesApi.createActivity({
+          opportunity_id: id,
+          company_id: current?.companyId || id,
+          activity_type: 'stage_change',
+          subject: stageLabel(stage),
+          body:
+            note ||
+            `Moved from ${stageLabel(current?.stage ?? 'not_contacted')} to ${stageLabel(stage)}`,
+          metadata: { from: current?.stage ?? null, to: stage },
+        })
+        if (!opp.ok) markError()
+        else {
+          markSynced()
+          void refreshDashboard()
+        }
+      })()
     },
-    [touchProspect],
+    [touchProspect, markError, markSynced, refreshDashboard],
   )
 
   const addTask = useCallback(
@@ -262,7 +726,9 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       dueAt: string
       salesRep?: string
     }) => {
-      const prospect = state.prospects.find((p) => p.id === input.prospectId)
+      const prospect = stateRef.current.prospects.find(
+        (p) => p.id === input.prospectId,
+      )
       const task: Task = {
         id: uid('t'),
         prospectId: input.prospectId,
@@ -286,9 +752,51 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         tasks: [task, ...s.tasks],
         timeline: [event, ...s.timeline],
       }))
+
+      if (apiModeRef.current === 'v2') {
+        void (async () => {
+          const created = await salesApi.createTask({
+            opportunity_id: input.prospectId,
+            company_id: prospect?.companyId || input.prospectId,
+            contact_id: prospect?.primaryContactId || null,
+            title: input.title,
+            task_type: taskTypeToV2(input.kind),
+            status: 'open',
+            due_at: input.dueAt,
+            priority: prospect?.priority || 'medium',
+          })
+          await salesApi.createActivity({
+            opportunity_id: input.prospectId,
+            company_id: prospect?.companyId || input.prospectId,
+            activity_type: 'task_created',
+            subject: 'Task created',
+            body: input.title,
+          })
+          if (!created.ok) {
+            markError()
+            return
+          }
+          setState((s) => ({
+            ...s,
+            tasks: s.tasks.map((t) =>
+              t.id === task.id
+                ? {
+                    ...t,
+                    id: created.data.id,
+                    done: created.data.status === 'completed',
+                    completedAt: created.data.completed_at,
+                  }
+                : t,
+            ),
+          }))
+          markSynced()
+          void refreshDashboard()
+        })()
+      }
+
       return task
     },
-    [state.prospects],
+    [markError, markSynced, refreshDashboard],
   )
 
   const completeTask = useCallback((taskId: string, logTimeline = true) => {
@@ -314,11 +822,36 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         timeline: event ? [event, ...s.timeline] : s.timeline,
       }
     })
-  }, [])
+
+    if (apiModeRef.current !== 'v2') return
+    void (async () => {
+      const task = stateRef.current.tasks.find((t) => t.id === taskId)
+      const result = await salesApi.updateTask(taskId, { status: 'completed' })
+      if (logTimeline && task) {
+        await salesApi.createActivity({
+          opportunity_id: task.prospectId,
+          activity_type: 'task_completed',
+          subject: 'Task completed',
+          body: task.title,
+        })
+      }
+      if (!result.ok) markError()
+      else {
+        markSynced()
+        void refreshDashboard()
+      }
+    })()
+  }, [markError, markSynced, refreshDashboard])
 
   const deleteTask = useCallback((taskId: string) => {
     setState((s) => ({ ...s, tasks: s.tasks.filter((t) => t.id !== taskId) }))
-  }, [])
+    if (apiModeRef.current !== 'v2') return
+    void (async () => {
+      const result = await salesApi.updateTask(taskId, { status: 'cancelled' })
+      if (!result.ok) markError()
+      else markSynced()
+    })()
+  }, [markError, markSynced])
 
   const logEvent = useCallback(
     (input: {
@@ -328,7 +861,9 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       body?: string
       touchContact?: boolean
     }) => {
-      const prospect = state.prospects.find((p) => p.id === input.prospectId)
+      const prospect = stateRef.current.prospects.find(
+        (p) => p.id === input.prospectId,
+      )
       const event = makeTimeline(
         input.prospectId,
         input.type,
@@ -345,13 +880,49 @@ export function SalesProvider({ children }: { children: ReactNode }) {
             : {}),
         }),
       }))
+
+      if (apiModeRef.current === 'v2') {
+        void (async () => {
+          const activity = await salesApi.createActivity({
+            opportunity_id: input.prospectId,
+            company_id: prospect?.companyId || input.prospectId,
+            contact_id: prospect?.primaryContactId || null,
+            activity_type: input.type,
+            subject: input.title,
+            body: input.body ?? '',
+          })
+          if (input.touchContact !== false) {
+            await salesApi.updateOpportunity(input.prospectId, {
+              last_contact_at: event.createdAt,
+            })
+          }
+          if (!activity.ok) markError()
+          else markSynced()
+        })()
+      }
+
       return event
     },
-    [state.prospects, touchProspect],
+    [touchProspect, markError, markSynced],
   )
 
   const logCall = useCallback(
     (prospectId: string, body = '', voicemail = false) => {
+      const existing = stateRef.current.prospects.find((p) => p.id === prospectId)
+      if (!existing) return
+
+      let stage: PipelineStage = existing.stage
+      if (voicemail && existing.stage === 'not_contacted') {
+        stage = 'left_voicemail'
+      } else if (
+        !voicemail &&
+        ['not_contacted', 'email_sent', 'follow_up_due'].includes(existing.stage)
+      ) {
+        stage = 'called'
+      }
+      const occurredAt = new Date().toISOString()
+      const mapped = PIPELINE_TO_V2[stage]
+
       setState((s) => {
         const prospect = s.prospects.find((p) => p.id === prospectId)
         if (!prospect) return s
@@ -364,27 +935,44 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           body,
           `${prospect.businessName} ${prospect.decisionMaker}`,
         )
-        let stage = prospect.stage
-        if (voicemail && prospect.stage === 'not_contacted') {
-          stage = 'left_voicemail'
-        } else if (
-          !voicemail &&
-          ['not_contacted', 'email_sent', 'follow_up_due'].includes(prospect.stage)
-        ) {
-          stage = 'called'
-        }
         return {
           ...s,
           timeline: [event, ...s.timeline],
           prospects: touchProspect(s.prospects, prospectId, {
-            lastContactAt: event.createdAt,
-            firstCallAt: prospect.firstCallAt || event.createdAt,
+            lastContactAt: occurredAt,
+            firstCallAt: prospect.firstCallAt || occurredAt,
             stage,
           }),
         }
       })
+
+      if (apiModeRef.current !== 'v2') return
+      void (async () => {
+        const prospect = stateRef.current.prospects.find((p) => p.id === prospectId)
+        const activity = await salesApi.createActivity({
+          opportunity_id: prospectId,
+          company_id: prospect?.companyId || prospectId,
+          contact_id: prospect?.primaryContactId || null,
+          activity_type: voicemail ? 'voicemail' : 'call',
+          subject: voicemail ? 'Left Voicemail' : 'Called',
+          body,
+          direction: 'outbound',
+          occurred_at: occurredAt,
+        })
+        const opp = await salesApi.updateOpportunity(prospectId, {
+          last_contact_at: occurredAt,
+          first_call_at: existing.firstCallAt || occurredAt,
+          stage_id: mapped.stage_id,
+          lead_status: mapped.lead_status,
+        })
+        if (!activity.ok || !opp.ok) markError()
+        else {
+          markSynced()
+          void refreshDashboard()
+        }
+      })()
     },
-    [touchProspect],
+    [touchProspect, markError, markSynced, refreshDashboard],
   )
 
   const addAttachment = useCallback((input: Omit<Attachment, 'id' | 'createdAt'>) => {
@@ -405,6 +993,17 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       attachments: [attachment, ...s.attachments],
       timeline: [event, ...s.timeline],
     }))
+
+    if (apiModeRef.current === 'v2') {
+      void salesApi.createActivity({
+        opportunity_id: input.prospectId,
+        activity_type: 'attachment',
+        subject: `Added ${input.kind}`,
+        body: input.name,
+        metadata: { kind: input.kind, url: input.url, note: input.note },
+      })
+    }
+
     return attachment
   }, [])
 
@@ -425,7 +1024,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           subject: t.subject,
           body: t.body,
           createdAt:
-            state.templates.find((x) => x.id === t.id)?.createdAt ?? now,
+            stateRef.current.templates.find((x) => x.id === t.id)?.createdAt ?? now,
           updatedAt: now,
         }
         setState((s) => ({
@@ -445,7 +1044,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       setState((s) => ({ ...s, templates: [created, ...s.templates] }))
       return created
     },
-    [state.templates],
+    [],
   )
 
   const deleteTemplate = useCallback((id: string) => {
@@ -462,10 +1061,23 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       body: string
       templateId?: string | null
     }) => {
+      const existing = stateRef.current.prospects.find(
+        (p) => p.id === input.prospectId,
+      )
+      if (!existing) return
+
+      let stage: PipelineStage = existing.stage
+      if (existing.stage === 'not_contacted') {
+        stage = 'email_sent'
+      } else if (existing.stage === 'called' || existing.stage === 'left_voicemail') {
+        stage = 'follow_up_due'
+      }
+      const sentAt = new Date().toISOString()
+      const mapped = PIPELINE_TO_V2[stage]
+
       setState((s) => {
         const prospect = s.prospects.find((p) => p.id === input.prospectId)
         if (!prospect) return s
-        const sentAt = new Date().toISOString()
         const sent = {
           id: uid('se'),
           prospectId: input.prospectId,
@@ -481,12 +1093,6 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           input.subject,
           `${prospect.businessName} ${input.body}`,
         )
-        let stage = prospect.stage
-        if (prospect.stage === 'not_contacted') {
-          stage = 'email_sent'
-        } else if (prospect.stage === 'called' || prospect.stage === 'left_voicemail') {
-          stage = 'follow_up_due'
-        }
         return {
           ...s,
           sentEmails: [sent, ...s.sentEmails],
@@ -498,8 +1104,36 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           }),
         }
       })
+
+      if (apiModeRef.current !== 'v2') return
+      void (async () => {
+        const prospect = stateRef.current.prospects.find(
+          (p) => p.id === input.prospectId,
+        )
+        const activity = await salesApi.createActivity({
+          opportunity_id: input.prospectId,
+          company_id: prospect?.companyId || input.prospectId,
+          contact_id: prospect?.primaryContactId || null,
+          activity_type: 'email_sent',
+          subject: input.subject,
+          body: input.body,
+          direction: 'outbound',
+          occurred_at: sentAt,
+        })
+        const opp = await salesApi.updateOpportunity(input.prospectId, {
+          last_contact_at: sentAt,
+          first_email_at: existing.firstEmailAt || sentAt,
+          stage_id: mapped.stage_id,
+          lead_status: mapped.lead_status,
+        })
+        if (!activity.ok || !opp.ok) markError()
+        else {
+          markSynced()
+          void refreshDashboard()
+        }
+      })()
     },
-    [touchProspect],
+    [touchProspect, markError, markSynced, refreshDashboard],
   )
 
   const searchAll = useCallback(
@@ -513,6 +1147,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           p.businessName,
           p.industry,
           p.city,
+          p.state,
           p.decisionMaker,
           p.email,
           p.phone,
@@ -539,18 +1174,57 @@ export function SalesProvider({ children }: { children: ReactNode }) {
   )
 
   const resetDemo = useCallback(() => {
+    if (apiModeRef.current === 'v2') {
+      // Do not wipe normalized cloud data from the demo reset control.
+      void loadV2Workspace({
+        reference: reference ?? {
+          users: [],
+          leadSources: [],
+          opportunityStages: [],
+          services: [],
+          tags: [],
+        },
+        dashboard: dashboard ?? {
+          metrics: {
+            todaysFollowUps: 0,
+            overdueFollowUps: 0,
+            newProspectsThisWeek: 0,
+            openPipelineJobValue: 0,
+            openPipelineAnnualValue: 0,
+            wonCount: 0,
+            lostCount: 0,
+          },
+          upcomingTasks: [],
+          recentActivities: [],
+          largestOpportunities: [],
+          newestCompanies: [],
+          generatedAt: new Date().toISOString(),
+        },
+      }).then((workspace) => {
+        setState(workspace.state)
+        setDashboard(workspace.dashboard)
+        setReference(workspace.reference)
+        setCloudStatus('synced')
+      })
+      return
+    }
     const next = resetState()
     setState(next)
     if (cloudEnabled.current) {
       void saveStateToCloud(next).then((ok) => setCloudStatus(ok ? 'synced' : 'error'))
     }
-  }, [])
+  }, [dashboard, reference])
 
   const value = useMemo(
     () => ({
       state,
       ready,
       cloudStatus,
+      apiMode,
+      dashboard,
+      reference,
+      refreshDashboard,
+      ensureProspectDetail,
       resetDemo,
       upsertProspect,
       updateProspect,
@@ -572,6 +1246,11 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       state,
       ready,
       cloudStatus,
+      apiMode,
+      dashboard,
+      reference,
+      refreshDashboard,
+      ensureProspectDetail,
       resetDemo,
       upsertProspect,
       updateProspect,

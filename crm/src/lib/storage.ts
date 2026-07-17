@@ -103,3 +103,23 @@ export async function saveStateToCloud(state: SalesState): Promise<boolean> {
     return false
   }
 }
+
+/**
+ * In Sales v2 mode, CRM entities live in normalized tables.
+ * Legacy blob still stores templates / sent emails / attachments.
+ */
+export function extractLegacyAuxState(state: SalesState): SalesState {
+  return migrateState({
+    schemaVersion: state.schemaVersion,
+    prospects: [],
+    tasks: [],
+    timeline: [],
+    templates: state.templates,
+    sentEmails: state.sentEmails,
+    attachments: state.attachments,
+  })
+}
+
+export async function saveLegacyAuxToCloud(state: SalesState): Promise<boolean> {
+  return saveStateToCloud(extractLegacyAuxState(state))
+}

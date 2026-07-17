@@ -62,6 +62,8 @@ export interface Prospect {
   address: string
   /** Optional locality for filters (derived from address when possible) */
   city: string
+  /** US state / region (Phase 1 normalized companies.state) */
+  state?: string
 
   /** Decision maker full name */
   decisionMaker: string
@@ -90,6 +92,15 @@ export interface Prospect {
 
   emailVerified: boolean
   decisionMakerConfirmed: boolean
+
+  /** Phase 1 normalized entity ids when running on Sales v2 */
+  companyId?: string
+  primaryContactId?: string
+  assistantContactId?: string
+  opportunityStageId?: string
+  leadSourceId?: string | null
+  estimatedJobValue?: number | null
+  estimatedAnnualValue?: number | null
 
   salesRep: string
   createdAt: string
@@ -216,6 +227,7 @@ export function emptyProspectDraft(
     companyPhone: '',
     address: '',
     city: '',
+    state: '',
     decisionMaker: '',
     jobTitle: '',
     email: '',
@@ -236,6 +248,9 @@ export function emptyProspectDraft(
     servicesNeeded: [],
     emailVerified: false,
     decisionMakerConfirmed: false,
+    estimatedJobValue: null,
+    estimatedAnnualValue: null,
+    leadSourceId: null,
     salesRep,
   }
 }

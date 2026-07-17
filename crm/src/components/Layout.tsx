@@ -13,15 +13,16 @@ const links = [
 ]
 
 export function Layout() {
-  const { ready, cloudStatus } = useSales()
+  const { ready, cloudStatus, apiMode } = useSales()
   const navigate = useNavigate()
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [goArmed, setGoArmed] = useState(false)
 
+  const syncedLabel = apiMode === 'v2' ? 'Cloud: Sales v2' : 'Cloud: Supabase'
   const syncLabel =
     cloudStatus === 'synced'
-      ? 'Cloud: Supabase'
+      ? syncedLabel
       : cloudStatus === 'loading'
         ? 'Cloud: connecting…'
         : cloudStatus === 'error'
