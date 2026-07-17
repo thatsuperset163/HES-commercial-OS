@@ -1,72 +1,166 @@
 .emails-layout {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr);
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.25fr);
   gap: 1rem;
   margin-bottom: 1rem;
 }
 
-.tpl-list {
+.brief-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.brief-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.brief-hero strong {
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.brief-hero span {
+  color: var(--muted);
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.brief-stage {
+  margin-top: 0.15rem;
+  color: var(--text) !important;
+  font-weight: 600;
+  font-size: 0.82rem !important;
+}
+
+.brief-facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.55rem;
+}
+
+.brief-fact {
+  min-width: 0;
+}
+
+.brief-fact dt {
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+  margin-bottom: 0.15rem;
+}
+
+.brief-fact dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.brief-fact a {
+  color: #b6efcd;
+}
+
+.brief-block {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+  min-width: 0;
+}
+
+.brief-block h3 {
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.brief-block > p {
+  margin: 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.brief-block > p + p {
+  margin-top: 0.55rem;
+}
+
+.brief-block > p > span {
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+  margin-bottom: 0.15rem;
+}
+
+.brief-last-email {
+  width: 100%;
+  text-align: left;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.65rem 0.75rem;
+}
+
+.brief-last-email strong,
+.brief-last-email span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.brief-last-email strong {
+  margin-bottom: 0.15rem;
+}
+
+.brief-last-email span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.brief-last-email:hover {
+  border-color: color-mix(in srgb, var(--green) 40%, var(--line));
+}
+
+.brief-list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.tpl-list li {
-  padding: 0.55rem 0;
+.brief-list li {
+  padding: 0.4rem 0;
   border-top: 1px solid var(--line);
   min-width: 0;
 }
 
-.tpl-list li:first-child {
+.brief-list li:first-child {
   border-top: none;
   padding-top: 0;
 }
 
-.tpl-btn {
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  padding: 0.35rem 0;
-  min-width: 0;
-}
-
-.tpl-btn strong,
-.tpl-btn span {
+.brief-list strong,
+.brief-list span {
   display: block;
   overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
-.tpl-btn strong {
-  margin-bottom: 0.15rem;
-}
-
-.tpl-btn span {
+.brief-list span {
   color: var(--muted);
-  font-size: 0.82rem;
-}
-
-.tpl-btn:hover strong {
-  color: #b6efcd;
-}
-
-.tpl-actions {
-  display: flex;
-  gap: 0.25rem;
-  flex-wrap: wrap;
-}
-
-.tpl-edit {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--line);
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  min-width: 0;
+  font-size: 0.8rem;
+  margin-top: 0.1rem;
 }
 
 .composer {
@@ -76,97 +170,21 @@
   min-width: 0;
 }
 
-.composer-top {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  min-width: 0;
-}
-
 .composer-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
 }
 
-.prospect-snap {
+.composer-to {
   margin: 0;
-  font-size: 0.88rem;
-  text-transform: capitalize;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.recipient-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  padding: 0.85rem 0.95rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--bg);
-  min-width: 0;
-}
-
-.recipient-kicker {
-  margin: 0 0 0.2rem;
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-  font-weight: 700;
-}
-
-.recipient-main {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
-}
-
-.recipient-main strong {
-  font-size: 1.05rem;
-  overflow-wrap: anywhere;
-}
-
-.recipient-main span {
-  color: var(--muted);
-  font-size: 0.88rem;
-  overflow-wrap: anywhere;
-}
-
-.recipient-to {
-  color: var(--text) !important;
+  font-size: 0.9rem;
   font-weight: 600;
-}
-
-.recipient-to a,
-.recipient-main a {
-  color: #b6efcd;
-}
-
-.recipient-facts {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.recipient-facts li {
-  font-size: 0.82rem;
-  color: var(--muted);
   overflow-wrap: anywhere;
-  padding-left: 0.7rem;
-  position: relative;
 }
 
-.recipient-facts li::before {
-  content: '•';
-  position: absolute;
-  left: 0;
-  color: var(--green);
+.composer-to a {
+  color: #b6efcd;
 }
 
 .draft-missing {
@@ -174,6 +192,38 @@
   font-size: 0.8rem;
   color: #e0c37a;
   overflow-wrap: anywhere;
+}
+
+.template-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+
+.template-row .grow {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.opt {
+  margin-left: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.tpl-edit {
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-width: 0;
 }
 
 .composer-foot {
@@ -302,15 +352,6 @@
   max-width: 100%;
 }
 
-.sent-notes {
-  margin: 0.4rem 0 0;
-  color: var(--muted);
-  line-height: 1.45;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
 .sent-detail-actions {
   display: flex;
   flex-wrap: wrap;
@@ -323,6 +364,18 @@
   justify-content: flex-end;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.panel-head h2 {
+  margin: 0;
 }
 
 @media (max-width: 900px) {
