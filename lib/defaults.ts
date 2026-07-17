@@ -5,6 +5,9 @@ import type {
   OutreachTarget,
 } from "./types";
 import { EMPTY_METRICS } from "./types";
+import { PERSONAL_PILLAR_IDS, PERSONAL_PILLARS } from "./personalPillars";
+
+export { PERSONAL_PILLAR_IDS, PERSONAL_PILLARS } from "./personalPillars";
 
 function items(
   rows: { id: string; label: string }[]
@@ -12,32 +15,10 @@ function items(
   return rows;
 }
 
-/** Every-day essentials — always on the daily checklist */
-export const DAILY_ESSENTIALS = items([
-  { id: "wake-hydrate", label: "Wake up & hydrate" },
-  { id: "move-body", label: "Exercise / move (walk, lift, or stretch)" },
-  { id: "golf-touch", label: "Golf — play, practice, or touch the clubs" },
-  { id: "eat-solid", label: "Eat real meals (no skipping)" },
-  { id: "clean-space", label: "Quick tidy / reset living space" },
-  { id: "no-screens", label: "No screens before bed / wind down" },
-]);
-
-/** Rotating life extras — 2 picked per day (no hobby block) */
-export const DAILY_ROTATING_POOL = items([
-  { id: "call-love", label: "Call / text someone you love" },
-  { id: "encourage-buddy", label: "Send an encouraging message to a buddy" },
-  { id: "learn-one", label: "Learn one thing (15 min — book, podcast, video)" },
-  { id: "plan-fun", label: "Plan one fun thing this week" },
-  { id: "outside-10", label: "Go outside with no agenda for 10 minutes" },
-  { id: "journal-wins", label: "Journal 3 wins from today" },
-  { id: "cook-real", label: "Cook a real meal instead of grabbing junk" },
-  { id: "mobility", label: "Mobility / stretch-focused session" },
-  { id: "quiet-time", label: "Faith, gratitude, or quiet time" },
-  { id: "customer-friend", label: "Check in on a customer who’s become a friend" },
-  { id: "family-favor", label: "Do one unpaid favor for family" },
-  { id: "phone-away", label: "Put the phone in another room for one hour" },
-  { id: "sunset", label: "Watch a sunset / sit still outside" },
-]);
+/** Personal daily pillars — fixed every day (see personalPillars.ts). */
+export const DAILY_ESSENTIALS = items(
+  PERSONAL_PILLARS.map((item) => ({ id: item.id, label: item.label })),
+);
 
 /** Morning essentials — always on the morning work checklist */
 export const MORNING_ESSENTIALS = items([
@@ -98,7 +79,6 @@ export const OUTREACH_POOL = items([
 ]);
 
 const DAILY_OUTREACH_COUNT = 5;
-const DAILY_ROTATING_COUNT = 2;
 const MORNING_ROTATING_COUNT = 2;
 
 function withDone(
@@ -141,18 +121,8 @@ export function pickDailyOutreach(dateKey: string): ChecklistItem[] {
   return pickSeeded(OUTREACH_POOL, dateKey, DAILY_OUTREACH_COUNT, "outreach");
 }
 
-/** 2 rotating life items for the day (stable per date). */
-export function pickDailyLifeExtras(dateKey: string): ChecklistItem[] {
-  return pickSeeded(
-    DAILY_ROTATING_POOL,
-    dateKey,
-    DAILY_ROTATING_COUNT,
-    "life"
-  );
-}
-
-export function buildDailyChecklist(dateKey: string): ChecklistItem[] {
-  return [...withDone(DAILY_ESSENTIALS), ...pickDailyLifeExtras(dateKey)];
+export function buildDailyChecklist(_dateKey?: string): ChecklistItem[] {
+  return withDone(DAILY_ESSENTIALS);
 }
 
 export function pickMorningExtras(dateKey: string): ChecklistItem[] {
@@ -362,19 +332,52 @@ function normalizeOutreach(
   return outreach as ChecklistItem[];
 }
 
-/** Old static daily list lacked golf/no-screens essentials. */
+/** Rebuild when the six personal pillars are missing. */
 function needsDailyRebuild(list: ChecklistItem[] | undefined): boolean {
   if (!list?.length) return true;
   const ids = new Set(list.map((i) => i.id));
-  return !ids.has("golf-touch") || !ids.has("no-screens");
+  return PERSONAL_PILLAR_IDS.some((id) => !ids.has(id));
+}
+
+const LEGACY_PILLAR_DONE: Record<string, string[]> = {
+  train: ["train", "move-body", "mobility"],
+  golf: ["golf", "golf-touch"],
+  faith: ["faith", "quiet-time"],
+  people: [
+    "people",
+    "call-love",
+    "encourage-buddy",
+    "customer-friend",
+    "family-favor",
+  ],
+  "no-porn": ["no-porn"],
+  "no-weed": ["no-weed"],
+};
+
+function legacyPillarDone(
+  list: ChecklistItem[] | undefined,
+  pillarId: string,
+): boolean {
+  const aliases = LEGACY_PILLAR_DONE[pillarId] ?? [pillarId];
+  return (list ?? []).some((item) => aliases.includes(item.id) && item.done);
 }
 
 function normalizeDailyChecklist(
   date: string,
   list: ChecklistItem[] | undefined
 ): ChecklistItem[] {
-  if (!needsDailyRebuild(list)) return list as ChecklistItem[];
-  const built = buildDailyChecklist(date);
+  if (!needsDailyRebuild(list)) {
+    // Keep labels in sync with the current pillar copy.
+    const byId = new Map((list ?? []).map((item) => [item.id, item]));
+    return buildDailyChecklist(date).map((item) => ({
+      ...item,
+      done: Boolean(byId.get(item.id)?.done),
+    }));
+  }
+  const built = buildDailyChecklist(date).map((item) => ({
+    ...item,
+    done: legacyPillarDone(list, item.id),
+  }));
   const customs = (list ?? []).filter((i) =>
     i.id.startsWith("dailyChecklist-")
   );

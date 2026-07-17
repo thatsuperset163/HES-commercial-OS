@@ -104,7 +104,7 @@ export default function PersonalApp() {
         <div>
           <p className="hq-eyebrow">Personal command center</p>
           <h2>{formatDisplayDate(selectedDate)}</h2>
-          <p>One focus. A short checklist. A note for the day.</p>
+          <p>One focus. Six personal pillars. A note for the day.</p>
         </div>
         <div className="personal-intro-side">
           <div className="streak-tile personal-streak" aria-label="Personal streak">
@@ -174,9 +174,9 @@ export default function PersonalApp() {
 
         <section className="panel checklist-panel">
           <div className="panel-head">
-            <h2 className="panel-title">Daily checklist</h2>
+            <h2 className="panel-title">Daily pillars</h2>
             <span className="panel-meta">
-              {checklistDone}/{checklist.length}
+              {checklistDone}/{checklist.length} · personal only
             </span>
           </div>
           <ul className="checklist">

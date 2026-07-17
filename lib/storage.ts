@@ -126,7 +126,14 @@ function needsDailyRebuild(entry: DayEntry): boolean {
   const list = entry.dailyChecklist;
   if (!list?.length) return true;
   const ids = new Set(list.map((i) => i.id));
-  return !ids.has("golf-touch") || !ids.has("no-screens");
+  return (
+    !ids.has("train") ||
+    !ids.has("golf") ||
+    !ids.has("no-porn") ||
+    !ids.has("no-weed") ||
+    !ids.has("faith") ||
+    !ids.has("people")
+  );
 }
 
 function needsGoalsRebuild(entry: DayEntry): boolean {
