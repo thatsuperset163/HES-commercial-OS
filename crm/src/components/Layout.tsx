@@ -7,6 +7,7 @@ import './Layout.css'
 
 const links = [
   { to: '/', label: 'Today', end: true },
+  { to: '/pipeline', label: 'Pipeline' },
   { to: '/prospects', label: 'Prospects' },
   { to: '/emails', label: 'Emails' },
   { to: '/analytics', label: 'Analytics' },
@@ -65,6 +66,7 @@ export function Layout() {
       if (goArmed) {
         const map: Record<string, string> = {
           d: '/',
+          l: '/pipeline',
           p: '/prospects',
           e: '/emails',
           a: '/analytics',
