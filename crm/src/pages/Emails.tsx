@@ -24,6 +24,7 @@ import {
   toDateInput,
 } from '../lib/dates'
 import { STAGES, type Prospect } from '../types'
+import { readProspectNotes } from '../lib/prospectNotes'
 import './Emails.css'
 
 function followUpLabel(nextFollowUpAt: string | null) {
@@ -113,6 +114,7 @@ export function Emails() {
     () => state.prospects.find((p) => p.id === prospectId),
     [state.prospects, prospectId],
   )
+  const prospectNotes = prospect ? readProspectNotes(prospect) : ''
 
   const prospectSent = useMemo(
     () =>
@@ -345,38 +347,12 @@ export function Emails() {
                 <p>{suggestedNextStep(prospect, Boolean(lastSent))}</p>
               </div>
 
-              {(prospect.propertyNotes.trim() ||
-                prospect.painPoints.trim() ||
-                prospect.conversationNotes.trim() ||
-                prospect.servicesDiscussed.trim()) && (
+              {prospectNotes ? (
                 <div className="brief-block">
-                  <h3>From the card</h3>
-                  {prospect.propertyNotes.trim() && (
-                    <p>
-                      <span>Property</span>
-                      {prospect.propertyNotes}
-                    </p>
-                  )}
-                  {prospect.painPoints.trim() && (
-                    <p>
-                      <span>Needs</span>
-                      {prospect.painPoints}
-                    </p>
-                  )}
-                  {prospect.servicesDiscussed.trim() && (
-                    <p>
-                      <span>Discussed</span>
-                      {prospect.servicesDiscussed}
-                    </p>
-                  )}
-                  {prospect.conversationNotes.trim() && (
-                    <p>
-                      <span>Conversation</span>
-                      {prospect.conversationNotes}
-                    </p>
-                  )}
+                  <h3>Notes</h3>
+                  <p>{prospectNotes}</p>
                 </div>
-              )}
+              ) : null}
 
               {lastSent && (
                 <div className="brief-block">

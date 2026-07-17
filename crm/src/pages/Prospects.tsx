@@ -11,7 +11,7 @@ import {
   type ProspectPriority,
   type ServiceType,
 } from '../types'
-import { formatDate, fromDateInput, toDateInput } from '../lib/dates'
+import { formatDate, fromDateInput } from '../lib/dates'
 import { serviceLabels } from '../lib/templates'
 import './Prospects.css'
 
@@ -132,17 +132,17 @@ export function Prospects() {
         assistantPhone: String(fd.get('assistantPhone') || '').trim(),
         stage: (String(fd.get('stage') || 'not_contacted') as PipelineStage),
         priority: (String(fd.get('priority') || 'medium') as ProspectPriority),
-        firstEmailAt: fromDateInput(String(fd.get('firstEmailAt') || '')),
-        firstCallAt: fromDateInput(String(fd.get('firstCallAt') || '')),
+        firstEmailAt: null,
+        firstCallAt: null,
         nextFollowUpAt: fromDateInput(String(fd.get('nextFollowUpAt') || '')),
-        lastContactAt: fromDateInput(String(fd.get('lastContactAt') || '')),
-        propertyNotes: String(fd.get('propertyNotes') || '').trim(),
-        conversationNotes: String(fd.get('conversationNotes') || '').trim(),
-        painPoints: String(fd.get('painPoints') || '').trim(),
-        servicesDiscussed: String(fd.get('servicesDiscussed') || '').trim(),
+        lastContactAt: null,
+        propertyNotes: '',
+        conversationNotes: String(fd.get('notes') || '').trim(),
+        painPoints: '',
+        servicesDiscussed: '',
         servicesNeeded: services,
-        emailVerified: fd.get('emailVerified') === 'yes',
-        decisionMakerConfirmed: fd.get('decisionMakerConfirmed') === 'yes',
+        emailVerified: false,
+        decisionMakerConfirmed: false,
         estimatedJobValue: jobValueRaw ? Number(jobValueRaw) : null,
         estimatedAnnualValue: annualValueRaw ? Number(annualValueRaw) : null,
         leadSourceId: String(fd.get('leadSourceId') || '').trim() || null,
@@ -483,81 +483,28 @@ export function Prospects() {
             </section>
 
             <section className="form-section">
-              <h3>Dates</h3>
+              <h3>Follow-up</h3>
               <div className="form-grid">
-                <label className="lbl">
-                  Date added
-                  <input
-                    className="field"
-                    type="date"
-                    value={toDateInput(new Date().toISOString())}
-                    disabled
-                    readOnly
-                  />
-                </label>
-                <label className="lbl">
-                  First email date
-                  <input className="field" name="firstEmailAt" type="date" />
-                </label>
-                <label className="lbl">
-                  First call date
-                  <input className="field" name="firstCallAt" type="date" />
-                </label>
                 <label className="lbl">
                   Next follow-up date
                   <input className="field" name="nextFollowUpAt" type="date" />
-                </label>
-                <label className="lbl">
-                  Last contact date
-                  <input className="field" name="lastContactAt" type="date" />
                 </label>
               </div>
             </section>
 
             <section className="form-section">
               <h3>Notes</h3>
-              <div className="form-grid">
-                <label className="lbl full">
-                  Property notes
-                  <textarea
-                    className="field"
-                    name="propertyNotes"
-                    rows={2}
-                    placeholder="Buildings, staining, access, dumpster pads…"
-                  />
-                </label>
-                <label className="lbl full">
-                  Conversation notes
-                  <textarea
-                    className="field"
-                    name="conversationNotes"
-                    rows={2}
-                    placeholder="What they said, tone, next ask…"
-                  />
-                </label>
-                <label className="lbl full">
-                  Pain points / opportunities
-                  <textarea
-                    className="field"
-                    name="painPoints"
-                    rows={2}
-                    placeholder="Complaints, budget cycle, competitor issues…"
-                  />
-                </label>
-                <label className="lbl full">
-                  Services discussed
-                  <textarea
-                    className="field"
-                    name="servicesDiscussed"
-                    rows={2}
-                    placeholder="What you talked through on the call / email…"
-                  />
-                </label>
-              </div>
+              <textarea
+                className="field"
+                name="notes"
+                rows={3}
+                placeholder="Anything useful about this account…"
+              />
+              <input type="hidden" name="salesRep" value="Will" />
             </section>
 
             <section className="form-section">
-              <h3>Services of interest</h3>
+              <h3>Services</h3>
               <div className="service-chips">
                 {SERVICES.map((s) => (
                   <button
@@ -569,31 +516,6 @@ export function Prospects() {
                     {s.label}
                   </button>
                 ))}
-              </div>
-            </section>
-
-            <section className="form-section">
-              <h3>Data quality</h3>
-              <div className="form-grid">
-                <label className="lbl">
-                  Email verified
-                  <select className="field" name="emailVerified" defaultValue="no">
-                    <option value="no">No</option>
-                    <option value="yes">Yes</option>
-                  </select>
-                </label>
-                <label className="lbl">
-                  Decision maker confirmed
-                  <select
-                    className="field"
-                    name="decisionMakerConfirmed"
-                    defaultValue="no"
-                  >
-                    <option value="no">No</option>
-                    <option value="yes">Yes</option>
-                  </select>
-                </label>
-                <input type="hidden" name="salesRep" value="Will" />
               </div>
             </section>
 

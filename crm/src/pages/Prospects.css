@@ -531,3 +531,11 @@
 .form-section.quiet h3 {
   color: var(--muted);
 }
+
+.quiet-subhead {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}

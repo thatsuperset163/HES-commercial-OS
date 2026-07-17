@@ -5,6 +5,7 @@ import {
   serviceLabels,
   withEmailSignature,
 } from './templates.ts'
+import { readProspectNotes } from './prospectNotes.ts'
 
 export type DraftIntent =
   | 'first_outreach'
@@ -48,10 +49,7 @@ function servicesLine(p: Prospect) {
 }
 
 function propertyNeedLine(p: Prospect) {
-  const chunks = [p.propertyNotes, p.painPoints, p.servicesDiscussed]
-    .map((x) => x.trim())
-    .filter(Boolean)
-  return chunks[0] || ''
+  return readProspectNotes(p)
 }
 
 function intentFromAction(
@@ -87,11 +85,8 @@ function buildContextLines(p: Prospect): string[] {
   if (phone) lines.push(phone)
   const services = serviceLabels(p.servicesNeeded)
   if (services) lines.push(`Services: ${services}`)
-  if (p.propertyNotes.trim()) lines.push(`Property: ${p.propertyNotes.trim()}`)
-  if (p.painPoints.trim()) lines.push(`Pain points: ${p.painPoints.trim()}`)
-  if (p.conversationNotes.trim()) {
-    lines.push(`Conversation: ${p.conversationNotes.trim()}`)
-  }
+  const notes = readProspectNotes(p)
+  if (notes) lines.push(`Notes: ${notes}`)
   return lines
 }
 
@@ -103,8 +98,8 @@ function buildMissing(p: Prospect, channel: GeneratedDraft['channel']): string[]
   }
   if (!p.decisionMaker.trim()) missing.push('decision maker name')
   if (!p.businessName.trim()) missing.push('company name')
-  if (!p.servicesNeeded.length && !p.servicesDiscussed.trim() && !p.propertyNotes.trim()) {
-    missing.push('services / property needs')
+  if (!p.servicesNeeded.length && !readProspectNotes(p)) {
+    missing.push('services / notes')
   }
   return missing
 }
@@ -201,9 +196,6 @@ function callScript(p: Prospect): string {
     `Hi ${name}, this is William with Harris Exterior Solutions. I'm calling about ${services.toLowerCase()} for ${company}.`,
     '',
     need ? `Talking point: ${need}` : 'Talking point: ask what exterior cleaning needs they have right now.',
-    p.conversationNotes.trim()
-      ? `Prior conversation: ${p.conversationNotes.trim()}`
-      : '',
     '',
     'Ask:',
     '- Who handles vendors / budgets for exterior work?',
@@ -226,9 +218,6 @@ function visitBrief(p: Prospect): string {
     `Contact: ${p.decisionMaker || '—'} · ${p.phone || p.companyPhone || 'no phone'}`,
     `Focus: ${services}`,
     need ? `Notes: ${need}` : 'Notes: capture photos, access, and problem areas on site.',
-    p.conversationNotes.trim()
-      ? `Conversation: ${p.conversationNotes.trim()}`
-      : '',
   ]
     .filter(Boolean)
     .join('\n')
