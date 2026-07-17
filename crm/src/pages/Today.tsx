@@ -9,6 +9,10 @@ import {
   isThisMonth,
 } from '../lib/dates'
 import { buildNextActions, summarizeNextActions } from '../lib/nextActions'
+import {
+  actionGenerateLabel,
+  generateEmailPath,
+} from '../lib/generateDraft'
 import { OPEN_STAGES, STAGES } from '../types'
 import './Today.css'
 
@@ -145,29 +149,17 @@ export function Today() {
             </div>
           </div>
           <div className="action-ctas focus-ctas">
+            <Link className="btn" to={generateEmailPath(top.prospectId, top.kind)}>
+              {actionGenerateLabel(top.kind)}
+            </Link>
             {top.kind === 'call' && (
               <button
                 type="button"
-                className="btn"
+                className="btn secondary"
                 onClick={() => logCall(top.prospectId, 'Logged from Today focus')}
               >
                 Log call
               </button>
-            )}
-            {top.kind === 'email' && (
-              <Link className="btn" to={`/emails?prospect=${top.prospectId}`}>
-                Draft email
-              </Link>
-            )}
-            {top.kind === 'visit' && (
-              <Link className="btn" to={`/prospects/${top.prospectId}`}>
-                Open visit
-              </Link>
-            )}
-            {top.kind === 'quote' && (
-              <Link className="btn" to={`/prospects/${top.prospectId}`}>
-                Open proposal
-              </Link>
             )}
             {top.taskId && (
               <button
@@ -232,6 +224,12 @@ export function Today() {
                   <span className={`urgency-tag ${action.urgency}`}>
                     {urgencyLabel(action.urgency)}
                   </span>
+                  <Link
+                    className="btn small"
+                    to={generateEmailPath(action.prospectId, action.kind)}
+                  >
+                    {actionGenerateLabel(action.kind)}
+                  </Link>
                   {action.kind === 'call' && (
                     <button
                       type="button"
@@ -241,30 +239,15 @@ export function Today() {
                       Log call
                     </button>
                   )}
-                  {action.kind === 'email' && (
-                    <Link
-                      className="btn small secondary"
-                      to={`/emails?prospect=${action.prospectId}`}
-                    >
-                      Draft email
-                    </Link>
-                  )}
                   {action.taskId ? (
                     <button
                       type="button"
-                      className="btn small"
+                      className="btn small secondary"
                       onClick={() => completeTask(action.taskId!)}
                     >
                       Done
                     </button>
-                  ) : (
-                    <Link
-                      className="btn small"
-                      to={`/prospects/${action.prospectId}`}
-                    >
-                      Open
-                    </Link>
-                  )}
+                  ) : null}
                   <button
                     type="button"
                     className="btn small secondary"

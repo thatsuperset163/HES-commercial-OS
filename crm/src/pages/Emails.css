@@ -97,11 +97,94 @@
   word-break: break-word;
 }
 
+.recipient-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  min-width: 0;
+}
+
+.recipient-kicker {
+  margin: 0 0 0.2rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.recipient-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.recipient-main strong {
+  font-size: 1.05rem;
+  overflow-wrap: anywhere;
+}
+
+.recipient-main span {
+  color: var(--muted);
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.recipient-to {
+  color: var(--text) !important;
+  font-weight: 600;
+}
+
+.recipient-to a,
+.recipient-main a {
+  color: #b6efcd;
+}
+
+.recipient-facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.recipient-facts li {
+  font-size: 0.82rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  padding-left: 0.7rem;
+  position: relative;
+}
+
+.recipient-facts li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--green);
+}
+
+.draft-missing {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #e0c37a;
+  overflow-wrap: anywhere;
+}
+
 .composer-foot {
   display: flex;
   justify-content: flex-end;
   gap: 0.45rem;
   flex-wrap: wrap;
+}
+
+.composer-foot a.btn {
+  text-decoration: none;
 }
 
 .sent-list {
