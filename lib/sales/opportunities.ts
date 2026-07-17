@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { assertData, id } from "./http";
+import { ApiError, assertData, id } from "./http";
 import { optionalQueryDate, optionalQueryNumber, pageRange, pageResult, parsePage } from "./query";
 import type { OpportunityInput } from "./types";
 
@@ -62,6 +62,57 @@ export class OpportunitiesRepository {
   archive(opportunityId: string) {
     const now = new Date().toISOString();
     return this.mutate({ archived_at: now, updated_at: now }, true, opportunityId);
+  }
+
+  /** Replace the full set of services linked to an opportunity. */
+  async replaceServices(opportunityId: string, serviceIds: string[]) {
+    await this.get(opportunityId);
+
+    const unique = [...new Set(serviceIds.map((id) => id.trim()).filter(Boolean))];
+    if (unique.length) {
+      const known = await this.db
+        .from("services")
+        .select("id")
+        .in("id", unique)
+        .is("archived_at", null);
+      if (known.error) throw known.error;
+      const allowed = new Set((known.data ?? []).map((row) => row.id as string));
+      const invalid = unique.filter((id) => !allowed.has(id));
+      if (invalid.length) {
+        throw new ApiError(
+          400,
+          "validation_error",
+          `Unknown service id(s): ${invalid.join(", ")}`,
+        );
+      }
+    }
+
+    const deleted = await this.db
+      .from("opportunity_services")
+      .delete()
+      .eq("opportunity_id", opportunityId);
+    if (deleted.error) throw deleted.error;
+
+    if (!unique.length) {
+      return { opportunity_id: opportunityId, service_ids: [] as string[] };
+    }
+
+    const inserted = await this.db
+      .from("opportunity_services")
+      .insert(unique.map((service_id) => ({ opportunity_id: opportunityId, service_id })))
+      .select("service_id");
+    if (inserted.error) throw inserted.error;
+
+    await this.db
+      .from("opportunities")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", opportunityId)
+      .is("archived_at", null);
+
+    return {
+      opportunity_id: opportunityId,
+      service_ids: (inserted.data ?? []).map((row) => row.service_id as string),
+    };
   }
 
   private async mutate(values: Record<string, unknown>, update: boolean, opportunityId?: string) {

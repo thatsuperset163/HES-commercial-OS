@@ -419,10 +419,15 @@ export function SalesProvider({ children }: { children: ReactNode }) {
             salesApi.updateContact(updated.primaryContactId, splits.contact),
           )
         }
-        if (Object.keys(splits.opportunity).length) {
-          ops.push(salesApi.updateOpportunity(updated.id, splits.opportunity))
-        }
-        const results = await Promise.all(ops)
+      if (Object.keys(splits.opportunity).length) {
+        ops.push(salesApi.updateOpportunity(updated.id, splits.opportunity))
+      }
+      if (updated.servicesNeeded) {
+        ops.push(
+          salesApi.replaceOpportunityServices(updated.id, updated.servicesNeeded),
+        )
+      }
+      const results = await Promise.all(ops)
         if (results.some((r) => !r.ok)) markError()
         else {
           markSynced()
@@ -517,7 +522,17 @@ export function SalesProvider({ children }: { children: ReactNode }) {
             }
           : null,
       })
-      created.servicesNeeded = draft.servicesNeeded
+      if (draft.servicesNeeded.length) {
+        const servicesRes = await salesApi.replaceOpportunityServices(
+          created.id,
+          draft.servicesNeeded,
+        )
+        if (servicesRes.ok) {
+          created.servicesNeeded = draft.servicesNeeded
+        }
+      } else {
+        created.servicesNeeded = []
+      }
 
       const event = makeTimeline(
         created.id,
@@ -631,6 +646,11 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       }
       if (Object.keys(splits.opportunity).length) {
         ops.push(salesApi.updateOpportunity(id, splits.opportunity))
+      }
+      if (patch.servicesNeeded !== undefined) {
+        ops.push(
+          salesApi.replaceOpportunityServices(id, patch.servicesNeeded),
+        )
       }
 
       const results = await Promise.all(ops)
