@@ -112,7 +112,7 @@ export default function HomeApp() {
 
           <section className="hq-card sales-launch">
             <p className="hq-eyebrow">Work operating systems</p>
-            <h2>Sales · Jobs · Money…</h2>
+            <h2>Get to work, Son</h2>
             <p>Peer OSes for pipeline, field jobs, cash, leads, and reputation.</p>
             <Link href="/work" className="hq-btn">Open Work →</Link>
           </section>
