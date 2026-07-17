@@ -46,6 +46,8 @@ export type DayEntry = {
   /** @deprecated migrated into morningWorkChecklist */
   morningChecklist?: ChecklistItem[];
   outreach: ChecklistItem[];
+  /** Find-work hunt coach checklist for this calendar day. */
+  huntChecklist?: ChecklistItem[];
   goals: GoalItem[];
   metrics: Metrics;
   notes: string;
@@ -57,6 +59,8 @@ export type BoardStore = {
   days: Record<string, DayEntry>;
   /** Jobs OS entities — synced with blackboard cloud state. */
   jobs: Job[];
+  /** ADHD idea parking lot — capture distractions without switching tasks. */
+  ideaLot?: string;
 };
 
 export const METRIC_LABELS: Record<MetricKey, string> = {

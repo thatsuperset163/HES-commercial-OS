@@ -27,7 +27,7 @@ let saveErrorAlerted = false;
 const statusListeners = new Set<(status: BlackboardCloudStatus) => void>();
 
 function emptyStore(): BoardStore {
-  return { days: {}, jobs: [] };
+  return { days: {}, jobs: [], ideaLot: "" };
 }
 
 function setCloudStatus(next: BlackboardCloudStatus): void {
@@ -74,7 +74,9 @@ function normalizeStore(value: unknown): BoardStore | null {
   const days = (value as { days?: unknown }).days;
   if (!days || typeof days !== "object" || Array.isArray(days)) return null;
   const jobs = normalizeJobs((value as { jobs?: unknown }).jobs);
-  return { days: days as BoardStore["days"], jobs };
+  const ideaLotRaw = (value as { ideaLot?: unknown }).ideaLot;
+  const ideaLot = typeof ideaLotRaw === "string" ? ideaLotRaw : "";
+  return { days: days as BoardStore["days"], jobs, ideaLot };
 }
 
 function storeHasData(store: BoardStore): boolean {
@@ -116,9 +118,12 @@ function mergeJobs(local: Job[], cloud: Job[]): Job[] {
 }
 
 function mergeStores(local: BoardStore, cloud: BoardStore): BoardStore {
+  const localIdea = local.ideaLot?.trim() ?? "";
+  const cloudIdea = cloud.ideaLot?.trim() ?? "";
   return {
     days: mergeDays(local.days, cloud.days),
     jobs: mergeJobs(local.jobs, cloud.jobs),
+    ideaLot: localIdea || cloudIdea,
   };
 }
 
@@ -202,6 +207,7 @@ export function saveStore(store: BoardStore): void {
   const normalized = {
     days: store.days,
     jobs: normalizeJobs(store.jobs),
+    ideaLot: store.ideaLot ?? "",
   };
   saveLocalStore(normalized);
   scheduleCloudSave(normalized);
@@ -357,6 +363,7 @@ export function upsertDay(store: BoardStore, entry: DayEntry): BoardStore {
       },
     },
     jobs: normalizeJobs(store.jobs ?? current.jobs),
+    ideaLot: store.ideaLot ?? current.ideaLot ?? "",
   };
   saveStore(next);
   return next;
@@ -371,6 +378,18 @@ export function saveJobs(jobs: Job[], store?: BoardStore): BoardStore {
   const next: BoardStore = {
     days: current.days,
     jobs: normalizeJobs(jobs),
+    ideaLot: current.ideaLot ?? "",
+  };
+  saveStore(next);
+  return next;
+}
+
+export function saveIdeaLot(text: string, store?: BoardStore): BoardStore {
+  const current = store ?? loadStore();
+  const next: BoardStore = {
+    days: current.days,
+    jobs: current.jobs,
+    ideaLot: text,
   };
   saveStore(next);
   return next;

@@ -1670,6 +1670,74 @@ a.tab {
   gap: 0.75rem;
 }
 
+.hunt-coach {
+  margin: 0 0 1rem;
+  padding: clamp(1.1rem, 2.5vw, 1.6rem);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--color-primary) 10%, var(--surface)) 0%,
+      var(--surface) 55%
+    );
+}
+
+.hunt-coach-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.hunt-next-label {
+  margin: 0 0 0.65rem;
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.hunt-mission {
+  margin: 0 0 0.35rem;
+  color: var(--text);
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.hunt-why,
+.parking-panel .hunt-why {
+  margin: 0 0 0.9rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.hunt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 0.85rem 0 1rem;
+}
+
+.hunt-note {
+  margin: 0 0 0.75rem;
+  color: var(--color-warning);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.hunt-checklist {
+  margin: 0;
+  padding-top: 0.75rem;
+  border-top: var(--hairline) solid var(--line);
+}
+
+.parking-panel {
+  grid-column: 1 / -1;
+}
+
 .personal-streak {
   min-width: 7.5rem;
   text-align: right;
