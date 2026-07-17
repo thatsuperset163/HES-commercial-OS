@@ -41,11 +41,13 @@ That rebuilds into `public/work/sales/` (commit those files before deploy).
 | `AUTH_SECRET` | Signs the auth cookie (long random string in production) |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key (browser-safe) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Optional server key (preferred for API saves) |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Required** for Sales OS cloud saves (Sales v2). Without it, prospects may stay browser-only. |
 
-Copy `.env.example` → `.env.local` and fill in values for local work. On Vercel, add the **same variable names** under Project → Settings → Environment Variables.
+Copy `.env.example` → `.env.local` and fill in values for local work. On Vercel, add the **same variable names** under Project → Settings → Environment Variables, then **redeploy**.
 
-**Supabase data:** run the latest `supabase/schema.sql` in the SQL Editor. Sales prospects appear under **Table Editor → commercial_prospects**; combined HQ, Personal, and Work state appears under **blackboard_workspace**. Details: [`supabase/README.md`](./supabase/README.md).
+**Supabase data:** run the latest `supabase/schema.sql` in the SQL Editor. With Sales v2 (sync pill says **Cloud: Sales v2**), prospects live in **`companies`**, **`contacts`**, and **`opportunities`** — not only `commercial_prospects`. HQ/Jobs blackboard state is in **`blackboard_workspace`**. Details: [`supabase/README.md`](./supabase/README.md).
+
+**Before trusting Sales data:** open `/work/sales/` and confirm the pill says **Cloud: Sales v2** (green). If it says **local only**, **offline**, or **save error**, do not enter real prospects until env is fixed.
 
 ## Deploy on Vercel
 
