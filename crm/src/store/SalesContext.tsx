@@ -201,6 +201,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
   const saveTimer = useRef<number | null>(null)
   const cloudEnabled = useRef(false)
   const apiModeRef = useRef<SalesApiMode>('legacy')
+  const saveErrorAlerted = useRef(false)
   const stateRef = useRef(state)
   const detailLoading = useRef(new Set<string>())
 
@@ -212,7 +213,9 @@ export function SalesProvider({ children }: { children: ReactNode }) {
     apiModeRef.current = apiMode
   }, [apiMode])
 
-  const markError = useCallback(() => setCloudStatus('error'), [])
+  const markError = useCallback(() => {
+    setCloudStatus('error')
+  }, [])
   const markSynced = useCallback(() => setCloudStatus('synced'), [])
 
   const refreshDashboard = useCallback(async () => {
@@ -314,13 +317,48 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         try {
           const workspace = await loadV2Workspace(v2.bootstrap)
           if (cancelled) return
+          const local = loadState()
+          const cloudCount = workspace.state.prospects.length
+          const localCount = local.prospects.length
+
+          // Never replace a browser full of prospects with an empty cloud
+          // snapshot — that silently deleted people's work.
+          let nextState = workspace.state
+          if (cloudCount === 0 && localCount > 0) {
+            nextState = {
+              ...workspace.state,
+              prospects: local.prospects,
+              tasks: local.tasks.length ? local.tasks : workspace.state.tasks,
+              timeline: local.timeline.length
+                ? local.timeline
+                : workspace.state.timeline,
+              templates: workspace.state.templates.length
+                ? workspace.state.templates
+                : local.templates,
+              sentEmails: workspace.state.sentEmails.length
+                ? workspace.state.sentEmails
+                : local.sentEmails,
+              attachments: workspace.state.attachments.length
+                ? workspace.state.attachments
+                : local.attachments,
+            }
+            window.setTimeout(() => {
+              window.alert(
+                `Cloud has 0 prospects but this browser still has ${localCount}. ` +
+                  `Keeping your local copies on screen. Check the sync pill — ` +
+                  `if it is not "Cloud: Sales v2", prospects are not durable yet. ` +
+                  `Re-save each important prospect after cloud is green, or contact support to migrate.`,
+              )
+            }, 600)
+          }
+
           cloudEnabled.current = true
           apiModeRef.current = 'v2'
           setApiMode('v2')
           setDashboard(workspace.dashboard)
           setReference(workspace.reference)
-          setState(workspace.state)
-          saveState(workspace.state)
+          setState(nextState)
+          saveState(nextState)
           setCloudStatus('synced')
           setReady(true)
           window.setTimeout(() => {
@@ -354,6 +392,13 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       } else if (!cloud.ok && cloud.reason === 'supabase_not_configured') {
         cloudEnabled.current = false
         setCloudStatus('local')
+        window.setTimeout(() => {
+          window.alert(
+            'Sales cloud is not configured on this deployment. ' +
+              'Prospects will only save in this browser and can disappear. ' +
+              'Add SUPABASE_SERVICE_ROLE_KEY on Vercel and redeploy.',
+          )
+        }, 600)
       } else {
         cloudEnabled.current = false
         setCloudStatus('offline')
@@ -380,7 +425,19 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       const saver =
         apiModeRef.current === 'v2' ? saveLegacyAuxToCloud : saveStateToCloud
       void saver(state).then((ok) => {
-        setCloudStatus(ok ? 'synced' : 'error')
+        if (ok) {
+          setCloudStatus('synced')
+          saveErrorAlerted.current = false
+          return
+        }
+        setCloudStatus('error')
+        if (!saveErrorAlerted.current) {
+          saveErrorAlerted.current = true
+          window.alert(
+            'Cloud save failed. Your latest edits may only be on this device. ' +
+              'Check the sync pill and try again after confirming Supabase env vars on Vercel.',
+          )
+        }
       })
     }, 500)
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin, supabaseConfigured } from "@/lib/supabase";
 
 type SalesStatePayload = {
+  mode?: unknown;
   schemaVersion?: unknown;
   prospects?: unknown[];
   tasks?: unknown[];
@@ -10,6 +11,35 @@ type SalesStatePayload = {
   sentEmails?: unknown[];
   attachments?: unknown[];
 };
+
+function asStateBag(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {
+      schemaVersion: 1,
+      prospects: [] as unknown[],
+      tasks: [] as unknown[],
+      timeline: [] as unknown[],
+      templates: [] as unknown[],
+      sentEmails: [] as unknown[],
+      attachments: [] as unknown[],
+    };
+  }
+  const raw = value as SalesStatePayload;
+  return {
+    schemaVersion:
+      typeof raw.schemaVersion === "number" &&
+      Number.isInteger(raw.schemaVersion) &&
+      raw.schemaVersion > 0
+        ? raw.schemaVersion
+        : 1,
+    prospects: Array.isArray(raw.prospects) ? raw.prospects : [],
+    tasks: Array.isArray(raw.tasks) ? raw.tasks : [],
+    timeline: Array.isArray(raw.timeline) ? raw.timeline : [],
+    templates: Array.isArray(raw.templates) ? raw.templates : [],
+    sentEmails: Array.isArray(raw.sentEmails) ? raw.sentEmails : [],
+    attachments: Array.isArray(raw.attachments) ? raw.attachments : [],
+  };
+}
 
 function prospectRow(p: Record<string, unknown>) {
   return {
@@ -112,22 +142,55 @@ export async function PUT(req: Request) {
     );
   }
 
-  const state = {
-    schemaVersion:
-      typeof body.schemaVersion === "number" &&
-      Number.isInteger(body.schemaVersion) &&
-      body.schemaVersion > 0
-        ? body.schemaVersion
-        : 1,
-    prospects: Array.isArray(body.prospects) ? body.prospects : [],
-    tasks: Array.isArray(body.tasks) ? body.tasks : [],
-    timeline: Array.isArray(body.timeline) ? body.timeline : [],
-    templates: Array.isArray(body.templates) ? body.templates : [],
-    sentEmails: Array.isArray(body.sentEmails) ? body.sentEmails : [],
-    attachments: Array.isArray(body.attachments) ? body.attachments : [],
-  };
-
   const updatedAt = new Date().toISOString();
+  const auxOnly = body.mode === "aux";
+
+  // Aux mode (Sales v2): update templates/sent/attachments only.
+  // Never wipe prospects in the blob or commercial_prospects table.
+  if (auxOnly) {
+    const { data: existingRow } = await supabase
+      .from("sales_workspace")
+      .select("state")
+      .eq("id", "default")
+      .maybeSingle();
+    const previous = asStateBag(existingRow?.state);
+    const merged = {
+      ...previous,
+      schemaVersion:
+        typeof body.schemaVersion === "number" && body.schemaVersion > 0
+          ? body.schemaVersion
+          : previous.schemaVersion,
+      templates: Array.isArray(body.templates)
+        ? body.templates
+        : previous.templates,
+      sentEmails: Array.isArray(body.sentEmails)
+        ? body.sentEmails
+        : previous.sentEmails,
+      attachments: Array.isArray(body.attachments)
+        ? body.attachments
+        : previous.attachments,
+    };
+    const { error: workspaceError } = await supabase
+      .from("sales_workspace")
+      .upsert({
+        id: "default",
+        state: merged,
+        updated_at: updatedAt,
+      });
+    if (workspaceError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          reason: "save_failed",
+          message: workspaceError.message,
+        },
+        { status: 500 },
+      );
+    }
+    return NextResponse.json({ ok: true, updatedAt, mode: "aux" });
+  }
+
+  const state = asStateBag(body);
 
   const { error: workspaceError } = await supabase.from("sales_workspace").upsert({
     id: "default",
@@ -169,25 +232,22 @@ export async function PUT(req: Request) {
     }
   }
 
-  // Remove deleted prospects from the flat table
-  const { data: existing } = await supabase
-    .from("commercial_prospects")
-    .select("id");
-
-  const stale =
-    existing
-      ?.map((r) => r.id as string)
-      .filter((id) => !ids.includes(id)) ?? [];
-
-  if (stale.length > 0) {
-    await supabase.from("commercial_prospects").delete().in("id", stale);
-  }
-
-  if (ids.length === 0 && existing && existing.length > 0) {
-    await supabase
+  // Only remove flat-table rows when this is a full legacy save with an
+  // explicit prospect list (never when the list is empty — that used to
+  // wipe the table during Sales v2 aux saves).
+  if (ids.length > 0) {
+    const { data: existing } = await supabase
       .from("commercial_prospects")
-      .delete()
-      .neq("id", "__none__");
+      .select("id");
+
+    const stale =
+      existing
+        ?.map((r) => r.id as string)
+        .filter((id) => !ids.includes(id)) ?? [];
+
+    if (stale.length > 0) {
+      await supabase.from("commercial_prospects").delete().in("id", stale);
+    }
   }
 
   return NextResponse.json({ ok: true, updatedAt });

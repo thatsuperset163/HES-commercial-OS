@@ -107,6 +107,7 @@ export async function saveStateToCloud(state: SalesState): Promise<boolean> {
 /**
  * In Sales v2 mode, CRM entities live in normalized tables.
  * Legacy blob still stores templates / sent emails / attachments.
+ * Never send empty prospects — that used to wipe commercial_prospects.
  */
 export function extractLegacyAuxState(state: SalesState): SalesState {
   return migrateState({
@@ -121,5 +122,25 @@ export function extractLegacyAuxState(state: SalesState): SalesState {
 }
 
 export async function saveLegacyAuxToCloud(state: SalesState): Promise<boolean> {
-  return saveStateToCloud(extractLegacyAuxState(state))
+  try {
+    const res = await fetch('/api/sales/state', {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        mode: 'aux',
+        schemaVersion: state.schemaVersion,
+        templates: state.templates,
+        sentEmails: state.sentEmails,
+        attachments: state.attachments,
+      }),
+    })
+    if (res.status === 503) return false
+    return res.ok
+  } catch {
+    return false
+  }
 }
