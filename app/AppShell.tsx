@@ -3,7 +3,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
+import {
+  blackboardCloudStatusLabel,
+  getBlackboardCloudStatus,
+  hydrateStoreFromCloud,
+  subscribeBlackboardCloudStatus,
+  type BlackboardCloudStatus,
+} from "@/lib/storage";
 
 const NAV = [
   { href: "/", label: "HQ", icon: "H", match: (path: string) => path === "/" },
@@ -21,11 +28,26 @@ const NAV = [
   },
 ] as const;
 
+function syncDotClass(status: BlackboardCloudStatus): string {
+  if (status === "synced") return "sync-dot";
+  if (status === "saving" || status === "loading") return "sync-dot is-warn";
+  return "sync-dot is-danger";
+}
+
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const [cloudStatus, setCloudStatus] = useState<BlackboardCloudStatus>(
+    getBlackboardCloudStatus,
+  );
 
-  const current =
-    NAV.find((item) => item.match(pathname)) ?? NAV[0];
+  const current = NAV.find((item) => item.match(pathname)) ?? NAV[0];
+  const statusLabel = blackboardCloudStatusLabel(cloudStatus);
+
+  useEffect(() => {
+    const unsub = subscribeBlackboardCloudStatus(setCloudStatus);
+    void hydrateStoreFromCloud();
+    return unsub;
+  }, []);
 
   async function logout() {
     await fetch("/api/auth", { method: "DELETE" });
@@ -67,9 +89,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
-        <div className="sidebar-foot">
-          <span className="sync-dot" aria-hidden />
-          <span>Cloud connected</span>
+        <div className="sidebar-foot" title={statusLabel}>
+          <span className={syncDotClass(cloudStatus)} aria-hidden />
+          <span>{statusLabel}</span>
         </div>
       </aside>
 
@@ -80,9 +102,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
             <h2 className="section-heading">{current.label}</h2>
           </div>
           <div className="utility-area">
-            <span className="utility-status">
-              <span className="sync-dot" aria-hidden />
-              Synced
+            <span className="utility-status" title={statusLabel}>
+              <span className={syncDotClass(cloudStatus)} aria-hidden />
+              {statusLabel}
             </span>
             <button type="button" className="icon-btn" onClick={logout}>
               Lock

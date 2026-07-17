@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin, supabaseConfigured } from "@/lib/supabase";
+import {
+  getSupabaseAdmin,
+  getSupabaseServiceRole,
+  supabaseConfigured,
+  supabaseServiceRoleConfigured,
+} from "@/lib/supabase";
 
 function notConfigured() {
   return NextResponse.json(
@@ -8,10 +13,16 @@ function notConfigured() {
   );
 }
 
+function blackboardClient() {
+  // Prefer service role for durable whole-site writes; anon still works while
+  // blackboard_workspace keeps its open RLS policy.
+  return getSupabaseServiceRole() ?? getSupabaseAdmin();
+}
+
 export async function GET() {
   if (!supabaseConfigured()) return notConfigured();
 
-  const supabase = getSupabaseAdmin();
+  const supabase = blackboardClient();
   if (!supabase) return notConfigured();
 
   const { data, error } = await supabase
@@ -29,15 +40,16 @@ export async function GET() {
 
   return NextResponse.json({
     ok: true,
-    state: data?.state ?? { days: {} },
+    state: data?.state ?? { days: {}, jobs: [] },
     updatedAt: data?.updated_at ?? null,
+    durable: supabaseServiceRoleConfigured(),
   });
 }
 
 export async function PUT(request: Request) {
   if (!supabaseConfigured()) return notConfigured();
 
-  const supabase = getSupabaseAdmin();
+  const supabase = blackboardClient();
   if (!supabase) return notConfigured();
 
   let state: unknown;
@@ -90,5 +102,9 @@ export async function PUT(request: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, updatedAt });
+  return NextResponse.json({
+    ok: true,
+    updatedAt,
+    durable: supabaseServiceRoleConfigured(),
+  });
 }

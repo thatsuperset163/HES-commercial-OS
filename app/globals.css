@@ -1583,6 +1583,16 @@ a.tab {
   box-shadow: 0 0 4px rgba(34, 160, 107, 0.35);
 }
 
+.sync-dot.is-warn {
+  background: var(--color-warning);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--color-warning) 45%, transparent);
+}
+
+.sync-dot.is-danger {
+  background: var(--color-danger);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--color-danger) 45%, transparent);
+}
+
 .sidebar-foot {
   display: flex;
   align-items: center;

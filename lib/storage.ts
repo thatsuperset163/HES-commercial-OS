@@ -10,12 +10,63 @@ const STORAGE_KEY = "hes-blackboard-v1";
 const CLOUD_ENDPOINT = "/api/blackboard/state";
 const CLOUD_SAVE_DELAY_MS = 500;
 
+export type BlackboardCloudStatus =
+  | "loading"
+  | "synced"
+  | "saving"
+  | "local"
+  | "offline"
+  | "error";
+
 let hydrationPromise: Promise<BoardStore> | null = null;
 let cloudEnabled = false;
 let cloudSaveTimer: number | null = null;
+let cloudStatus: BlackboardCloudStatus = "loading";
+let localOnlyAlerted = false;
+let saveErrorAlerted = false;
+const statusListeners = new Set<(status: BlackboardCloudStatus) => void>();
 
 function emptyStore(): BoardStore {
   return { days: {}, jobs: [] };
+}
+
+function setCloudStatus(next: BlackboardCloudStatus): void {
+  if (cloudStatus === next) return;
+  cloudStatus = next;
+  statusListeners.forEach((listener) => listener(next));
+}
+
+export function getBlackboardCloudStatus(): BlackboardCloudStatus {
+  return cloudStatus;
+}
+
+export function subscribeBlackboardCloudStatus(
+  listener: (status: BlackboardCloudStatus) => void,
+): () => void {
+  statusListeners.add(listener);
+  listener(cloudStatus);
+  return () => {
+    statusListeners.delete(listener);
+  };
+}
+
+export function blackboardCloudStatusLabel(
+  status: BlackboardCloudStatus,
+): string {
+  switch (status) {
+    case "loading":
+      return "Checking cloud…";
+    case "synced":
+      return "Cloud synced";
+    case "saving":
+      return "Saving…";
+    case "local":
+      return "Local only";
+    case "offline":
+      return "Cloud offline";
+    case "error":
+      return "Save error";
+  }
 }
 
 function normalizeStore(value: unknown): BoardStore | null {
@@ -26,9 +77,80 @@ function normalizeStore(value: unknown): BoardStore | null {
   return { days: days as BoardStore["days"], jobs };
 }
 
+function storeHasData(store: BoardStore): boolean {
+  return Object.keys(store.days).length > 0 || store.jobs.length > 0;
+}
+
+function newerIso(a: string | undefined, b: string | undefined): boolean {
+  return (a ?? "") >= (b ?? "");
+}
+
+function mergeDays(
+  local: BoardStore["days"],
+  cloud: BoardStore["days"],
+): BoardStore["days"] {
+  const keys = new Set([...Object.keys(local), ...Object.keys(cloud)]);
+  const out: BoardStore["days"] = {};
+  for (const key of keys) {
+    const left = local[key];
+    const right = cloud[key];
+    if (!left) out[key] = right;
+    else if (!right) out[key] = left;
+    else out[key] = newerIso(right.updatedAt, left.updatedAt) ? right : left;
+  }
+  return out;
+}
+
+function mergeJobs(local: Job[], cloud: Job[]): Job[] {
+  const map = new Map<string, Job>();
+  for (const job of local) map.set(job.id, job);
+  for (const job of cloud) {
+    const existing = map.get(job.id);
+    if (!existing || newerIso(job.updatedAt, existing.updatedAt)) {
+      map.set(job.id, job);
+    }
+  }
+  return [...map.values()].sort((a, b) =>
+    newerIso(b.updatedAt, a.updatedAt) ? 1 : -1,
+  );
+}
+
+function mergeStores(local: BoardStore, cloud: BoardStore): BoardStore {
+  return {
+    days: mergeDays(local.days, cloud.days),
+    jobs: mergeJobs(local.jobs, cloud.jobs),
+  };
+}
+
+function storesEqual(a: BoardStore, b: BoardStore): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 function saveLocalStore(store: BoardStore): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+}
+
+function alertLocalOnly(): void {
+  if (localOnlyAlerted || typeof window === "undefined") return;
+  localOnlyAlerted = true;
+  window.setTimeout(() => {
+    window.alert(
+      "HQ / Jobs cloud is not available on this deployment. " +
+        "Personal days and jobs will only save in this browser and can disappear. " +
+        "Add NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and " +
+        "SUPABASE_SERVICE_ROLE_KEY on Vercel, then redeploy.",
+    );
+  }, 600);
+}
+
+function alertSaveFailed(): void {
+  if (saveErrorAlerted || typeof window === "undefined") return;
+  saveErrorAlerted = true;
+  window.alert(
+    "Cloud save failed. Your latest HQ / Jobs edits may only be on this device. " +
+      "Check the sync status in the sidebar and confirm Supabase env vars on Vercel.",
+  );
 }
 
 async function putCloudStore(store: BoardStore): Promise<boolean> {
@@ -51,8 +173,17 @@ async function putCloudStore(store: BoardStore): Promise<boolean> {
 function scheduleCloudSave(store: BoardStore): void {
   if (!cloudEnabled || typeof window === "undefined") return;
   if (cloudSaveTimer) window.clearTimeout(cloudSaveTimer);
+  setCloudStatus("saving");
   cloudSaveTimer = window.setTimeout(() => {
-    void putCloudStore(store);
+    void putCloudStore(store).then((ok) => {
+      if (ok) {
+        saveErrorAlerted = false;
+        setCloudStatus("synced");
+        return;
+      }
+      setCloudStatus("error");
+      alertSaveFailed();
+    });
   }, CLOUD_SAVE_DELAY_MS);
 }
 
@@ -78,12 +209,14 @@ export function saveStore(store: BoardStore): void {
 
 /**
  * Hydrate the shared HQ / Work store from Supabase once per page load.
- * Browser storage remains the fallback and is uploaded when the cloud is empty.
+ * Browser storage remains the fallback. Never replace local data with an
+ * empty or weaker cloud payload — merge by updatedAt and warn when local-only.
  */
 export function hydrateStoreFromCloud(): Promise<BoardStore> {
   if (typeof window === "undefined") return Promise.resolve(emptyStore());
   if (hydrationPromise) return hydrationPromise;
 
+  setCloudStatus("loading");
   hydrationPromise = (async () => {
     const local = loadStore();
 
@@ -94,31 +227,69 @@ export function hydrateStoreFromCloud(): Promise<BoardStore> {
         headers: { Accept: "application/json" },
       });
 
-      if (!response.ok) return local;
-
-      const body = (await response.json()) as { state?: unknown };
-      const cloud = normalizeStore(body.state);
-      if (!cloud) return local;
-
-      cloudEnabled = true;
-      const cloudIsEmpty =
-        Object.keys(cloud.days).length === 0 && cloud.jobs.length === 0;
-      const localHasData =
-        Object.keys(local.days).length > 0 || local.jobs.length > 0;
-
-      if (cloudIsEmpty && localHasData) {
-        await putCloudStore(local);
+      if (response.status === 503) {
+        cloudEnabled = false;
+        setCloudStatus("local");
+        alertLocalOnly();
         return local;
       }
 
-      // Prefer cloud days; merge jobs if cloud has none but local does.
-      const merged: BoardStore = {
-        days: cloud.days,
-        jobs: cloud.jobs.length ? cloud.jobs : local.jobs,
+      if (!response.ok) {
+        cloudEnabled = false;
+        setCloudStatus("offline");
+        return local;
+      }
+
+      const body = (await response.json()) as {
+        ok?: boolean;
+        state?: unknown;
+        reason?: string;
       };
+
+      if (body.ok === false) {
+        cloudEnabled = false;
+        if (body.reason === "supabase_not_configured") {
+          setCloudStatus("local");
+          alertLocalOnly();
+        } else {
+          setCloudStatus("offline");
+        }
+        return local;
+      }
+
+      const cloud = normalizeStore(body.state) ?? emptyStore();
+      cloudEnabled = true;
+
+      const cloudEmpty = !storeHasData(cloud);
+      const localHasData = storeHasData(local);
+
+      if (cloudEmpty && localHasData) {
+        const pushed = await putCloudStore(local);
+        setCloudStatus(pushed ? "synced" : "error");
+        if (!pushed) alertSaveFailed();
+        return local;
+      }
+
+      if (cloudEmpty) {
+        setCloudStatus("synced");
+        return local;
+      }
+
+      const merged = mergeStores(local, cloud);
       saveLocalStore(merged);
+
+      if (!storesEqual(merged, cloud)) {
+        const pushed = await putCloudStore(merged);
+        setCloudStatus(pushed ? "synced" : "error");
+        if (!pushed) alertSaveFailed();
+      } else {
+        setCloudStatus("synced");
+      }
+
       return merged;
     } catch {
+      cloudEnabled = false;
+      setCloudStatus("offline");
       return local;
     }
   })();
