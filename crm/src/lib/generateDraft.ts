@@ -347,25 +347,17 @@ export function generateEmailPath(
   prospectId: string,
   kind: TaskKind = 'email',
 ) {
+  // Emails page is email-only; call/visit actions still open a card-based email draft.
+  const emailKind = kind === 'quote' ? 'quote' : 'email'
   const params = new URLSearchParams({
     prospect: prospectId,
     generate: '1',
-    kind,
+    kind: emailKind,
   })
   return `/emails?${params.toString()}`
 }
 
 export function actionGenerateLabel(kind: TaskKind) {
-  switch (kind) {
-    case 'email':
-      return 'Generate email'
-    case 'call':
-      return 'Generate call script'
-    case 'visit':
-      return 'Generate visit brief'
-    case 'quote':
-      return 'Generate proposal email'
-    default:
-      return 'Generate'
-  }
+  if (kind === 'quote') return 'Generate proposal email'
+  return 'Generate email'
 }

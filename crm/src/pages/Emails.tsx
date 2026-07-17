@@ -15,12 +15,15 @@ import {
   HES_OUTREACH_GMAIL,
 } from '../lib/generateDraft'
 import {
+  daysFromNow,
   formatDate,
   formatDateTime,
+  fromDateInput,
   isOverdue,
   isToday,
+  toDateInput,
 } from '../lib/dates'
-import { STAGES, type Prospect, type TaskKind } from '../types'
+import { STAGES, type Prospect } from '../types'
 import './Emails.css'
 
 function followUpLabel(nextFollowUpAt: string | null) {
@@ -30,17 +33,14 @@ function followUpLabel(nextFollowUpAt: string | null) {
   return `Scheduled · ${formatDate(nextFollowUpAt)}`
 }
 
-function asTaskKind(value: string | null): TaskKind {
-  if (
-    value === 'call' ||
-    value === 'email' ||
-    value === 'visit' ||
-    value === 'quote' ||
-    value === 'other'
-  ) {
-    return value
-  }
-  return 'email'
+function asEmailKind(value: string | null): 'email' | 'quote' {
+  return value === 'quote' ? 'quote' : 'email'
+}
+
+function defaultFollowUpDays(stage: Prospect['stage']) {
+  if (stage === 'proposal_sent') return 2
+  if (stage === 'not_contacted' || stage === 'email_sent') return 3
+  return 3
 }
 
 function suggestedNextStep(p: Prospect, hasSentEmail: boolean) {
@@ -85,12 +85,12 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function Emails() {
-  const { state, markEmailSent, logCall } = useSales()
+  const { state, markEmailSent, updateProspect, addTask } = useSales()
   const [params, setParams] = useSearchParams()
   const initialProspect = params.get('prospect') ?? state.prospects[0]?.id ?? ''
   const initialSent = params.get('sent')
   const shouldGenerate = params.get('generate') === '1'
-  const generateKind = asTaskKind(params.get('kind'))
+  const generateKind = asEmailKind(params.get('kind'))
 
   const [prospectId, setProspectId] = useState(initialProspect)
   const [subject, setSubject] = useState('')
@@ -104,6 +104,9 @@ export function Emails() {
   > | null>(null)
   const [copied, setCopied] = useState(false)
   const [logged, setLogged] = useState(false)
+  const [followUpDate, setFollowUpDate] = useState(() =>
+    toDateInput(daysFromNow(3)),
+  )
   const [selectedSentId, setSelectedSentId] = useState<string | null>(initialSent)
 
   const prospect = useMemo(
@@ -152,11 +155,16 @@ export function Emails() {
     [selectedSent, state.prospects],
   )
 
-  function fillFromProspect(nextProspectId: string, kind: TaskKind = 'email') {
+  function fillFromProspect(
+    nextProspectId: string,
+    kind: 'email' | 'quote' = 'email',
+  ) {
     const p = state.prospects.find((x) => x.id === nextProspectId)
     if (!p) return
+    const resolved =
+      kind === 'quote' || p.stage === 'proposal_sent' ? 'quote' : 'email'
     const prior = state.sentEmails.find((e) => e.prospectId === nextProspectId)
-    const draft = generateActionDraft(p, kind, {
+    const draft = generateActionDraft(p, resolved, {
       lastEmailBody: prior?.body,
       lastEmailSubject: prior?.subject,
     })
@@ -164,8 +172,31 @@ export function Emails() {
     setDraftMeta(draft)
     setSubject(draft.subject)
     setBody(draft.body)
+    setFollowUpDate(toDateInput(daysFromNow(defaultFollowUpDays(p.stage))))
     setCopied(false)
     setLogged(false)
+  }
+
+  function confirmSent() {
+    if (!prospect || !body.trim()) return
+    const nextFollowUpAt = fromDateInput(followUpDate)
+    markEmailSent({
+      prospectId: prospect.id,
+      subject: subject || '(no subject)',
+      body: withEmailSignature(body),
+      templateId: null,
+    })
+    if (nextFollowUpAt) {
+      updateProspect(prospect.id, { nextFollowUpAt })
+      addTask({
+        prospectId: prospect.id,
+        title: `Follow up with ${prospect.decisionMaker || prospect.businessName}`,
+        kind: 'call',
+        dueAt: nextFollowUpAt,
+      })
+    }
+    setLogged(true)
+    setBody(withEmailSignature(body))
   }
 
   useEffect(() => {
@@ -192,22 +223,18 @@ export function Emails() {
     setParams(next, { replace: true })
   }
 
-  const isScript =
-    draftMeta?.channel === 'call' || draftMeta?.channel === 'visit'
-  const composerTitle = isScript
-    ? draftMeta?.channel === 'call'
-      ? 'Call script'
-      : 'Visit brief'
-    : 'Email draft'
+  const composerTitle = 'Email draft'
 
-  const gmailHref =
-    !isScript && prospect?.email
-      ? gmailComposeHref(prospect.email, subject, body)
-      : ''
+  const gmailHref = prospect?.email
+    ? gmailComposeHref(prospect.email, subject, body)
+    : ''
 
   const location = prospect
     ? [prospect.address, prospect.city, prospect.state].filter(Boolean).join(', ')
     : ''
+
+  const smartKind: 'email' | 'quote' =
+    prospect?.stage === 'proposal_sent' ? 'quote' : 'email'
 
   return (
     <div className="page emails-page">
@@ -216,8 +243,8 @@ export function Emails() {
           <p className="eyebrow">Outreach</p>
           <h1>Emails</h1>
           <p className="lede">
-            Generate from the prospect brief, open in Gmail as {HES_OUTREACH_GMAIL},
-            then mark sent.
+            Generate, send from {HES_OUTREACH_GMAIL} in Gmail, then set the next
+            follow-up.
           </p>
         </div>
       </header>
@@ -243,6 +270,12 @@ export function Emails() {
                 setDraftMeta(null)
                 setLogged(false)
                 setCopied(false)
+                const next = state.prospects.find((p) => p.id === e.target.value)
+                setFollowUpDate(
+                  toDateInput(
+                    daysFromNow(defaultFollowUpDays(next?.stage ?? 'not_contacted')),
+                  ),
+                )
               }}
             >
               {state.prospects
@@ -405,27 +438,19 @@ export function Emails() {
               type="button"
               className="btn"
               disabled={!prospect}
-              onClick={() => prospect && fillFromProspect(prospect.id, 'email')}
+              onClick={() => prospect && fillFromProspect(prospect.id, smartKind)}
             >
-              {actionGenerateLabel('email')}
-            </button>
-            <button
-              type="button"
-              className="btn secondary"
-              disabled={!prospect}
-              onClick={() => prospect && fillFromProspect(prospect.id, 'call')}
-            >
-              {actionGenerateLabel('call')}
-            </button>
-            <button
-              type="button"
-              className="btn secondary"
-              disabled={!prospect}
-              onClick={() => prospect && fillFromProspect(prospect.id, 'quote')}
-            >
-              {actionGenerateLabel('quote')}
+              {actionGenerateLabel(smartKind)}
             </button>
           </div>
+
+          {prospect && !prospect.email.trim() && (
+            <p className="draft-missing">
+              No email on this card.{' '}
+              <Link to={`/prospects/${prospect.id}`}>Add an email address</Link>{' '}
+              before opening Gmail.
+            </p>
+          )}
 
           {prospect && (
             <p className="composer-to">
@@ -448,33 +473,49 @@ export function Emails() {
             </p>
           )}
 
-          {draftMeta && draftMeta.missing.length > 0 && (
+          {draftMeta &&
+            draftMeta.missing.filter((m) => m !== 'email address').length > 0 && (
             <p className="draft-missing">
-              Missing on card: {draftMeta.missing.join(', ')}. Draft still
-              generated — fill those fields for better outreach.
+              Missing on card:{' '}
+              {draftMeta.missing.filter((m) => m !== 'email address').join(', ')}.
+              Draft still works — add those for a sharper email.
             </p>
           )}
 
-          {!isScript && (
-            <label className="lbl">
-              Subject
-              <input
-                className="field"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-              />
-            </label>
-          )}
           <label className="lbl">
-            {isScript ? 'Script / brief' : 'Body'}
+            Subject
+            <input
+              className="field"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+            />
+          </label>
+          <label className="lbl">
+            Body
             <textarea
               className="field"
-              rows={isScript ? 16 : 14}
+              rows={14}
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="Generate from the prospect brief."
             />
           </label>
+
+          <div className="send-loop">
+            <label className="lbl">
+              Next follow-up after send
+              <input
+                className="field"
+                type="date"
+                value={followUpDate}
+                onChange={(e) => setFollowUpDate(e.target.value)}
+              />
+            </label>
+            <p className="send-loop-note">
+              After you send in Gmail, confirm here so Today knows when to nudge
+              you next.
+            </p>
+          </div>
 
           <div className="composer-foot">
             {gmailHref && (
@@ -488,56 +529,34 @@ export function Emails() {
                 Open in Gmail
               </a>
             )}
-            {gmailHref && (
-              <p className="gmail-from-note">
-                Sends from <strong>{HES_OUTREACH_GMAIL}</strong> — stay signed into
-                that Google account in this browser.
-              </p>
-            )}
-            {isScript && draftMeta?.channel === 'call' && prospect && (
-              <button
-                type="button"
-                className="btn"
-                onClick={() =>
-                  logCall(prospect.id, 'Call logged from generated script')
-                }
-              >
-                Log call
-              </button>
-            )}
             <button
               type="button"
               className="btn secondary"
               disabled={!body}
               onClick={async () => {
                 await navigator.clipboard.writeText(
-                  !isScript && subject ? `${subject}\n\n${body}` : body,
+                  subject ? `${subject}\n\n${body}` : body,
                 )
                 setCopied(true)
               }}
             >
               {copied ? 'Copied' : 'Copy'}
             </button>
-            {!isScript && (
-              <button
-                type="button"
-                className="btn"
-                disabled={!prospect || !body}
-                onClick={() => {
-                  markEmailSent({
-                    prospectId: prospect!.id,
-                    subject: subject || '(no subject)',
-                    body: withEmailSignature(body),
-                    templateId: null,
-                  })
-                  setLogged(true)
-                  setBody(withEmailSignature(body))
-                }}
-              >
-                {logged ? 'Logged as sent' : 'Mark sent'}
-              </button>
-            )}
+            <button
+              type="button"
+              className="btn"
+              disabled={!prospect || !body}
+              onClick={confirmSent}
+            >
+              {logged ? 'Logged · follow-up set' : 'I sent this in Gmail'}
+            </button>
           </div>
+          {gmailHref && (
+            <p className="gmail-from-note">
+              Opens as <strong>{HES_OUTREACH_GMAIL}</strong>. HES does not send
+              mail itself — Gmail does.
+            </p>
+          )}
         </section>
       </div>
 
