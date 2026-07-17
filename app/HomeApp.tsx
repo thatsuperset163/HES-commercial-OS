@@ -6,6 +6,7 @@ import type { DayEntry, MetricKey } from "@/lib/types";
 import { METRIC_LABELS } from "@/lib/types";
 import { formatDisplayDate, formatShortDate, todayKey } from "@/lib/dates";
 import { getLastNDayCharts } from "@/lib/charts";
+import { getRealmStreaks } from "@/lib/progress";
 import { getOrCreateDay, hydrateStoreFromCloud, loadStore, upsertDay } from "@/lib/storage";
 import AppShell from "./AppShell";
 import { BarChart } from "./BarChart";
@@ -44,6 +45,7 @@ export default function HomeApp() {
     return {
       charts,
       recent,
+      personalStreak: getRealmStreaks(store, date).personal,
       totals: {
         doors: charts.reduce((sum, point) => sum + point.doors, 0),
         conversations: charts.reduce((sum, point) => sum + point.conversations, 0),
@@ -58,8 +60,12 @@ export default function HomeApp() {
     return <AppShell><p className="hq-lede">Loading HQ…</p></AppShell>;
   }
 
-  const personalFocus = day.goals.find((goal) => goal.category === "personal")?.text;
+  const personalGoal = day.goals.find((goal) => goal.category === "personal");
+  const personalFocus = personalGoal?.text;
   const workFocus = day.goals.find((goal) => goal.category === "business")?.text;
+  const personalChecklistDone = day.dailyChecklist.filter((item) => item.done).length;
+  const personalChecklistTotal = day.dailyChecklist.length;
+  const personalStreak = snapshot.personalStreak;
 
   return (
     <AppShell>
@@ -89,6 +95,11 @@ export default function HomeApp() {
               <article className="hq-focus-card">
                 <span className="hq-kicker">Personal</span>
                 <p>{personalFocus || "Set today’s personal direction."}</p>
+                <p className="hq-focus-meta">
+                  {personalGoal?.done ? "Focus done · " : ""}
+                  Checklist {personalChecklistDone}/{personalChecklistTotal}
+                  {personalStreak > 0 ? ` · ${personalStreak}d streak` : ""}
+                </p>
                 <Link href="/personal" className="hq-link">Open Personal →</Link>
               </article>
               <article className="hq-focus-card">
