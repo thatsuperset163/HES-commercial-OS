@@ -12,6 +12,7 @@ import {
   actionGenerateLabel,
   generateActionDraft,
   gmailComposeHref,
+  HES_OUTREACH_GMAIL,
 } from '../lib/generateDraft'
 import {
   formatDate,
@@ -215,7 +216,8 @@ export function Emails() {
           <p className="eyebrow">Outreach</p>
           <h1>Emails</h1>
           <p className="lede">
-            Generate from the prospect brief, open in Gmail, then mark sent.
+            Generate from the prospect brief, open in Gmail as {HES_OUTREACH_GMAIL},
+            then mark sent.
           </p>
         </div>
       </header>
@@ -481,9 +483,16 @@ export function Emails() {
                 href={gmailHref}
                 target="_blank"
                 rel="noopener noreferrer"
+                title={`Opens Gmail as ${HES_OUTREACH_GMAIL}`}
               >
                 Open in Gmail
               </a>
+            )}
+            {gmailHref && (
+              <p className="gmail-from-note">
+                Sends from <strong>{HES_OUTREACH_GMAIL}</strong> — stay signed into
+                that Google account in this browser.
+              </p>
             )}
             {isScript && draftMeta?.channel === 'call' && prospect && (
               <button

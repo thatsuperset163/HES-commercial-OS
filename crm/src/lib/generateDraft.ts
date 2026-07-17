@@ -234,17 +234,32 @@ function visitBrief(p: Prospect): string {
     .join('\n')
 }
 
-/** Gmail web compose — uses the Google account already signed into the browser. */
+/** Work inbox used for all Sales outreach compose links. */
+export const HES_OUTREACH_GMAIL = 'william@harrisexteriorsolutions.com'
+
+/**
+ * Gmail web compose pinned to the HES work account.
+ * Uses authuser so Chrome opens william@… instead of a personal login.
+ * You must be signed into that Google account in the browser at least once.
+ */
 export function gmailComposeHref(to: string, subject: string, body: string) {
   if (!to.trim()) return ''
-  const params = new URLSearchParams({
+  const compose = new URLSearchParams({
+    authuser: HES_OUTREACH_GMAIL,
     view: 'cm',
     fs: '1',
     to: to.trim(),
     su: subject,
     body,
   })
-  return `https://mail.google.com/mail/?${params.toString()}`
+  const gmailUrl = `https://mail.google.com/mail/?${compose.toString()}`
+
+  // AccountChooser forces the work profile when several Google accounts are signed in.
+  const chooser = new URLSearchParams({
+    Email: HES_OUTREACH_GMAIL,
+    continue: gmailUrl,
+  })
+  return `https://accounts.google.com/AccountChooser?${chooser.toString()}`
 }
 
 /** Build a ready-to-send outreach draft from the prospect card. */
