@@ -40,8 +40,9 @@ test('generates first outreach email from prospect card fields', () => {
   assert.match(draft.body, /Austin/)
   assert.match(draft.body, /Pressure Washing|pressure washing/i)
   assert.match(draft.body, /staining|curb appeal/i)
-  assert.match(draft.gmailHref, /^https:\/\/mail\.google\.com\/mail\/\?/)
-  assert.match(draft.gmailHref, /jordan%40oakridge\.com|jordan@oakridge\.com/)
+  assert.match(draft.gmailHref, /accounts\.google\.com\/AccountChooser/)
+  assert.match(draft.gmailHref, /william%40harrisexteriorsolutions\.com/)
+  assert.match(draft.gmailHref, /to%3Djordan%2540oakridge\.com|to=jordan%40oakridge\.com/)
   assert.ok(draft.contextLines.some((line) => line.includes('jordan@oakridge.com')))
 })
 

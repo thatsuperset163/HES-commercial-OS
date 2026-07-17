@@ -199,10 +199,25 @@
   justify-content: flex-end;
   gap: 0.45rem;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .composer-foot a.btn {
   text-decoration: none;
+}
+
+.gmail-from-note {
+  flex: 1 1 100%;
+  margin: 0;
+  text-align: right;
+  font-size: 0.78rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.gmail-from-note strong {
+  color: var(--text);
+  font-weight: 650;
 }
 
 .sent-list {
