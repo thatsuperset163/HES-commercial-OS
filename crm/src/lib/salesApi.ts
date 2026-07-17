@@ -457,6 +457,15 @@ export const salesApi = {
       body: JSON.stringify(input),
     }),
 
+  replaceOpportunityServices: (id: string, serviceIds: string[]) =>
+    request<{ opportunity_id: string; service_ids: string[] }>(
+      `${v2}/opportunities/${id}/services`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ service_ids: serviceIds }),
+      },
+    ),
+
   archiveOpportunity: (id: string) =>
     request<OpportunityRow>(`${v2}/opportunities/${id}`, {
       method: 'DELETE',

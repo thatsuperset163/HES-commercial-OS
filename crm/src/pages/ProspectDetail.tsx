@@ -15,12 +15,27 @@ import {
   daysFromNow,
   formatDate,
   formatDateTime,
+  formatMoney,
   fromDateInput,
+  isOverdue,
   toDateInput,
 } from '../lib/dates'
+import { buildNextActions } from '../lib/nextActions'
+import {
+  actionGenerateLabel,
+  generateEmailPath,
+} from '../lib/generateDraft'
 import { Timeline, TaskList } from '../components/Timeline'
 import '../components/Overlay.css'
 import './Prospects.css'
+import './Today.css'
+
+function urgencyLabel(urgency: string) {
+  if (urgency === 'overdue') return 'Overdue'
+  if (urgency === 'today') return 'Today'
+  if (urgency === 'soon') return 'Soon'
+  return 'Opportunity'
+}
 
 export function ProspectDetail() {
   const { id } = useParams()
@@ -74,6 +89,11 @@ export function ProspectDetail() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  const nextAction = useMemo(
+    () => (id ? buildNextActions(state).find((a) => a.prospectId === id) ?? null : null),
+    [state, id],
+  )
 
   const tasks = useMemo(
     () =>
@@ -184,7 +204,60 @@ export function ProspectDetail() {
         </div>
       </header>
 
-      <section className="quote-bar panel">
+      {nextAction && (
+        <section className="panel focus-panel" aria-label="Do this next">
+          <div className="panel-head">
+            <h2>Do this next</h2>
+            <span className={`urgency-tag ${nextAction.urgency}`}>
+              {urgencyLabel(nextAction.urgency)}
+            </span>
+          </div>
+          <div className="focus-body">
+            <span className={`pill ${nextAction.kind}`}>{nextAction.kind}</span>
+            <div className="focus-copy">
+              <strong>{nextAction.title}</strong>
+              <p className="focus-reason">{nextAction.reason}</p>
+              <p className="focus-meta">
+                {STAGES.find((s) => s.id === nextAction.stage)?.label}
+                {nextAction.dueAt
+                  ? ` · ${isOverdue(nextAction.dueAt) ? 'Was due' : 'Due'} ${formatDate(nextAction.dueAt)}`
+                  : ''}
+                {nextAction.jobValue > 0
+                  ? ` · ${formatMoney(nextAction.jobValue)}`
+                  : ''}
+              </p>
+            </div>
+          </div>
+          <div className="action-ctas focus-ctas">
+            <Link
+              className="btn"
+              to={generateEmailPath(nextAction.prospectId, nextAction.kind)}
+            >
+              {actionGenerateLabel(nextAction.kind)}
+            </Link>
+            {nextAction.kind === 'call' && (
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => logCall(prospect.id, 'Logged from prospect next action')}
+              >
+                Log call
+              </button>
+            )}
+            {nextAction.taskId && (
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => completeTask(nextAction.taskId!)}
+              >
+                Done
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
+      <section className="quote-bar panel hero-bar">
         <label className="lbl">
           Lead status
           <select
@@ -267,218 +340,26 @@ export function ProspectDetail() {
         </div>
       </section>
 
+      <section className="panel form-section hero-services">
+        <h3>Services of interest</h3>
+        <p className="section-hint">What this account needs — saved with the opportunity.</p>
+        <div className="service-chips">
+          {SERVICES.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              className={
+                prospect.servicesNeeded.includes(s.id) ? 'chip active' : 'chip'
+              }
+              onClick={() => toggleService(s.id)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
       <div className="detail-stack">
-        <section className="panel form-section">
-          <h3>Company information</h3>
-          <div className="form-grid">
-            <label className="lbl">
-              Company name
-              <input
-                className="field"
-                value={prospect.businessName}
-                onChange={(e) => updateProspect(prospect.id, { businessName: e.target.value })}
-              />
-            </label>
-            <label className="lbl">
-              Industry
-              <select
-                className="field"
-                value={prospect.industry}
-                onChange={(e) => updateProspect(prospect.id, { industry: e.target.value })}
-              >
-                {INDUSTRIES.map((i) => (
-                  <option key={i} value={i}>
-                    {i}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="lbl">
-              Company website
-              <input
-                className="field"
-                value={prospect.website}
-                onChange={(e) => updateProspect(prospect.id, { website: e.target.value })}
-              />
-            </label>
-            <label className="lbl">
-              Company phone number
-              <input
-                className="field"
-                value={prospect.companyPhone}
-                onChange={(e) => updateProspect(prospect.id, { companyPhone: e.target.value })}
-              />
-            </label>
-            <label className="lbl full">
-              Company address
-              <input
-                className="field"
-                value={prospect.address}
-                onChange={(e) => updateProspect(prospect.id, { address: e.target.value })}
-              />
-            </label>
-            <label className="lbl">
-              City
-              <input
-                className="field"
-                value={prospect.city}
-                onChange={(e) => updateProspect(prospect.id, { city: e.target.value })}
-              />
-            </label>
-            <label className="lbl">
-              State
-              <input
-                className="field"
-                value={prospect.state || ''}
-                maxLength={2}
-                onChange={(e) => updateProspect(prospect.id, { state: e.target.value })}
-              />
-            </label>
-            <label className="lbl">
-              Lead source
-              <select
-                className="field"
-                value={prospect.leadSourceId || ''}
-                onChange={(e) =>
-                  updateProspect(prospect.id, {
-                    leadSourceId: e.target.value || null,
-                  })
-                }
-              >
-                <option value="">Unknown</option>
-                {(reference?.leadSources ?? []).map((source) => (
-                  <option key={source.id} value={source.id}>
-                    {source.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </section>
-
-        <section className="panel form-section">
-          <h3>Decision maker</h3>
-          <div className="form-grid">
-            <label className="lbl">
-              Full name
-              <input
-                className="field"
-                value={prospect.decisionMaker}
-                onChange={(e) =>
-                  updateProspect(prospect.id, { decisionMaker: e.target.value })
-                }
-              />
-            </label>
-            <label className="lbl">
-              Job title
-              <input
-                className="field"
-                value={prospect.jobTitle}
-                onChange={(e) => updateProspect(prospect.id, { jobTitle: e.target.value })}
-              />
-            </label>
-            <label className="lbl">
-              Direct email address
-              <input
-                className="field"
-                value={prospect.email}
-                onChange={(e) => updateProspect(prospect.id, { email: e.target.value })}
-              />
-            </label>
-            <label className="lbl">
-              Direct phone number
-              <input
-                className="field"
-                value={prospect.phone}
-                onChange={(e) => updateProspect(prospect.id, { phone: e.target.value })}
-              />
-            </label>
-            <label className="lbl">
-              Extension
-              <input
-                className="field"
-                value={prospect.phoneExt}
-                onChange={(e) => updateProspect(prospect.id, { phoneExt: e.target.value })}
-              />
-            </label>
-            <label className="lbl">
-              Assistant / gatekeeper name
-              <input
-                className="field"
-                value={prospect.assistantName}
-                onChange={(e) =>
-                  updateProspect(prospect.id, { assistantName: e.target.value })
-                }
-              />
-            </label>
-            <label className="lbl">
-              Assistant phone
-              <input
-                className="field"
-                value={prospect.assistantPhone}
-                onChange={(e) =>
-                  updateProspect(prospect.id, { assistantPhone: e.target.value })
-                }
-              />
-            </label>
-          </div>
-        </section>
-
-        <section className="panel form-section">
-          <h3>Dates</h3>
-          <div className="form-grid">
-            <label className="lbl">
-              Date added
-              <input
-                className="field"
-                type="date"
-                value={toDateInput(prospect.createdAt)}
-                disabled
-                readOnly
-              />
-            </label>
-            <label className="lbl">
-              First email date
-              <input
-                className="field"
-                type="date"
-                value={toDateInput(prospect.firstEmailAt)}
-                onChange={(e) =>
-                  updateProspect(prospect.id, {
-                    firstEmailAt: fromDateInput(e.target.value),
-                  })
-                }
-              />
-            </label>
-            <label className="lbl">
-              First call date
-              <input
-                className="field"
-                type="date"
-                value={toDateInput(prospect.firstCallAt)}
-                onChange={(e) =>
-                  updateProspect(prospect.id, {
-                    firstCallAt: fromDateInput(e.target.value),
-                  })
-                }
-              />
-            </label>
-            <label className="lbl">
-              Last contact date
-              <input
-                className="field"
-                type="date"
-                value={toDateInput(prospect.lastContactAt)}
-                onChange={(e) =>
-                  updateProspect(prospect.id, {
-                    lastContactAt: fromDateInput(e.target.value),
-                  })
-                }
-              />
-            </label>
-          </div>
-        </section>
-
         <section className="panel form-section">
           <h3>Notes</h3>
           <div className="form-grid">
@@ -525,67 +406,6 @@ export function ProspectDetail() {
               />
             </label>
           </div>
-        </section>
-
-        <section className="panel form-section">
-          <h3>Services of interest</h3>
-          <div className="service-chips">
-            {SERVICES.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                className={
-                  prospect.servicesNeeded.includes(s.id) ? 'chip active' : 'chip'
-                }
-                onClick={() => toggleService(s.id)}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="panel form-section">
-          <h3>Data quality</h3>
-          <div className="form-grid">
-            <label className="lbl">
-              Email verified
-              <select
-                className="field"
-                value={prospect.emailVerified ? 'yes' : 'no'}
-                onChange={(e) =>
-                  updateProspect(prospect.id, {
-                    emailVerified: e.target.value === 'yes',
-                  })
-                }
-              >
-                <option value="no">No</option>
-                <option value="yes">Yes</option>
-              </select>
-            </label>
-            <label className="lbl">
-              Decision maker confirmed
-              <select
-                className="field"
-                value={prospect.decisionMakerConfirmed ? 'yes' : 'no'}
-                onChange={(e) =>
-                  updateProspect(prospect.id, {
-                    decisionMakerConfirmed: e.target.value === 'yes',
-                  })
-                }
-              >
-                <option value="no">No</option>
-                <option value="yes">Yes</option>
-              </select>
-            </label>
-          </div>
-          {prospect.website ? (
-            <div className="link-row">
-              <a href={prospect.website} target="_blank" rel="noreferrer">
-                Open website
-              </a>
-            </div>
-          ) : null}
         </section>
 
         <div className="detail-grid">
@@ -664,97 +484,400 @@ export function ProspectDetail() {
 
         <section className="panel">
           <div className="panel-head">
-            <h2>Photos & attachments</h2>
+            <h2>Timeline</h2>
           </div>
-          <form
-            className="inline-row"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (!attachName.trim()) return
-              addAttachment({
-                prospectId: prospect.id,
-                name: attachName.trim(),
-                kind: attachKind,
-                url: '#',
-                note: '',
-              })
-              setAttachName('')
-            }}
-          >
-            <input
-              className="field"
-              placeholder="File name"
-              value={attachName}
-              onChange={(e) => setAttachName(e.target.value)}
-            />
-            <select
-              className="field"
-              value={attachKind}
-              onChange={(e) =>
-                setAttachKind(e.target.value as typeof attachKind)
-              }
-            >
-              <option value="photo">Photo</option>
-              <option value="document">Document</option>
-              <option value="quote">Quote</option>
-              <option value="other">Other</option>
-            </select>
-            <button type="submit" className="btn secondary">
-              Attach
-            </button>
-          </form>
-          <ul className="attach-list">
-            {attachments.map((a) => (
-              <li key={a.id}>
-                <span className={`pill ${a.kind === 'photo' ? 'visit' : 'quote'}`}>
-                  {a.kind}
-                </span>
-                <div>
-                  <strong>{a.name}</strong>
-                  <span>
-                    {formatDate(a.createdAt)}
-                    {a.note ? ` · ${a.note}` : ''}
-                  </span>
-                </div>
-              </li>
-            ))}
-            {attachments.length === 0 && <li className="empty">No attachments yet.</li>}
-          </ul>
+          <Timeline events={timeline} />
         </section>
-      </div>
 
-      <section className="panel">
-        <div className="panel-head">
-          <h2>Timeline</h2>
-        </div>
-        <Timeline events={timeline} />
-      </section>
+        <details className="panel quiet-panel">
+          <summary>Company & decision maker</summary>
+          <div className="quiet-body">
+            <section className="form-section quiet">
+              <h3>Company</h3>
+              <div className="form-grid">
+                <label className="lbl">
+                  Company name
+                  <input
+                    className="field"
+                    value={prospect.businessName}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, { businessName: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="lbl">
+                  Industry
+                  <select
+                    className="field"
+                    value={prospect.industry}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, { industry: e.target.value })
+                    }
+                  >
+                    {INDUSTRIES.map((i) => (
+                      <option key={i} value={i}>
+                        {i}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="lbl">
+                  Company website
+                  <input
+                    className="field"
+                    value={prospect.website}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, { website: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="lbl">
+                  Company phone number
+                  <input
+                    className="field"
+                    value={prospect.companyPhone}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, { companyPhone: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="lbl full">
+                  Company address
+                  <input
+                    className="field"
+                    value={prospect.address}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, { address: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="lbl">
+                  City
+                  <input
+                    className="field"
+                    value={prospect.city}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, { city: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="lbl">
+                  State
+                  <input
+                    className="field"
+                    value={prospect.state || ''}
+                    maxLength={2}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, { state: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="lbl">
+                  Lead source
+                  <select
+                    className="field"
+                    value={prospect.leadSourceId || ''}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, {
+                        leadSourceId: e.target.value || null,
+                      })
+                    }
+                  >
+                    <option value="">Unknown</option>
+                    {(reference?.leadSources ?? []).map((source) => (
+                      <option key={source.id} value={source.id}>
+                        {source.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </section>
 
-      <section className="panel" style={{ marginTop: '1rem' }}>
-        <div className="panel-head">
-          <h2>Sent emails</h2>
-          <Link className="btn small secondary" to={`/emails?prospect=${prospect.id}`}>
-            Draft email
-          </Link>
-        </div>
-        {sentEmails.length === 0 ? (
-          <p className="empty">No emails logged for this prospect.</p>
-        ) : (
-          <ul className="attach-list">
-            {sentEmails.map((e) => (
-              <li key={e.id}>
-                <span className="pill email">email</span>
-                <div>
-                  <Link to={`/emails?sent=${e.id}&prospect=${prospect.id}`}>
-                    <strong>{e.subject}</strong>
-                  </Link>
-                  <span>{formatDateTime(e.sentAt)}</span>
+            <section className="form-section quiet">
+              <h3>Decision maker</h3>
+              <div className="form-grid">
+                <label className="lbl">
+                  Full name
+                  <input
+                    className="field"
+                    value={prospect.decisionMaker}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, { decisionMaker: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="lbl">
+                  Job title
+                  <input
+                    className="field"
+                    value={prospect.jobTitle}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, { jobTitle: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="lbl">
+                  Direct email address
+                  <input
+                    className="field"
+                    value={prospect.email}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, { email: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="lbl">
+                  Direct phone number
+                  <input
+                    className="field"
+                    value={prospect.phone}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, { phone: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="lbl">
+                  Extension
+                  <input
+                    className="field"
+                    value={prospect.phoneExt}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, { phoneExt: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="lbl">
+                  Assistant / gatekeeper name
+                  <input
+                    className="field"
+                    value={prospect.assistantName}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, { assistantName: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="lbl">
+                  Assistant phone
+                  <input
+                    className="field"
+                    value={prospect.assistantPhone}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, {
+                        assistantPhone: e.target.value,
+                      })
+                    }
+                  />
+                </label>
+              </div>
+            </section>
+          </div>
+        </details>
+
+        <details className="panel quiet-panel">
+          <summary>Dates & data quality</summary>
+          <div className="quiet-body">
+            <section className="form-section quiet">
+              <h3>Dates</h3>
+              <div className="form-grid">
+                <label className="lbl">
+                  Date added
+                  <input
+                    className="field"
+                    type="date"
+                    value={toDateInput(prospect.createdAt)}
+                    disabled
+                    readOnly
+                  />
+                </label>
+                <label className="lbl">
+                  First email date
+                  <input
+                    className="field"
+                    type="date"
+                    value={toDateInput(prospect.firstEmailAt)}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, {
+                        firstEmailAt: fromDateInput(e.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <label className="lbl">
+                  First call date
+                  <input
+                    className="field"
+                    type="date"
+                    value={toDateInput(prospect.firstCallAt)}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, {
+                        firstCallAt: fromDateInput(e.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <label className="lbl">
+                  Last contact date
+                  <input
+                    className="field"
+                    type="date"
+                    value={toDateInput(prospect.lastContactAt)}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, {
+                        lastContactAt: fromDateInput(e.target.value),
+                      })
+                    }
+                  />
+                </label>
+              </div>
+            </section>
+
+            <section className="form-section quiet">
+              <h3>Data quality</h3>
+              <div className="form-grid">
+                <label className="lbl">
+                  Email verified
+                  <select
+                    className="field"
+                    value={prospect.emailVerified ? 'yes' : 'no'}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, {
+                        emailVerified: e.target.value === 'yes',
+                      })
+                    }
+                  >
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </label>
+                <label className="lbl">
+                  Decision maker confirmed
+                  <select
+                    className="field"
+                    value={prospect.decisionMakerConfirmed ? 'yes' : 'no'}
+                    onChange={(e) =>
+                      updateProspect(prospect.id, {
+                        decisionMakerConfirmed: e.target.value === 'yes',
+                      })
+                    }
+                  >
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </label>
+              </div>
+              {prospect.website ? (
+                <div className="link-row">
+                  <a href={prospect.website} target="_blank" rel="noreferrer">
+                    Open website
+                  </a>
                 </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+              ) : null}
+            </section>
+          </div>
+        </details>
+
+        <details className="panel quiet-panel">
+          <summary>
+            Attachments & sent emails
+            {(attachments.length > 0 || sentEmails.length > 0) && (
+              <span className="quiet-count">
+                {attachments.length} files · {sentEmails.length} sent
+              </span>
+            )}
+          </summary>
+          <div className="quiet-body">
+            <section className="form-section quiet">
+              <h3>Photos & attachments</h3>
+              <form
+                className="inline-row"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  if (!attachName.trim()) return
+                  addAttachment({
+                    prospectId: prospect.id,
+                    name: attachName.trim(),
+                    kind: attachKind,
+                    url: '#',
+                    note: '',
+                  })
+                  setAttachName('')
+                }}
+              >
+                <input
+                  className="field"
+                  placeholder="File name"
+                  value={attachName}
+                  onChange={(e) => setAttachName(e.target.value)}
+                />
+                <select
+                  className="field"
+                  value={attachKind}
+                  onChange={(e) =>
+                    setAttachKind(e.target.value as typeof attachKind)
+                  }
+                >
+                  <option value="photo">Photo</option>
+                  <option value="document">Document</option>
+                  <option value="quote">Quote</option>
+                  <option value="other">Other</option>
+                </select>
+                <button type="submit" className="btn secondary">
+                  Attach
+                </button>
+              </form>
+              <ul className="attach-list">
+                {attachments.map((a) => (
+                  <li key={a.id}>
+                    <span className={`pill ${a.kind === 'photo' ? 'visit' : 'quote'}`}>
+                      {a.kind}
+                    </span>
+                    <div>
+                      <strong>{a.name}</strong>
+                      <span>
+                        {formatDate(a.createdAt)}
+                        {a.note ? ` · ${a.note}` : ''}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+                {attachments.length === 0 && (
+                  <li className="empty">No attachments yet.</li>
+                )}
+              </ul>
+            </section>
+
+            <section className="form-section quiet">
+              <div className="panel-head" style={{ padding: 0, marginBottom: '0.5rem' }}>
+                <h3 style={{ margin: 0 }}>Sent emails</h3>
+                <Link
+                  className="btn small secondary"
+                  to={`/emails?prospect=${prospect.id}`}
+                >
+                  Draft email
+                </Link>
+              </div>
+              {sentEmails.length === 0 ? (
+                <p className="empty">No emails logged for this prospect.</p>
+              ) : (
+                <ul className="attach-list">
+                  {sentEmails.map((e) => (
+                    <li key={e.id}>
+                      <span className="pill email">email</span>
+                      <div>
+                        <Link to={`/emails?sent=${e.id}&prospect=${prospect.id}`}>
+                          <strong>{e.subject}</strong>
+                        </Link>
+                        <span>{formatDateTime(e.sentAt)}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
+        </details>
+      </div>
     </div>
   )
 }
