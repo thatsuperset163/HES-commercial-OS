@@ -12,7 +12,9 @@ Private company HQ for **Harris Exterior Solutions**:
 PIN-protected HQ. Data syncs through **Supabase** with browser storage as an offline backup. Built for **Vercel**.
 
 **Public website:** `/site` (no login) — estimate form writes into **Requests Center** (`intake_requests` in Supabase).  
-**Requests Center:** `/work/requests` — kanban intake (new → response → estimate → waiting → approved/declined). Run `supabase/migrations/20260718042000_requests_center.sql` once.
+**Requests Center:** `/work/requests` — kanban intake (new → response → estimate → waiting → approved/declined). Run `supabase/migrations/20260718042000_requests_center.sql` once.  
+
+**Auto handoffs:** website lead → Needs Response + task; job done → invoice draft; job invoiced → invoice sent; quote won → job; Approved request → Client/Job/Invoice/Task; overdue estimates/unpaid invoices → nag tasks.
 
 Door hangers and print leave-behinds were removed — this repo is the live HQ + public site.
 
