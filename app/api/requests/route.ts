@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { ApiError, jsonBody, ok, routeError, salesContext } from "@/lib/sales/http";
 import { buildDashboard } from "@/lib/requestsCenter/model";
+import { runIntakeEstimateNags } from "@/lib/requestsCenter/nags";
 import { IntakeRepo } from "@/lib/requestsCenter/repo";
 import { INTAKE_STATUSES, type IntakeStatus } from "@/lib/requestsCenter/types";
 
@@ -9,6 +9,7 @@ export async function GET(request: Request) {
     const db = await salesContext(request);
     const repo = new IntakeRepo(db);
     const rows = await repo.list();
+    await runIntakeEstimateNags(db, rows);
     return ok({ requests: rows, dashboard: buildDashboard(rows) });
   } catch (error) {
     return routeError(error);

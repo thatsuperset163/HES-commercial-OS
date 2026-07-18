@@ -1,4 +1,5 @@
 import { ApiError, jsonBody, ok, routeError, salesContext } from "@/lib/sales/http";
+import { convertIntakeToJob } from "@/lib/requestsCenter/convert";
 import { IntakeRepo } from "@/lib/requestsCenter/repo";
 import {
   DECLINE_REASONS,
@@ -33,20 +34,23 @@ export async function PATCH(request: Request, { params }: Params) {
         throw new ApiError(400, "validation_error", "Invalid status");
       }
     }
-    if (
-      body.waitingReason !== undefined &&
-      body.waitingReason &&
-      !WAITING_REASONS.includes(body.waitingReason as never)
-    ) {
-      // allow free text "Other" notes path — still accept listed + custom
-    }
-    if (
-      body.declineReason !== undefined &&
-      body.declineReason &&
-      !DECLINE_REASONS.includes(body.declineReason as never) &&
-      body.declineReason !== ""
-    ) {
-      // allow listed reasons primarily
+    void WAITING_REASONS;
+    void DECLINE_REASONS;
+
+    // Dragging/selecting Approved auto-converts into Client + Job + Invoice + Task.
+    if (body.status === "approved") {
+      const { request: current } = await repo.get(id);
+      if (current.status === "declined") {
+        throw new ApiError(
+          400,
+          "invalid_state",
+          "Declined requests cannot be approved",
+        );
+      }
+      if (!current.convertedJobId) {
+        const result = await convertIntakeToJob(db, id);
+        return ok({ request: result.request, autoConverted: true });
+      }
     }
 
     const patch: Record<string, unknown> = {};

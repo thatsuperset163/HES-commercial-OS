@@ -117,11 +117,22 @@ export function buildPipelineNextActions(store: BoardStore): PipelineAction[] {
 
   for (const row of store.jobs ?? []) {
     if (row.status === "done") {
+      const hasInvoice = (store.invoices ?? []).some(
+        (inv) =>
+          inv.notes.includes(`job:${row.id}`) ||
+          (inv.clientName === row.customerName &&
+            inv.jobLabel === row.service &&
+            inv.status !== "paid"),
+      );
       actions.push({
         id: `job-bill-${row.id}`,
         deskId: "invoices",
-        title: `Invoice ${row.customerName}`,
-        reason: "Job done — turn it into an invoice",
+        title: hasInvoice
+          ? `Send invoice · ${row.customerName}`
+          : `Invoice ${row.customerName}`,
+        reason: hasInvoice
+          ? "Draft invoice ready — send it"
+          : "Job done — turn it into an invoice",
         href: "/work/invoices",
         urgency: "money",
       });

@@ -576,6 +576,10 @@ export default function RequestsCenterApp() {
                       : "Convert to Job"}
                   </button>
                 </div>
+                <p className="hunt-why">
+                  Tip: dragging a card to <strong>Approved</strong> also converts
+                  automatically.
+                </p>
                 <div className="hunt-actions">
                   {DECLINE_REASONS.map((reason) => (
                     <button
