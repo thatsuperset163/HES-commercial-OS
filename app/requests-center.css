@@ -1,0 +1,241 @@
+/* Requests Center */
+
+.rc-dash {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.55rem;
+  margin: 0 0 1rem;
+}
+
+.rc-dash-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  padding: 0.7rem 0.75rem;
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rc-dash-chip span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rc-dash-chip strong {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.rc-dash-chip.status-new { border-color: color-mix(in srgb, var(--color-primary) 45%, var(--line)); }
+.rc-dash-chip.status-needs_response { border-color: color-mix(in srgb, var(--color-warning) 55%, var(--line)); }
+.rc-dash-chip.status-estimate_scheduled { border-color: color-mix(in srgb, var(--color-ai) 45%, var(--line)); }
+.rc-dash-chip.status-waiting_on_customer { border-color: color-mix(in srgb, var(--color-neutral) 55%, var(--line)); }
+.rc-dash-chip.status-approved { border-color: color-mix(in srgb, var(--color-success) 55%, var(--line)); }
+.rc-dash-chip.status-declined { border-color: color-mix(in srgb, var(--color-danger) 45%, var(--line)); }
+
+.rc-board {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(12rem, 1fr));
+  gap: 0.65rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.rc-column {
+  min-width: 12rem;
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 92%, var(--bg));
+  display: flex;
+  flex-direction: column;
+  max-height: min(70vh, 40rem);
+}
+
+.rc-column-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.65rem 0.7rem;
+  border-bottom: var(--hairline) solid var(--line);
+}
+
+.rc-column-head h3 {
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+.rc-column-head span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.rc-column-body {
+  padding: 0.5rem;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-height: 8rem;
+}
+
+.rc-card {
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 0.65rem 0.7rem;
+  cursor: grab;
+}
+
+.rc-card.active {
+  outline: 2px solid var(--color-primary);
+}
+
+.rc-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  align-items: flex-start;
+}
+
+.rc-card-top strong {
+  font-size: 0.92rem;
+}
+
+.rc-card p {
+  margin: 0.3rem 0 0;
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.rc-card-meta {
+  color: var(--muted) !important;
+  font-size: 0.72rem !important;
+}
+
+.rc-empty {
+  margin: 0.5rem 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.rc-priority {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.rc-priority.high { color: var(--color-warning); }
+.rc-priority.urgent { color: var(--color-danger); }
+.rc-priority.low { color: var(--color-neutral); }
+
+.rc-detail-grid {
+  display: grid;
+  gap: 1.25rem;
+}
+
+@media (min-width: 960px) {
+  .rc-detail-grid {
+    grid-template-columns: 1.1fr 0.9fr;
+  }
+}
+
+.rc-kv {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0 0 0.65rem;
+}
+
+.rc-kv span {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.rc-kv strong {
+  font-size: 0.95rem;
+}
+
+.rc-notes {
+  margin: 0 0 0.85rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.rc-estimate-form,
+.rc-wait-block,
+.rc-ai-block {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: var(--hairline) solid var(--line);
+}
+
+.rc-estimate-form h3,
+.rc-wait-block h3,
+.rc-ai-block h3,
+.rc-detail h3 {
+  margin: 0 0 0.55rem;
+  font-size: 0.95rem;
+}
+
+.rc-ai-pre {
+  white-space: pre-wrap;
+  margin: 0.35rem 0 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--color-ai) 8%, var(--surface));
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.rc-attach-list,
+.rc-timeline {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+
+.rc-attach-list li,
+.rc-timeline li {
+  padding: 0.45rem 0;
+  border-bottom: var(--hairline) solid var(--line);
+  font-size: 0.85rem;
+}
+
+.rc-timeline span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.rc-timeline strong {
+  font-size: 0.8rem;
+}
+
+.rc-timeline p {
+  margin: 0.15rem 0 0;
+}
+
+@media (max-width: 900px) {
+  .rc-board {
+    grid-template-columns: repeat(6, minmax(11.5rem, 1fr));
+  }
+}

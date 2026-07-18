@@ -1,5 +1,6 @@
-import WorkDeskApp from "@/app/WorkDeskApp";
+import RequestsCenterApp from "@/app/RequestsCenterApp";
+import "@/app/requests-center.css";
 
 export default function Page() {
-  return <WorkDeskApp deskId="requests" />;
+  return <RequestsCenterApp />;
 }

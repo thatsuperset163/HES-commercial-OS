@@ -28,9 +28,9 @@ export type WorkDeskDef = {
 export const WORK_DESKS: WorkDeskDef[] = [
   {
     id: "requests",
-    name: "Requests",
+    name: "Requests Center",
     singular: "Request",
-    purpose: "Inbound asks — catch them before they disappear",
+    purpose: "Intake → estimate → approve → job",
     href: "/work/requests",
     addLabel: "Add request",
     pipelineOrder: 1,
