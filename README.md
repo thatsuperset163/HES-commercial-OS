@@ -9,9 +9,12 @@ Private company HQ for **Harris Exterior Solutions**:
 - **Next Work OSes** — Money, Inbox/Leads, Reputation (see `docs/OS-ROADMAP.md`)
 - **Personal** — parked for now (pillars already exist at `/personal`)
 
-PIN-protected. Data syncs through **Supabase** with browser storage as an offline backup. Built for **Vercel**.
+PIN-protected HQ. Data syncs through **Supabase** with browser storage as an offline backup. Built for **Vercel**.
 
-Door hangers and print leave-behinds were removed — this repo is the live HQ app only.
+**Public website:** `/site` (no login) — estimate form writes into Work → Requests.  
+**Jobber exit:** Work → **Import** (`/work/import`) accepts Clients / Jobs CSV exports.
+
+Door hangers and print leave-behinds were removed — this repo is the live HQ + public site.
 
 ## Edit locally (Cursor)
 

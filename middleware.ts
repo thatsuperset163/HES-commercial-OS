@@ -7,10 +7,13 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith("/login") ||
     pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/public") ||
+    pathname.startsWith("/site") ||
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
     pathname === "/icon.svg" ||
-    pathname === "/hes-logo.png"
+    pathname === "/hes-logo.png" ||
+    pathname === "/site-hero.svg"
   ) {
     return NextResponse.next();
   }

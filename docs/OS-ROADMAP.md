@@ -16,7 +16,9 @@ These desks appear on **HQ** and live under **Work**:
 | 6 | **Tasks** | One-off to-dos | `/work/tasks` |
 | 7 | **Expenses** | What you spent | `/work/expenses` |
 | — | **Sales** | Commercial pipeline & outreach | `/work/sales/` |
+| — | **Import** | Jobber CSV → Clients / Jobs | `/work/import` |
 | — | **Work home** | Launcher + pipeline strip | `/work` |
+| — | **Public site** | Marketing + estimate form | `/site` (no PIN) |
 
 ## Later polish
 
