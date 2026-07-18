@@ -35,9 +35,13 @@ Configure these locally and in Vercel:
 - `SUPABASE_SERVICE_ROLE_KEY`: Project Settings → API → service-role secret
 
 `SUPABASE_SERVICE_ROLE_KEY` is **required for durable cloud saves across the
-whole site** (normalized Sales reads/writes and recommended for HQ/Jobs
-blackboard) and must only be used in server-side code. Never expose it through a
-`NEXT_PUBLIC_` variable or browser bundle.
+whole site** (normalized Sales reads/writes, Requests Center `intake_requests`,
+and recommended for HQ/Jobs blackboard) and must only be used in server-side
+code. Never expose it through a `NEXT_PUBLIC_` variable or browser bundle.
+
+For Requests Center, also run
+`migrations/20260718042000_requests_center.sql` (included in current
+`schema.sql`).
 
 RLS is enabled on every normalized table and Phase 1 intentionally creates no
 permissive anon/authenticated policies. The current permissive legacy policies
