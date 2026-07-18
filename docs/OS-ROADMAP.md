@@ -8,7 +8,7 @@ These desks appear on **HQ** and live under **Work**:
 
 | Order | Desk | Owns | Route |
 |------|------|------|--------|
-| 1 | **Requests** | Inbound asks | `/work/requests` |
+| 1 | **Requests Center** | Intake → estimate → approve → job | `/work/requests` |
 | 2 | **Clients** | Who you work for | `/work/clients` |
 | 3 | **Quotes** | Price → send → follow up | `/work/quotes` |
 | 4 | **Jobs** | Schedule → run → done | `/work/jobs` |
