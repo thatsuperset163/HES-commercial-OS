@@ -24,6 +24,11 @@ import {
   normalizeRequests,
   normalizeTasks,
 } from "./work/model";
+import {
+  applyJobAutomation,
+  applyQuoteAutomation,
+  ensurePipelineNagTasks,
+} from "./work/automations";
 
 const STORAGE_KEY = "hes-blackboard-v1";
 const CLOUD_ENDPOINT = "/api/blackboard/state";
@@ -352,17 +357,18 @@ export function hydrateStoreFromCloud(): Promise<BoardStore> {
       }
 
       const merged = mergeStores(local, cloud);
-      saveLocalStore(merged);
+      const automated = ensurePipelineNagTasks(merged);
+      saveLocalStore(automated);
 
-      if (!storesEqual(merged, cloud)) {
-        const pushed = await putCloudStore(merged);
+      if (!storesEqual(automated, cloud)) {
+        const pushed = await putCloudStore(automated);
         setCloudStatus(pushed ? "synced" : "error");
         if (!pushed) alertSaveFailed();
       } else {
         setCloudStatus("synced");
       }
 
-      return merged;
+      return automated;
     } catch {
       cloudEnabled = false;
       setCloudStatus("offline");
@@ -459,12 +465,15 @@ export function saveIdeaLot(text: string, store?: BoardStore): BoardStore {
 export function upsertJob(job: Job, store?: BoardStore): BoardStore {
   const current = store ?? loadStore();
   const jobs = listJobs(current);
+  const previous = jobs.find((row) => row.id === job.id) ?? null;
   const index = jobs.findIndex((row) => row.id === job.id);
   const nextJobs =
     index >= 0
       ? jobs.map((row) => (row.id === job.id ? job : row))
       : [job, ...jobs];
-  return saveJobs(nextJobs, current);
+  const withJobs = withPipeline(current, { jobs: nextJobs });
+  const automated = applyJobAutomation(withJobs, previous, job);
+  return saveStoreReturn(automated);
 }
 
 export function removeJob(jobId: string, store?: BoardStore): BoardStore {
@@ -548,9 +557,12 @@ export function listQuotes(store?: BoardStore): QuoteDoc[] {
 }
 export function upsertQuote(row: QuoteDoc, store?: BoardStore): BoardStore {
   const current = store ?? loadStore();
-  return saveStoreReturn(
-    withPipeline(current, { quotes: upsertList(listQuotes(current), row) }),
-  );
+  const previous = listQuotes(current).find((item) => item.id === row.id) ?? null;
+  const withQuotes = withPipeline(current, {
+    quotes: upsertList(listQuotes(current), row),
+  });
+  const automated = applyQuoteAutomation(withQuotes, previous, row);
+  return saveStoreReturn(automated);
 }
 export function removeQuote(id: string, store?: BoardStore): BoardStore {
   const current = store ?? loadStore();

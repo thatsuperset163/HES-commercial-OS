@@ -6,10 +6,17 @@ import {
 } from "@/lib/supabase";
 import { IntakeRepo } from "@/lib/requestsCenter/repo";
 import { todayDateKey } from "@/lib/requestsCenter/model";
+import { createTask, normalizeTasks } from "@/lib/work/model";
 
 function client() {
   return getSupabaseServiceRole() ?? getSupabaseAdmin();
 }
+
+type BlackboardState = {
+  days?: Record<string, unknown>;
+  tasks?: unknown[];
+  [key: string]: unknown;
+};
 
 export async function POST(request: Request) {
   if (!supabaseConfigured()) {
@@ -57,19 +64,48 @@ export async function POST(request: Request) {
 
   try {
     const repo = new IntakeRepo(supabase);
-    await repo.create({
+    // Website leads skip "new" and land in Needs Response for same-day triage.
+    const created = await repo.create({
       customerName: name,
       phone,
       email,
       address: (body.address ?? "").trim(),
       serviceRequested: (body.message ?? "").trim() || "Website estimate request",
       requestSource: "website",
-      priority: "normal",
+      priority: "high",
       notes: (body.message ?? "").trim(),
       dateReceived: todayDateKey(),
-      status: "new",
+      status: "needs_response",
     });
-    return NextResponse.json({ ok: true });
+
+    const marker = `auto:website-lead:${created.id}`;
+    const { data, error } = await supabase
+      .from("blackboard_workspace")
+      .select("state")
+      .eq("id", "default")
+      .maybeSingle();
+    if (!error) {
+      const state = (data?.state ?? { days: {} }) as BlackboardState;
+      const tasks = normalizeTasks(state.tasks);
+      if (!tasks.some((task) => task.notes.includes(marker))) {
+        const task = createTask({
+          title: `Respond to website lead · ${name}`,
+          dueDate: todayDateKey(),
+          notes: `${marker} · Open /work/requests`,
+        });
+        await supabase.from("blackboard_workspace").upsert({
+          id: "default",
+          state: {
+            ...state,
+            days: state.days && typeof state.days === "object" ? state.days : {},
+            tasks: [task, ...tasks],
+          },
+          updated_at: new Date().toISOString(),
+        });
+      }
+    }
+
+    return NextResponse.json({ ok: true, id: created.id });
   } catch (error) {
     const message = error instanceof Error ? error.message : "save_failed";
     return NextResponse.json(
