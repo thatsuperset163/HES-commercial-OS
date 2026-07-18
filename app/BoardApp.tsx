@@ -139,14 +139,6 @@ export default function BoardApp() {
             <p>Commercial pipeline & outreach</p>
             <span className="os-card-cta">Enter →</span>
           </a>
-          <Link className="os-card os-import" href="/work/import">
-            <div className="os-card-top">
-              <h3>Import</h3>
-              <span className="os-pill live">Live</span>
-            </div>
-            <p>Bring Jobber CSV clients &amp; jobs into HES</p>
-            <span className="os-card-cta">Enter →</span>
-          </Link>
           {WORK_DESKS.map((desk) => (
             <Link key={desk.id} className={`os-card os-${desk.id}`} href={desk.href}>
               <div className="os-card-top">

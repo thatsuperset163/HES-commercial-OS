@@ -11,8 +11,7 @@ Private company HQ for **Harris Exterior Solutions**:
 
 PIN-protected HQ. Data syncs through **Supabase** with browser storage as an offline backup. Built for **Vercel**.
 
-**Public website:** `/site` (no login) — estimate form writes into Work → Requests.  
-**Jobber exit:** Work → **Import** (`/work/import`) accepts Clients / Jobs CSV exports.
+**Public website:** `/site` (no login) — estimate form writes into Work → Requests.
 
 Door hangers and print leave-behinds were removed — this repo is the live HQ + public site.
 
