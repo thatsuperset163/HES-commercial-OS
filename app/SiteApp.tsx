@@ -77,8 +77,8 @@ export default function SiteApp() {
           <p className="site-kicker">Harris Exterior Solutions</p>
           <h1>Clean exteriors. Clear curb appeal.</h1>
           <p className="site-lede">
-            Soft wash, house wash, and commercial exterior cleaning — booked with
-            a real local crew, not a call center.
+            Pressure washing, window cleaning, and junk removal — booked with a
+            real local crew, not a call center.
           </p>
           <div className="site-hero-actions">
             <a className="site-btn primary" href="#estimate">
@@ -99,16 +99,16 @@ export default function SiteApp() {
         </p>
         <ul className="site-services">
           <li>
-            <h3>House soft wash</h3>
-            <p>Safe low-pressure wash for siding, brick, and trim.</p>
+            <h3>Pressure washing</h3>
+            <p>Homes, siding, and commercial exteriors washed clean.</p>
           </li>
           <li>
-            <h3>Concrete &amp; walkways</h3>
-            <p>Driveways, sidewalks, and entryways brought back to bright.</p>
+            <h3>Window cleaning</h3>
+            <p>Interior and exterior glass that looks sharp again.</p>
           </li>
           <li>
-            <h3>Commercial exteriors</h3>
-            <p>Storefronts, plazas, and property-manager accounts.</p>
+            <h3>Junk removal</h3>
+            <p>Haul-away for clutter, debris, and clean-out jobs.</p>
           </li>
         </ul>
       </section>

@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { addMinutesToTime } from "@/lib/jobs/model";
 import type { Job, JobInput, JobPriority, JobStatus } from "@/lib/jobs/types";
 import { JOB_STATUSES } from "@/lib/jobs/types";
+import { OFFERED_SERVICE_LABELS } from "@/lib/hesServices";
 import type { WorkClient } from "@/lib/work/types";
 
 type LinkOption = { id: string; label: string };
@@ -20,15 +21,7 @@ type Props = {
   onSubmit: (input: JobInput & { id?: string }) => void;
 };
 
-const SERVICES = [
-  "Pressure Washing",
-  "Window Cleaning",
-  "Soft Wash",
-  "Gutter Cleaning",
-  "Concrete Cleaning",
-  "Site Visit / Quote",
-  "Other",
-];
+const SERVICES = OFFERED_SERVICE_LABELS;
 
 export default function JobForm({
   open,

@@ -143,9 +143,6 @@ function servicesFromOpportunity(row: OpportunityRow): ServiceType[] {
     'pressure_washing',
     'window_cleaning',
     'junk_removal',
-    'soft_washing',
-    'gutter_cleaning',
-    'other',
   ]
   return ids.filter((id): id is ServiceType =>
     (allowed as string[]).includes(id),

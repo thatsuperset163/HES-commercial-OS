@@ -52,10 +52,11 @@ const LEGACY_SERVICE_MAP: Record<string, ServiceType> = {
   pressure_washing: 'pressure_washing',
   window_cleaning: 'window_cleaning',
   junk_removal: 'junk_removal',
-  soft_washing: 'soft_washing',
-  gutter_cleaning: 'gutter_cleaning',
-  other: 'other',
-  exterior_maintenance: 'other',
+  // Retired offerings — fold into the closest current service.
+  soft_washing: 'pressure_washing',
+  gutter_cleaning: 'pressure_washing',
+  other: 'pressure_washing',
+  exterior_maintenance: 'pressure_washing',
 }
 
 const LEGACY_STAGE_MAP: Record<string, PipelineStage> = {

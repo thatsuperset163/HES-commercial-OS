@@ -274,6 +274,8 @@ insert into opportunity_stages(id,name,probability,sort_order,is_closed,is_won) 
 on conflict(id) do update set name=excluded.name,probability=excluded.probability,sort_order=excluded.sort_order,is_closed=excluded.is_closed,is_won=excluded.is_won,updated_at=now();
 insert into services(id,name,sort_order) values
 ('pressure_washing','Pressure Washing',10),('window_cleaning','Window Cleaning',20),('junk_removal','Junk Removal',30),('soft_washing','Soft Washing',40),('gutter_cleaning','Gutter Cleaning',50),('other','Other',60) on conflict(id) do nothing;
+update services set is_active = false where id in ('soft_washing','gutter_cleaning','other');
+update services set is_active = true where id in ('pressure_washing','window_cleaning','junk_removal');
 
 insert into sales_users(id,display_name,role)
 select distinct case when lower(btrim(sales_rep))='will' then 'user-will' else 'legacy-user-'||md5(lower(btrim(sales_rep))) end,btrim(sales_rep),'sales_rep'
@@ -294,7 +296,13 @@ case lower(priority) when 'high' then 'high' when 'low' then 'low' else 'medium'
 update companies c set assigned_user_id=case when btrim(cp.sales_rep)='' or lower(btrim(cp.sales_rep))='will' then 'user-will' else 'legacy-user-'||md5(lower(btrim(cp.sales_rep))) end from commercial_prospects cp where c.legacy_prospect_id=cp.id and c.assigned_user_id is null;
 update opportunities o set stage_id=case cp.lead_status when 'spoke_with_dm' then 'discovery' when 'interested' then 'discovery' when 'meeting_scheduled' then 'site_visit' when 'site_visit' then 'site_visit' when 'site_visit_scheduled' then 'site_visit' when 'quote_sent' then 'proposal' when 'proposal_sent' then 'proposal' when 'negotiating' then 'negotiation' when 'won' then 'won' when 'lost' then 'lost' else 'prospecting' end from commercial_prospects cp where o.legacy_prospect_id=cp.id;
 insert into opportunity_services(opportunity_id,service_id)
-select distinct cp.id,case service_name when 'exterior_maintenance' then 'other' else service_name end from commercial_prospects cp cross join lateral unnest(cp.services_needed) as service_row(service_name) where service_name in('pressure_washing','window_cleaning','junk_removal','soft_washing','gutter_cleaning','other','exterior_maintenance') on conflict(opportunity_id,service_id) do nothing;
+select distinct cp.id,case service_name
+  when 'exterior_maintenance' then 'pressure_washing'
+  when 'soft_washing' then 'pressure_washing'
+  when 'gutter_cleaning' then 'pressure_washing'
+  when 'other' then 'pressure_washing'
+  else service_name
+end from commercial_prospects cp cross join lateral unnest(cp.services_needed) as service_row(service_name) where service_name in('pressure_washing','window_cleaning','junk_removal','soft_washing','gutter_cleaning','other','exterior_maintenance') on conflict(opportunity_id,service_id) do nothing;
 
 alter table sales_users enable row level security;
 alter table companies enable row level security;
