@@ -25,12 +25,16 @@ export function buildJobNextActions(jobs: Job[], now = new Date()): JobNextActio
   const actions: JobNextAction[] = [];
 
   for (const job of open) {
-    if (job.status === "done") {
+    if (
+      job.status === "completed" &&
+      job.invoiceStatus !== "sent" &&
+      job.invoiceStatus !== "paid"
+    ) {
       actions.push({
         id: `invoice-${job.id}`,
         jobId: job.id,
         title: `Invoice ${job.customerName}`,
-        reason: "Job is done — bill it so cash moves",
+        reason: "Job is complete — bill it so cash moves",
         urgency: "money",
         customerName: job.customerName,
         scheduledDate: job.scheduledDate,
@@ -40,7 +44,13 @@ export function buildJobNextActions(jobs: Job[], now = new Date()): JobNextActio
       continue;
     }
 
-    if (job.status === "scheduled") {
+    if (
+      job.status === "scheduled" ||
+      job.status === "confirmed" ||
+      job.status === "en_route" ||
+      job.status === "in_progress"
+    ) {
+      if (!job.scheduledDate) continue;
       const delta = daysUntil(job.scheduledDate, now);
       if (delta < 0) {
         actions.push({
