@@ -10,19 +10,24 @@ import { getRealmStreaks } from "@/lib/progress";
 import {
   getOrCreateDay,
   hydrateStoreFromCloud,
+  listClients,
   listJobs,
+  listRequests,
   loadStore,
   upsertDay,
+  upsertJob,
 } from "@/lib/storage";
-import { fetchJobs } from "@/lib/jobs/api";
+import { createJobRemote, fetchJobs } from "@/lib/jobs/api";
 import { buildWeekGlance } from "@/lib/jobs/calendar";
-import type { Job } from "@/lib/jobs/types";
+import type { Job, JobInput } from "@/lib/jobs/types";
 import {
   buildPipelineCounts,
   buildPipelineNextActions,
 } from "@/lib/work/pipeline";
 import AppShell from "./AppShell";
 import { BarChart } from "./BarChart";
+import CreateNewController from "./create/CreateNewController";
+import JobForm from "./jobs/JobForm";
 import HQWeekAtGlance from "./jobs/HQWeekAtGlance";
 import "./jobs-os.css";
 
@@ -30,7 +35,25 @@ export default function HomeApp() {
   const [ready, setReady] = useState(false);
   const [day, setDay] = useState<DayEntry | null>(null);
   const [scheduleJobs, setScheduleJobs] = useState<Job[]>([]);
+  const [formOpen, setFormOpen] = useState(false);
+  const [formInitial, setFormInitial] = useState<Partial<Job> | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [clients, setClients] = useState(listClients());
+  const [requestOptions, setRequestOptions] = useState<
+    { id: string; label: string }[]
+  >([]);
   const date = todayKey();
+
+  const refreshMeta = useCallback(() => {
+    setClients(listClients());
+    setRequestOptions(
+      listRequests().map((r) => ({
+        id: r.id,
+        label: `${r.clientName} · ${r.summary || "Request"}`,
+      })),
+    );
+  }, []);
 
   const refresh = useCallback(() => {
     const store = loadStore();
@@ -45,6 +68,7 @@ export default function HomeApp() {
     void hydrateStoreFromCloud().then(async () => {
       if (cancelled) return;
       refresh();
+      refreshMeta();
       try {
         const remote = await fetchJobs();
         if (!cancelled) setScheduleJobs(remote);
@@ -55,7 +79,30 @@ export default function HomeApp() {
     return () => {
       cancelled = true;
     };
-  }, [refresh]);
+  }, [refresh, refreshMeta]);
+
+  const handleJobSubmit = async (input: JobInput & { id?: string }) => {
+    setSaving(true);
+    setFormError(null);
+    try {
+      const saved = input.id
+        ? await createJobRemote({ ...input, id: input.id })
+        : await createJobRemote(input);
+      upsertJob(saved);
+      setScheduleJobs((prev) => {
+        const idx = prev.findIndex((j) => j.id === saved.id);
+        if (idx === -1) return [...prev, saved];
+        const next = [...prev];
+        next[idx] = saved;
+        return next;
+      });
+      setFormOpen(false);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const snapshot = useMemo(() => {
     if (!day) return null;
@@ -122,7 +169,31 @@ export default function HomeApp() {
               Today&apos;s direction, operating pulse, and next moves across HES.
             </p>
           </div>
-          <span className="hq-pill accent">Live overview</span>
+          <div className="hq-intro-actions">
+            <CreateNewController
+              size="small"
+              label="Create New"
+              onOpenJobForm={(initial) => {
+                setFormInitial(initial);
+                setFormError(null);
+                setFormOpen(true);
+              }}
+              onQuickCreateJob={async (input) => {
+                const saved = await createJobRemote(input);
+                upsertJob(saved);
+                setScheduleJobs((prev) => [...prev, saved]);
+              }}
+              onCreated={async () => {
+                refreshMeta();
+                try {
+                  setScheduleJobs(await fetchJobs());
+                } catch {
+                  setScheduleJobs(listJobs());
+                }
+              }}
+            />
+            <span className="hq-pill accent">Live overview</span>
+          </div>
         </header>
 
         <section
@@ -289,6 +360,18 @@ export default function HomeApp() {
           </section>
         </div>
       </div>
+
+      <JobForm
+        open={formOpen}
+        initial={formInitial}
+        clients={clients}
+        requests={requestOptions}
+        prospects={[]}
+        saving={saving}
+        error={formError}
+        onClose={() => setFormOpen(false)}
+        onSubmit={handleJobSubmit}
+      />
     </AppShell>
   );
 }

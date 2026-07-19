@@ -23,9 +23,20 @@ import {
   listClients,
   listJobs,
   listRequests,
+  listTasks,
   upsertJob,
 } from "@/lib/storage";
+import type { CreateNewKind } from "@/lib/createNew/catalog";
+import {
+  intakeEstimatesToOverlays,
+  overlayAsDisplayJob,
+  tasksToOverlays,
+} from "@/lib/createNew/scheduleOverlays";
+import type { IntakeRequest } from "@/lib/requestsCenter/types";
 import AppShell from "./AppShell";
+import CreateNewController, {
+  type CreateContext,
+} from "./create/CreateNewController";
 import DayView from "./jobs/DayView";
 import JobDetailsPanel from "./jobs/JobDetailsPanel";
 import JobForm from "./jobs/JobForm";
@@ -57,6 +68,8 @@ export default function JobsApp() {
   const [requestOptions, setRequestOptions] = useState<
     { id: string; label: string }[]
   >([]);
+  const [intakeRows, setIntakeRows] = useState<IntakeRequest[]>([]);
+  const [createContext, setCreateContext] = useState<CreateContext | null>(null);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -71,6 +84,21 @@ export default function JobsApp() {
         label: `${r.clientName} · ${r.summary || "Request"}`,
       })),
     );
+  }, []);
+
+  const loadIntake = useCallback(async () => {
+    try {
+      const res = await fetch("/api/requests", { credentials: "same-origin" });
+      const json = (await res.json()) as {
+        ok: boolean;
+        data?: { requests: IntakeRequest[] };
+      };
+      if (res.ok && json.ok && json.data?.requests) {
+        setIntakeRows(json.data.requests);
+      }
+    } catch {
+      setIntakeRows([]);
+    }
   }, []);
 
   const loadJobs = useCallback(async () => {
@@ -101,30 +129,26 @@ export default function JobsApp() {
       await hydrateStoreFromCloud();
       if (cancelled) return;
       refreshLocalMeta();
-      // Seed cloud from blackboard once if cloud is empty.
-      try {
-        const remote = await fetchJobs();
-        if (!remote.length) {
-          const local = listJobs();
-          for (const job of local) {
-            await createJobRemote({ ...job, id: job.id });
-          }
-        }
-      } catch {
-        // Fall through to loadJobs fallback.
-      }
-      if (cancelled) return;
       await loadJobs();
+      await loadIntake();
       if (!cancelled) setReady(true);
     })();
     return () => {
       cancelled = true;
     };
-  }, [loadJobs, refreshLocalMeta]);
+  }, [loadJobs, loadIntake, refreshLocalMeta]);
+
+  const overlayJobs = useMemo(() => {
+    const overlays = [
+      ...tasksToOverlays(listTasks()),
+      ...intakeEstimatesToOverlays(intakeRows),
+    ];
+    return overlays.map(overlayAsDisplayJob);
+  }, [intakeRows, jobs, toast]);
 
   const filtered = useMemo(
-    () => filterJobs(jobs, filters),
-    [jobs, filters],
+    () => filterJobs([...jobs, ...overlayJobs], filters),
+    [jobs, overlayJobs, filters],
   );
 
   const periodLabel = useMemo(() => {
@@ -187,17 +211,42 @@ export default function JobsApp() {
   };
 
   const openCreate = (dateKey?: string, startTime?: string) => {
-    setFormInitial({
-      scheduledDate: dateKey || "",
+    setCreateContext({
+      dateKey: dateKey || todayKey(),
       startTime: startTime || "09:00",
-      status: dateKey ? "scheduled" : "unscheduled",
     });
-    setFormOpen(true);
   };
 
   const openEdit = (job: Job) => {
+    if (job.notes.startsWith("overlay:")) {
+      const href = job.notes.split(":").slice(2).join(":") || "/work";
+      window.location.href = href;
+      return;
+    }
     setFormInitial(job);
     setFormOpen(true);
+  };
+
+  const selectJob = (job: Job) => {
+    if (job.notes.startsWith("overlay:")) {
+      const href = job.notes.split(":").slice(2).join(":") || "/work";
+      window.location.href = href;
+      return;
+    }
+    setSelected(job);
+  };
+
+  const quickCreateJob = async (input: JobInput) => {
+    const saved = await createJobRemote(input);
+    upsertJob(saved);
+    await loadJobs();
+    showToast("Added to calendar");
+  };
+
+  const afterCreate = async (_kind: CreateNewKind) => {
+    refreshLocalMeta();
+    await loadIntake();
+    await loadJobs();
   };
 
   const handleSubmit = async (input: JobInput & { id?: string }) => {
@@ -228,6 +277,7 @@ export default function JobsApp() {
   };
 
   const handlePatch = async (job: Job, patch: Partial<Job>) => {
+    if (job.notes.startsWith("overlay:")) return;
     const next = patchJob(job, patch);
     try {
       await persistRemote(next);
@@ -241,6 +291,7 @@ export default function JobsApp() {
     scheduledDate: string,
     startTime: string,
   ) => {
+    if (job.notes.startsWith("overlay:")) return;
     const previous = {
       scheduledDate: job.scheduledDate,
       startTime: job.startTime,
@@ -332,13 +383,18 @@ export default function JobsApp() {
             >
               Filters
             </button>
-            <button
-              type="button"
-              className="btn primary small"
-              onClick={() => openCreate(view === "day" ? anchorKey : undefined)}
-            >
-              Create Job
-            </button>
+            <CreateNewController
+              size="small"
+              label="Create New"
+              context={createContext}
+              onContextHandled={() => setCreateContext(null)}
+              onOpenJobForm={(initial) => {
+                setFormInitial(initial);
+                setFormOpen(true);
+              }}
+              onQuickCreateJob={quickCreateJob}
+              onCreated={afterCreate}
+            />
           </div>
         </header>
 
@@ -367,7 +423,7 @@ export default function JobsApp() {
             anchorKey={anchorKey}
             jobs={filtered}
             filters={filters}
-            onSelectJob={setSelected}
+            onSelectJob={selectJob}
             onOpenDay={(dateKey) => {
               setAnchorKey(dateKey);
               setView("day");
@@ -396,7 +452,7 @@ export default function JobsApp() {
             <DayView
               dateKey={todayKey()}
               jobs={filtered}
-              onOpenJob={setSelected}
+              onOpenJob={selectJob}
               onEditJob={openEdit}
               onPatchJob={handlePatch}
               onReschedule={openEdit}

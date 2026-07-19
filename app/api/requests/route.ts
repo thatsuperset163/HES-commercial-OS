@@ -46,6 +46,8 @@ export async function POST(request: Request) {
       notes: String(body.notes || ""),
       dateReceived: String(body.dateReceived || ""),
       status,
+      estimateDate: body.estimateDate ? String(body.estimateDate) : null,
+      estimateTime: String(body.estimateTime || ""),
     });
 
     return ok({ request: created }, 201);
