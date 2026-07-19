@@ -725,7 +725,7 @@ export default function RequestsCenterApp() {
                 <input
                   className="field"
                   name="serviceRequested"
-                  placeholder="House soft wash"
+                  placeholder="Pressure washing, window cleaning, or junk removal"
                   defaultValue="Exterior cleaning"
                 />
               </label>

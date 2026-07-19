@@ -5,7 +5,7 @@ import "./site.css";
 export const metadata: Metadata = {
   title: "Harris Exterior Solutions",
   description:
-    "Exterior cleaning for homes and commercial properties — soft wash, concrete, storefronts.",
+    "Pressure washing, window cleaning, and junk removal for homes and commercial properties.",
 };
 
 export default function SitePage() {

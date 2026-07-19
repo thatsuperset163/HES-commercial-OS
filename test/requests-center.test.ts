@@ -25,7 +25,7 @@ test("create + row round-trip preserves core fields", () => {
     customerName: "Amy Stone",
     company: "Stone Co",
     phone: "555-0100",
-    serviceRequested: "House soft wash",
+    serviceRequested: "Pressure washing",
     requestSource: "website",
     priority: "high",
   });
