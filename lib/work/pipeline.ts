@@ -49,8 +49,14 @@ export function buildPipelineCounts(store: BoardStore): PipelineCount[] {
     quotes: quotes.filter((q) => q.status === "draft" || q.status === "sent").length,
     jobs: jobs.filter(
       (j) =>
-        j.status === "done" ||
-        (j.status === "scheduled" && j.scheduledDate <= today),
+        (j.status === "completed" &&
+          j.invoiceStatus !== "sent" &&
+          j.invoiceStatus !== "paid") ||
+        ((j.status === "scheduled" ||
+          j.status === "confirmed" ||
+          j.status === "en_route" ||
+          j.status === "in_progress") &&
+          j.scheduledDate <= today),
     ).length,
     invoices: moneyOpen(invoices),
     tasks: tasks.filter((t) => t.status === "open").length,
@@ -116,16 +122,27 @@ export function buildPipelineNextActions(store: BoardStore): PipelineAction[] {
   }
 
   for (const row of store.jobs ?? []) {
-    if (row.status === "done") {
+    if (
+      row.status === "completed" &&
+      row.invoiceStatus !== "sent" &&
+      row.invoiceStatus !== "paid"
+    ) {
       actions.push({
         id: `job-bill-${row.id}`,
         deskId: "invoices",
         title: `Invoice ${row.customerName}`,
-        reason: "Job done — turn it into an invoice",
+        reason: "Job complete — turn it into an invoice",
         href: "/work/invoices",
         urgency: "money",
       });
-    } else if (row.status === "scheduled" && row.scheduledDate < today) {
+    } else if (
+      (row.status === "scheduled" ||
+        row.status === "confirmed" ||
+        row.status === "en_route" ||
+        row.status === "in_progress") &&
+      row.scheduledDate &&
+      row.scheduledDate < today
+    ) {
       actions.push({
         id: `job-overdue-${row.id}`,
         deskId: "jobs",
@@ -134,7 +151,10 @@ export function buildPipelineNextActions(store: BoardStore): PipelineAction[] {
         href: "/work/jobs",
         urgency: "overdue",
       });
-    } else if (row.status === "scheduled" && row.scheduledDate === today) {
+    } else if (
+      (row.status === "scheduled" || row.status === "confirmed") &&
+      row.scheduledDate === today
+    ) {
       actions.push({
         id: `job-today-${row.id}`,
         deskId: "jobs",

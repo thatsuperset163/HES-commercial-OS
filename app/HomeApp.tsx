@@ -7,17 +7,29 @@ import { METRIC_LABELS } from "@/lib/types";
 import { formatDisplayDate, formatShortDate, todayKey } from "@/lib/dates";
 import { getLastNDayCharts } from "@/lib/charts";
 import { getRealmStreaks } from "@/lib/progress";
-import { getOrCreateDay, hydrateStoreFromCloud, loadStore, upsertDay } from "@/lib/storage";
+import {
+  getOrCreateDay,
+  hydrateStoreFromCloud,
+  listJobs,
+  loadStore,
+  upsertDay,
+} from "@/lib/storage";
+import { fetchJobs } from "@/lib/jobs/api";
+import { buildWeekGlance } from "@/lib/jobs/calendar";
+import type { Job } from "@/lib/jobs/types";
 import {
   buildPipelineCounts,
   buildPipelineNextActions,
 } from "@/lib/work/pipeline";
 import AppShell from "./AppShell";
 import { BarChart } from "./BarChart";
+import HQWeekAtGlance from "./jobs/HQWeekAtGlance";
+import "./jobs-os.css";
 
 export default function HomeApp() {
   const [ready, setReady] = useState(false);
   const [day, setDay] = useState<DayEntry | null>(null);
+  const [scheduleJobs, setScheduleJobs] = useState<Job[]>([]);
   const date = todayKey();
 
   const refresh = useCallback(() => {
@@ -30,8 +42,15 @@ export default function HomeApp() {
 
   useEffect(() => {
     let cancelled = false;
-    void hydrateStoreFromCloud().then(() => {
-      if (!cancelled) refresh();
+    void hydrateStoreFromCloud().then(async () => {
+      if (cancelled) return;
+      refresh();
+      try {
+        const remote = await fetchJobs();
+        if (!cancelled) setScheduleJobs(remote);
+      } catch {
+        if (!cancelled) setScheduleJobs(listJobs());
+      }
     });
     return () => {
       cancelled = true;
@@ -43,35 +62,52 @@ export default function HomeApp() {
     const store = loadStore();
     const charts = getLastNDayCharts(store, 7, date);
     const recent = Object.values(store.days)
-      .filter((entry) => entry.date !== date && (entry.notes?.trim() || entry.personalNotes?.trim()))
+      .filter(
+        (entry) =>
+          entry.date !== date &&
+          (entry.notes?.trim() || entry.personalNotes?.trim()),
+      )
       .sort((a, b) => (a.date < b.date ? 1 : -1))
       .slice(0, 4);
     const pipeline = buildPipelineCounts(store);
     const workActions = buildPipelineNextActions(store);
+    const week = buildWeekGlance(
+      scheduleJobs.length ? scheduleJobs : listJobs(),
+      date,
+    );
     return {
       charts,
       recent,
       pipeline,
+      week,
       workTop: workActions[0] ?? null,
       personalStreak: getRealmStreaks(store, date).personal,
       totals: {
         doors: charts.reduce((sum, point) => sum + point.doors, 0),
-        conversations: charts.reduce((sum, point) => sum + point.conversations, 0),
+        conversations: charts.reduce(
+          (sum, point) => sum + point.conversations,
+          0,
+        ),
         phoneNumbers: charts.reduce((sum, point) => sum + point.phoneNumbers, 0),
         quotes: charts.reduce((sum, point) => sum + point.quotes, 0),
         jobsBooked: charts.reduce((sum, point) => sum + point.jobsBooked, 0),
       },
     };
-  }, [day, date]);
+  }, [day, date, scheduleJobs]);
 
   if (!ready || !day || !snapshot) {
-    return <AppShell><p className="hq-lede">Loading HQ…</p></AppShell>;
+    return (
+      <AppShell>
+        <p className="hq-lede">Loading HQ…</p>
+      </AppShell>
+    );
   }
 
   const personalGoal = day.goals.find((goal) => goal.category === "personal");
   const personalFocus = personalGoal?.text;
   const workFocus = day.goals.find((goal) => goal.category === "business")?.text;
-  const personalChecklistDone = day.dailyChecklist.filter((item) => item.done).length;
+  const personalChecklistDone = day.dailyChecklist.filter((item) => item.done)
+    .length;
   const personalChecklistTotal = day.dailyChecklist.length;
   const personalStreak = snapshot.personalStreak;
 
@@ -82,12 +118,17 @@ export default function HomeApp() {
           <div>
             <p className="hq-eyebrow">Command overview</p>
             <h2>{formatDisplayDate(date)}</h2>
-            <p>Today&apos;s direction, operating pulse, and next moves across HES.</p>
+            <p>
+              Today&apos;s direction, operating pulse, and next moves across HES.
+            </p>
           </div>
           <span className="hq-pill accent">Live overview</span>
         </header>
 
-        <section className="hq-metric-strip" aria-label="Seven-day operating metrics">
+        <section
+          className="hq-metric-strip"
+          aria-label="Seven-day operating metrics"
+        >
           {(Object.keys(METRIC_LABELS) as MetricKey[]).map((key) => (
             <div className="hq-metric" key={key}>
               <span>{METRIC_LABELS[key]} · 7d</span>
@@ -110,6 +151,8 @@ export default function HomeApp() {
           ))}
         </section>
 
+        <HQWeekAtGlance days={snapshot.week} />
+
         {snapshot.workTop ? (
           <section className="hq-card hq-work-next">
             <div className="hq-section-head">
@@ -126,7 +169,10 @@ export default function HomeApp() {
 
         <div className="hq-split">
           <section className="hq-card focus-summary">
-            <div className="hq-section-head"><h2>Current focus</h2><span className="hq-pill">Today</span></div>
+            <div className="hq-section-head">
+              <h2>Current focus</h2>
+              <span className="hq-pill">Today</span>
+            </div>
             <div className="hq-focus-grid">
               <article className="hq-focus-card">
                 <span className="hq-kicker">Personal</span>
@@ -136,12 +182,20 @@ export default function HomeApp() {
                   Checklist {personalChecklistDone}/{personalChecklistTotal}
                   {personalStreak > 0 ? ` · ${personalStreak}d streak` : ""}
                 </p>
-                <Link href="/personal" className="hq-link">Open Personal →</Link>
+                <Link href="/personal" className="hq-link">
+                  Open Personal →
+                </Link>
               </article>
               <article className="hq-focus-card">
                 <span className="hq-kicker">Work</span>
-                <p>{workFocus || snapshot.workTop?.title || "Open Work and pick a desk."}</p>
-                <Link href="/work" className="hq-link">Open Work →</Link>
+                <p>
+                  {workFocus ||
+                    snapshot.workTop?.title ||
+                    "Open Work and pick a desk."}
+                </p>
+                <Link href="/work" className="hq-link">
+                  Open Work →
+                </Link>
               </article>
             </div>
           </section>
@@ -153,30 +207,71 @@ export default function HomeApp() {
               Requests, clients, quotes, jobs, invoices, tasks, and expenses —
               live under Work, visible here.
             </p>
-            <Link href="/work" className="hq-btn">Open Work →</Link>
+            <Link href="/work" className="hq-btn">
+              Open Work →
+            </Link>
           </section>
         </div>
 
         <section className="hq-card">
-          <div className="hq-section-head"><h2>Operating trend</h2><span className="hq-pill">Last 7 days</span></div>
+          <div className="hq-section-head">
+            <h2>Operating trend</h2>
+            <span className="hq-pill">Last 7 days</span>
+          </div>
           <div className="chart-grid">
-            <BarChart title="Doors knocked" points={snapshot.charts.map((point) => ({ label: point.label, value: point.doors }))} />
-            <BarChart title="Conversations" points={snapshot.charts.map((point) => ({ label: point.label, value: point.conversations }))} />
-            <BarChart title="Quotes" points={snapshot.charts.map((point) => ({ label: point.label, value: point.quotes }))} />
-            <BarChart title="Jobs booked" points={snapshot.charts.map((point) => ({ label: point.label, value: point.jobsBooked }))} />
+            <BarChart
+              title="Doors knocked"
+              points={snapshot.charts.map((point) => ({
+                label: point.label,
+                value: point.doors,
+              }))}
+            />
+            <BarChart
+              title="Conversations"
+              points={snapshot.charts.map((point) => ({
+                label: point.label,
+                value: point.conversations,
+              }))}
+            />
+            <BarChart
+              title="Quotes"
+              points={snapshot.charts.map((point) => ({
+                label: point.label,
+                value: point.quotes,
+              }))}
+            />
+            <BarChart
+              title="Jobs booked"
+              points={snapshot.charts.map((point) => ({
+                label: point.label,
+                value: point.jobsBooked,
+              }))}
+            />
           </div>
         </section>
 
         <div className="hq-split">
           <section className="hq-card">
-            <div className="hq-section-head"><h2>Today&apos;s notes</h2><span className="hq-pill">Live</span></div>
+            <div className="hq-section-head">
+              <h2>Today&apos;s notes</h2>
+              <span className="hq-pill">Live</span>
+            </div>
             <div className="notes-summary">
-              <div><span className="hq-kicker">Personal</span><p>{day.personalNotes || "No personal note yet."}</p></div>
-              <div><span className="hq-kicker">Work</span><p>{day.notes || "No work note yet."}</p></div>
+              <div>
+                <span className="hq-kicker">Personal</span>
+                <p>{day.personalNotes || "No personal note yet."}</p>
+              </div>
+              <div>
+                <span className="hq-kicker">Work</span>
+                <p>{day.notes || "No work note yet."}</p>
+              </div>
             </div>
           </section>
           <section className="hq-card">
-            <div className="hq-section-head"><h2>Recent signals</h2><span className="hq-pill">History</span></div>
+            <div className="hq-section-head">
+              <h2>Recent signals</h2>
+              <span className="hq-pill">History</span>
+            </div>
             {snapshot.recent.length ? (
               <div className="signal-list">
                 {snapshot.recent.map((entry) => (
@@ -186,7 +281,11 @@ export default function HomeApp() {
                   </article>
                 ))}
               </div>
-            ) : <p className="empty-state">Notes and operating signals will surface here over time.</p>}
+            ) : (
+              <p className="empty-state">
+                Notes and operating signals will surface here over time.
+              </p>
+            )}
           </section>
         </div>
       </div>
