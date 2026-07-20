@@ -338,16 +338,7 @@
   margin: 0 0 10px;
 }
 
-a.hq-week-day {
-  display: block;
-  color: inherit;
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-a.hq-week-day:hover {
-  border-color: var(--accent);
-  background: rgba(59, 130, 246, 0.1);
-}
+/* Week day link chrome lives in jobs-os.css — keep home free of card bodies */
 
 @media (max-width: 820px) {
   .home-topbar {
