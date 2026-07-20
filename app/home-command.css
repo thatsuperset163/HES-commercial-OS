@@ -81,6 +81,9 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* PRIMARY — Today */
+.home-today {
   border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
   background: color-mix(in srgb, var(--surface) 88%, rgba(59, 130, 246, 0.12));
   border-radius: 14px;
