@@ -3,28 +3,41 @@
 import Link from "next/link";
 import { moneyLabel } from "@/lib/jobs/statusStyles";
 import type { WeekGlanceDay } from "@/lib/jobs/calendar";
+import { parseDateKey } from "@/lib/dates";
 import { jobsDayHref } from "@/lib/osNav";
 
 type Props = {
   days: WeekGlanceDay[];
 };
 
+const WEEKDAY_CLASS = [
+  "is-sun",
+  "is-mon",
+  "is-tue",
+  "is-wed",
+  "is-thu",
+  "is-fri",
+  "is-sat",
+] as const;
+
 export default function HQWeekAtGlance({ days }: Props) {
   return (
-    <section className="hq-week-glance" aria-label="This week schedule">
+    <section className="hq-card hq-week-glance" aria-label="This week schedule">
       <div className="hq-section-head">
         <h2>This Week</h2>
         <Link href="/work/jobs" className="hq-link">
-          Open Jobs OS →
+          Open Schedule →
         </Link>
       </div>
-      <div className="hq-week-rail">
-        <div className="hq-week-grid">
-          {days.map((day) => (
+      <div className="hq-week-grid">
+        {days.map((day) => {
+          const weekday = WEEKDAY_CLASS[parseDateKey(day.dateKey).getDay()];
+          return (
             <Link
               key={day.dateKey}
               href={jobsDayHref(day.dateKey)}
-              className={`hq-week-day${day.isToday ? " is-today" : ""}`}
+              className={`hq-week-day ${weekday}${day.isToday ? " is-today" : ""}`}
+              aria-label={`${day.label} agenda`}
             >
               <header>
                 <strong>{day.label}</strong>
@@ -45,8 +58,8 @@ export default function HQWeekAtGlance({ days }: Props) {
                 <p className="hq-week-empty">Open</p>
               )}
             </Link>
-          ))}
-        </div>
+          );
+        })}
       </div>
     </section>
   );

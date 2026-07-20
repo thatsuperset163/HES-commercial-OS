@@ -18,15 +18,22 @@ export const OS_NAV_ITEMS: OsNavItem[] = [
     keywords: ["home", "start", "work"],
   },
   {
+    id: "schedule",
+    label: "Schedule",
+    description: "Calendar and day agendas",
+    href: "/work/jobs",
+    keywords: ["schedule", "calendar", "jobs", "agenda", "jobs os"],
+  },
+  {
     id: "sales",
     label: "Sales OS",
     description: "Commercial pipeline and outreach",
     href: "/work/sales/",
     keywords: ["sales", "prospects", "crm"],
   },
-  ...WORK_DESKS.map((desk) => ({
+  ...WORK_DESKS.filter((desk) => desk.id !== "jobs").map((desk) => ({
     id: desk.id,
-    label: desk.id === "jobs" ? "Jobs OS" : desk.name,
+    label: desk.name,
     description: desk.purpose,
     href: desk.href,
     keywords: [desk.hqLabel, desk.singular, desk.id, desk.name],
