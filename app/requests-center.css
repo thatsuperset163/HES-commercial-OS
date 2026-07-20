@@ -48,6 +48,21 @@
   overflow-x: auto;
   padding-bottom: 0.35rem;
   margin-bottom: 1rem;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text-muted) 55%, transparent) transparent;
+}
+
+.rc-board::-webkit-scrollbar {
+  height: 4px;
+}
+
+.rc-board::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.rc-board::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-muted) 45%, transparent);
+  border-radius: 999px;
 }
 
 .rc-column {
