@@ -1,5 +1,5 @@
-import WorkDeskApp from "@/app/WorkDeskApp";
+import ClientsApp from "@/app/ClientsApp";
 
 export default function Page() {
-  return <WorkDeskApp deskId="clients" />;
+  return <ClientsApp />;
 }
