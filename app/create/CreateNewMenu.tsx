@@ -131,7 +131,6 @@ export default function CreateNewMenu({
                           </span>
                           <span className="create-new-copy">
                             <strong>{option.label}</strong>
-                            <span>{option.description}</span>
                           </span>
                         </button>
                       </li>
