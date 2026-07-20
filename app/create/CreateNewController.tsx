@@ -32,6 +32,15 @@ export type CreateContext = {
   startTime?: string;
 };
 
+export type ClientCreatePrefill = {
+  id: string;
+  name: string;
+  companyName?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+};
+
 type Props = {
   size?: "default" | "small";
   label?: string;
@@ -39,6 +48,8 @@ type Props = {
   /** Open a date-scoped chooser (e.g. empty calendar cell). */
   context?: CreateContext | null;
   onContextHandled?: () => void;
+  /** When set (e.g. from a client profile), new records prefill this client. */
+  clientPrefill?: ClientCreatePrefill | null;
   onOpenJobForm: (initial: Partial<Job>) => void;
   /** Persist a job without opening the editor (quote-visit calendar block). */
   onQuickCreateJob?: (input: JobInput) => Promise<void> | void;
@@ -51,6 +62,7 @@ export default function CreateNewController({
   className,
   context = null,
   onContextHandled,
+  clientPrefill = null,
   onOpenJobForm,
   onQuickCreateJob,
   onCreated,
@@ -94,6 +106,16 @@ export default function CreateNewController({
           scheduledDate: date,
           startTime: time,
           status: "scheduled",
+          ...(clientPrefill
+            ? {
+                customerId: clientPrefill.id,
+                customerName: clientPrefill.name,
+                companyName: clientPrefill.companyName || "",
+                phone: clientPrefill.phone || "",
+                email: clientPrefill.email || "",
+                address: clientPrefill.address || "",
+              }
+            : {}),
         });
         return;
       }
@@ -130,8 +152,38 @@ export default function CreateNewController({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [contextDate, contextTime, onOpenJobForm],
+    [contextDate, contextTime, onOpenJobForm, clientPrefill],
   );
+
+  const recordDefaults = clientPrefill
+    ? {
+        clientName: clientPrefill.name,
+        address: clientPrefill.address || "",
+        title: `Follow up · ${clientPrefill.name}`,
+      }
+    : undefined;
+
+  const requestClient = clientPrefill
+    ? ({
+        id: clientPrefill.id,
+        name: clientPrefill.name,
+        companyName: clientPrefill.companyName || "",
+        phone: clientPrefill.phone || "",
+        email: clientPrefill.email || "",
+        address: clientPrefill.address || "",
+        billingAddress: "",
+        properties: [],
+        city: "",
+        clientType: "residential" as const,
+        preferredContact: "" as const,
+        tags: [],
+        favorite: false,
+        notes: "",
+        status: "active" as const,
+        createdAt: "",
+        updatedAt: "",
+      })
+    : null;
 
   return (
     <>
@@ -205,6 +257,7 @@ export default function CreateNewController({
           open
           deskId={desk}
           defaultDate={contextDate}
+          defaultValues={recordDefaults}
           onClose={() => setDesk(null)}
           onCreated={(result) => {
             const option = getCreateNewOption(
@@ -231,6 +284,7 @@ export default function CreateNewController({
       <CreateRequestModal
         open={requestOpen}
         defaultDate={contextDate}
+        defaultClient={requestClient}
         onClose={() => setRequestOpen(false)}
         onCreated={(result) => {
           showBanner({
@@ -245,6 +299,7 @@ export default function CreateNewController({
       <CreateRequestModal
         open={quoteVisitOpen}
         defaultDate={contextDate}
+        defaultClient={requestClient}
         scheduleEstimate
         onClose={() => setQuoteVisitOpen(false)}
         onCreated={async (result) => {
