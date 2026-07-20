@@ -1,0 +1,225 @@
+/* Home command center — hierarchy without heavy decoration */
+
+.home-hero-primary .home-hero-title {
+  font-size: clamp(1.85rem, 4.5vw, 2.45rem);
+  letter-spacing: -0.02em;
+}
+
+.home-hero-primary .home-hero-lede {
+  font-size: 1.02rem;
+  color: var(--text-secondary);
+}
+
+/* PRIMARY — Today */
+.home-today {
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  background: color-mix(in srgb, var(--surface) 88%, rgba(59, 130, 246, 0.12));
+  border-radius: 14px;
+  padding: 1.1rem 1.15rem 1rem;
+}
+
+.home-today .hq-section-head h2 {
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-weight: 700;
+}
+
+.home-today-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.home-today-item {
+  display: grid;
+  grid-template-columns: minmax(4.5rem, auto) minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.85rem 0.9rem;
+  border-radius: 10px;
+  background: var(--surface-primary);
+  border: 1px solid var(--line-soft);
+  min-height: 64px;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.12s ease;
+}
+
+.home-today-item:hover {
+  border-color: var(--accent);
+  background: rgba(59, 130, 246, 0.08);
+  transform: translateY(-1px);
+}
+
+.home-today-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.home-today-time {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  letter-spacing: 0.02em;
+}
+
+.home-today-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.home-today-copy strong {
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.home-today-copy span {
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-today-action {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.home-today-clear {
+  margin: 0.35rem 0 0;
+  padding: 0.85rem 0.2rem 0.35rem;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+/* SECONDARY — week sits quieter under Today */
+.home-secondary {
+  opacity: 0.98;
+}
+
+.home-secondary .hq-week-glance {
+  margin-bottom: 0;
+}
+
+.home-secondary .hq-section-head h2 {
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* TERTIARY — desk modules: quieter, live pulse */
+.home-modules .hq-section-head h2 {
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.home-module-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.home-module-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  min-height: 96px;
+  padding: 0.85rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid var(--line-soft);
+  background: transparent;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.home-module-card strong {
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+.home-module-card span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.home-module-card:hover {
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.home-module-card.needs-attention {
+  border-color: color-mix(in srgb, var(--color-warning) 40%, var(--line));
+}
+
+.home-module-card.needs-attention span:first-of-type {
+  color: var(--text-secondary);
+}
+
+.home-search-hit.is-record .home-search-type {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.home-search-hit.is-record[data-type="client"] .home-search-type {
+  color: var(--color-primary);
+}
+.home-search-hit.is-record[data-type="request"] .home-search-type {
+  color: var(--color-warning);
+}
+.home-search-hit.is-record[data-type="job"] .home-search-type {
+  color: #60a5fa;
+}
+.home-search-hit.is-record[data-type="quote"] .home-search-type {
+  color: #fb923c;
+}
+.home-search-hit.is-record[data-type="invoice"] .home-search-type {
+  color: var(--color-success);
+}
+.home-search-hit.is-record[data-type="task"] .home-search-type {
+  color: var(--color-ai);
+}
+
+.home-search-hit.is-record {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 52px;
+}
+
+.home-search-hit.is-record span:last-child {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 640px) {
+  .home-today-item {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.35rem;
+  }
+
+  .home-today-action {
+    justify-self: start;
+  }
+}

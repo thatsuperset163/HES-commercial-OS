@@ -7,29 +7,47 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent,
   type RefObject,
 } from "react";
 import { filterOsNav, HOME_QUICK_LINKS, resolveQuickHref } from "@/lib/osNav";
 import { todayKey } from "@/lib/dates";
+import { groupRecordHits, searchRecords } from "@/lib/home/recordSearch";
 
 type Props = {
   inputRef?: RefObject<HTMLInputElement | null>;
   className?: string;
 };
 
+type FlatHit = {
+  key: string;
+  href: string;
+  label: string;
+  detail?: string;
+  kind: "os" | "quick" | "record";
+  type?: string;
+  typeLabel?: string;
+};
+
 /**
- * Always-visible search. Type to filter OS systems and quick links.
- * No modifier key required — just click or start typing on the home page.
+ * Global search: OS systems, quick links, and live blackboard records.
+ * Debounced record search; keyboard ↑↓ Enter Escape.
  */
 export default function HomeSearch({ inputRef, className = "" }: Props) {
   const [query, setQuery] = useState("");
+  const [debounced, setDebounced] = useState("");
   const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const localRef = useRef<HTMLInputElement>(null);
   const listId = useId();
   const today = todayKey();
-
   const ref = inputRef ?? localRef;
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebounced(query), 160);
+    return () => window.clearTimeout(t);
+  }, [query]);
 
   const results = useMemo(() => {
     const os = filterOsNav(query);
@@ -41,8 +59,50 @@ export default function HomeSearch({ inputRef, className = "" }: Props) {
       ...link,
       href: resolveQuickHref(link.href, today),
     }));
-    return { os, quick };
-  }, [query, today]);
+    const records = searchRecords(debounced);
+    const recordGroups = groupRecordHits(records);
+    return { os, quick, records, recordGroups };
+  }, [query, debounced, today]);
+
+  const flat: FlatHit[] = useMemo(() => {
+    const rows: FlatHit[] = [];
+    for (const item of results.os) {
+      rows.push({
+        key: `os-${item.id}`,
+        href: item.href,
+        label: item.label,
+        kind: "os",
+      });
+    }
+    for (const group of results.recordGroups) {
+      for (const item of group.items) {
+        rows.push({
+          key: item.id,
+          href: item.href,
+          label: item.title,
+          detail: item.detail,
+          kind: "record",
+          type: item.type,
+          typeLabel: item.typeLabel,
+        });
+      }
+    }
+    if (!query.trim()) {
+      for (const item of results.quick) {
+        rows.push({
+          key: `q-${item.id}`,
+          href: item.href,
+          label: item.label,
+          kind: "quick",
+        });
+      }
+    }
+    return rows;
+  }, [results, query]);
+
+  useEffect(() => {
+    setActive(0);
+  }, [query, debounced]);
 
   useEffect(() => {
     if (!open) return;
@@ -54,8 +114,33 @@ export default function HomeSearch({ inputRef, className = "" }: Props) {
   }, [open]);
 
   const hasQuery = query.trim().length > 0;
-  const empty =
-    hasQuery && results.os.length === 0 && results.quick.length === 0;
+  const empty = hasQuery && flat.length === 0;
+
+  const go = (href: string) => {
+    setOpen(false);
+    window.location.href = href;
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setOpen(false);
+      setQuery("");
+      return;
+    }
+    if (!open || !flat.length) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActive((i) => Math.min(flat.length - 1, i + 1));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActive((i) => Math.max(0, i - 1));
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      const hit = flat[active];
+      if (hit) go(hit.href);
+    }
+  };
 
   return (
     <div className={`home-search ${className}`} ref={rootRef}>
@@ -76,9 +161,11 @@ export default function HomeSearch({ inputRef, className = "" }: Props) {
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
+          onKeyDown={onKeyDown}
           aria-controls={listId}
           aria-expanded={open}
           aria-autocomplete="list"
+          aria-activedescendant={flat[active] ? `hit-${flat[active].key}` : undefined}
         />
       </label>
 
@@ -86,7 +173,7 @@ export default function HomeSearch({ inputRef, className = "" }: Props) {
         <div id={listId} className="home-search-panel" role="listbox">
           {!hasQuery ? (
             <p className="home-search-hint">
-              Type to find Jobs, Requests, Sales, and more — no shortcut key needed.
+              Search people, jobs, invoices — or jump to an OS.
             </p>
           ) : null}
 
@@ -94,38 +181,81 @@ export default function HomeSearch({ inputRef, className = "" }: Props) {
             <div className="home-search-group">
               <p className="home-search-group-label">Operating systems</p>
               <ul>
-                {results.os.map((item) => (
-                  <li key={`os-${item.id}`}>
-                    <Link
-                      href={item.href}
-                      className="home-search-hit"
-                      role="option"
-                      onClick={() => setOpen(false)}
-                    >
-                      <strong>{item.label}</strong>
-                    </Link>
-                  </li>
-                ))}
+                {results.os.map((item) => {
+                  const key = `os-${item.id}`;
+                  const idx = flat.findIndex((f) => f.key === key);
+                  return (
+                    <li key={key}>
+                      <Link
+                        id={`hit-${key}`}
+                        href={item.href}
+                        className={`home-search-hit${idx === active ? " is-active" : ""}`}
+                        role="option"
+                        aria-selected={idx === active}
+                        onMouseEnter={() => setActive(idx)}
+                        onClick={() => setOpen(false)}
+                      >
+                        <strong>{item.label}</strong>
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ) : null}
 
-          {results.quick.length ? (
+          {results.recordGroups.map((group) => (
+            <div key={group.type} className="home-search-group">
+              <p className="home-search-group-label">{group.typeLabel}</p>
+              <ul>
+                {group.items.map((item) => {
+                  const idx = flat.findIndex((f) => f.key === item.id);
+                  return (
+                    <li key={item.id}>
+                      <Link
+                        id={`hit-${item.id}`}
+                        href={item.href}
+                        className={`home-search-hit is-record${idx === active ? " is-active" : ""}`}
+                        data-type={item.type}
+                        role="option"
+                        aria-selected={idx === active}
+                        onMouseEnter={() => setActive(idx)}
+                        onClick={() => setOpen(false)}
+                      >
+                        <span className="home-search-type">{item.typeLabel}</span>
+                        <strong>{item.title}</strong>
+                        <span>{item.detail}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+
+          {!hasQuery && results.quick.length ? (
             <div className="home-search-group">
               <p className="home-search-group-label">Quick links</p>
               <ul>
-                {results.quick.map((item) => (
-                  <li key={`q-${item.id}`}>
-                    <Link
-                      href={item.href}
-                      className="home-search-hit"
-                      role="option"
-                      onClick={() => setOpen(false)}
-                    >
-                      <strong>{item.label}</strong>
-                    </Link>
-                  </li>
-                ))}
+                {results.quick.map((item) => {
+                  const key = `q-${item.id}`;
+                  const idx = flat.findIndex((f) => f.key === key);
+                  return (
+                    <li key={key}>
+                      <Link
+                        id={`hit-${key}`}
+                        href={item.href}
+                        className={`home-search-hit${idx === active ? " is-active" : ""}`}
+                        role="option"
+                        aria-selected={idx === active}
+                        onMouseEnter={() => setActive(idx)}
+                        onClick={() => setOpen(false)}
+                      >
+                        <strong>{item.label}</strong>
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ) : null}
