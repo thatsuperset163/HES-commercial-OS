@@ -15,12 +15,6 @@ import {
 const NAV = [
   { href: "/", label: "HQ", icon: "H", match: (path: string) => path === "/" },
   {
-    href: "/personal",
-    label: "Personal",
-    icon: "P",
-    match: (path: string) => path.startsWith("/personal"),
-  },
-  {
     href: "/work",
     label: "Work",
     icon: "W",

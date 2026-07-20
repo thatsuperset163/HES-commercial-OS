@@ -5,10 +5,7 @@ import type {
   OutreachTarget,
 } from "./types";
 import { EMPTY_METRICS } from "./types";
-import { PERSONAL_PILLAR_IDS, PERSONAL_PILLARS } from "./personalPillars";
 import { normalizeHuntChecklist } from "./huntCoach";
-
-export { PERSONAL_PILLAR_IDS, PERSONAL_PILLARS } from "./personalPillars";
 
 function items(
   rows: { id: string; label: string }[]
@@ -16,10 +13,8 @@ function items(
   return rows;
 }
 
-/** Personal daily pillars — fixed every day (see personalPillars.ts). */
-export const DAILY_ESSENTIALS = items(
-  PERSONAL_PILLARS.map((item) => ({ id: item.id, label: item.label })),
-);
+/** Unused — daily personal checklists were removed; kept for day-model shape. */
+export const DAILY_ESSENTIALS = items([]);
 
 /** Morning essentials — always on the morning work checklist */
 export const MORNING_ESSENTIALS = items([
@@ -40,7 +35,7 @@ export const MORNING_ROTATING_POOL = items([
   { id: "supply-check", label: "Check supplies / consumables / reorder needs" },
   { id: "pipeline-notes", label: "Review pipeline / CRM notes" },
   { id: "content-photo", label: "Prep before/after photos for content" },
-  { id: "overnight-calls", label: "Personally return overnight callbacks" },
+  { id: "overnight-calls", label: "Return overnight callbacks" },
   { id: "estimate-block", label: "Block time for estimates later today" },
   { id: "local-seo", label: "Check local SEO / competitor ads for 10 min" },
   { id: "route-map", label: "Map this afternoon's door / commercial route" },
@@ -123,7 +118,7 @@ export function pickDailyOutreach(dateKey: string): ChecklistItem[] {
 }
 
 export function buildDailyChecklist(_dateKey?: string): ChecklistItem[] {
-  return withDone(DAILY_ESSENTIALS);
+  return [];
 }
 
 export function pickMorningExtras(dateKey: string): ChecklistItem[] {
@@ -139,75 +134,7 @@ export function buildMorningWorkChecklist(dateKey: string): ChecklistItem[] {
   return [...withDone(MORNING_ESSENTIALS), ...pickMorningExtras(dateKey)];
 }
 
-/** Personal goals — faith + putting yourself out there (varies daily) */
-export const PERSONAL_GOAL_POOL = [
-  {
-    id: "p-pray",
-    text: "Pray or sit in quiet with God for 10 focused minutes",
-  },
-  {
-    id: "p-scripture",
-    text: "Read a short stretch of Scripture and write one takeaway",
-  },
-  {
-    id: "p-gratitude",
-    text: "Write 3 specific things you’re grateful to God for today",
-  },
-  {
-    id: "p-worship",
-    text: "Play worship / a sermon on the drive and actually listen",
-  },
-  {
-    id: "p-encourage",
-    text: "Send one sincere word of encouragement to someone",
-  },
-  {
-    id: "p-serve",
-    text: "Do one quiet act of service with no credit attached",
-  },
-  {
-    id: "p-church-plan",
-    text: "Confirm church / group plans — or invite someone to come with you",
-  },
-  {
-    id: "p-eye-contact",
-    text: "Make warm eye contact and smile at 5 people today",
-  },
-  {
-    id: "p-new-convo",
-    text: "Start one new conversation with someone you don’t usually talk to",
-  },
-  {
-    id: "p-compliment",
-    text: "Give one genuine compliment to a girl (not creepy — just kind)",
-  },
-  {
-    id: "p-ask-question",
-    text: "Ask a girl a real question about her day / interests and listen",
-  },
-  {
-    id: "p-social-spot",
-    text: "Put yourself somewhere social for 30+ minutes (gym, store, event, hang)",
-  },
-  {
-    id: "p-invite",
-    text: "Invite someone (girl or friend) to coffee, food, or a simple hang",
-  },
-  {
-    id: "p-intro",
-    text: "Practice your 30-second intro once out loud, then use it if the moment hits",
-  },
-  {
-    id: "p-uncomfortable",
-    text: "Do one slightly uncomfortable social rep on purpose",
-  },
-  {
-    id: "p-follow-up",
-    text: "Follow up with someone you already started talking to",
-  },
-];
-
-/** Business goals — HES grind (varies daily) */
+/** Work focus goals — one business goal per day */
 export const BUSINESS_GOAL_POOL = [
   {
     id: "b-doors",
@@ -274,15 +201,8 @@ function pickOneFromPool(
 }
 
 export function pickDailyGoals(dateKey: string): GoalItem[] {
-  const personal = pickOneFromPool(PERSONAL_GOAL_POOL, dateKey, "goal-personal");
   const business = pickOneFromPool(BUSINESS_GOAL_POOL, dateKey, "goal-business");
   return [
-    {
-      id: `personal-${personal.id}`,
-      text: personal.text,
-      done: false,
-      category: "personal",
-    },
     {
       id: `business-${business.id}`,
       text: business.text,
@@ -293,10 +213,12 @@ export function pickDailyGoals(dateKey: string): GoalItem[] {
 }
 
 function needsGoalsRebuild(goals: GoalItem[] | undefined): boolean {
-  if (!goals || goals.length !== 2) return true;
-  const [a, b] = goals;
-  if (a.category !== "personal" || b.category !== "business") return true;
-  if (!a.text.trim() || !b.text.trim()) return true;
+  if (!goals?.length) return true;
+  const business = goals.filter((g) => g.category === "business");
+  if (business.length !== 1) return true;
+  if (!business[0].text.trim()) return true;
+  // Drop any leftover non-business goals from older days.
+  if (goals.some((g) => g.category !== "business")) return true;
   return false;
 }
 
@@ -307,9 +229,8 @@ function normalizeGoals(
   if (!needsGoalsRebuild(goals)) return goals as GoalItem[];
   const built = pickDailyGoals(date);
   if (!goals?.length) return built;
-  // Preserve done flags when same goal id returns on this date after migration
   return built.map((g) => {
-    const prev = goals.find((x) => x.id === g.id);
+    const prev = goals.find((x) => x.id === g.id || x.category === "business");
     return prev ? { ...g, done: prev.done } : g;
   });
 }
@@ -333,56 +254,17 @@ function normalizeOutreach(
   return outreach as ChecklistItem[];
 }
 
-/** Rebuild when the six personal pillars are missing. */
+/** Drop legacy personal-pillar checklist items; keep only custom rows. */
 function needsDailyRebuild(list: ChecklistItem[] | undefined): boolean {
-  if (!list?.length) return true;
-  const ids = new Set(list.map((i) => i.id));
-  return PERSONAL_PILLAR_IDS.some((id) => !ids.has(id));
-}
-
-const LEGACY_PILLAR_DONE: Record<string, string[]> = {
-  train: ["train", "move-body", "mobility"],
-  golf: ["golf", "golf-touch"],
-  faith: ["faith", "quiet-time"],
-  people: [
-    "people",
-    "call-love",
-    "encourage-buddy",
-    "customer-friend",
-    "family-favor",
-  ],
-  "no-porn": ["no-porn"],
-  "no-weed": ["no-weed"],
-};
-
-function legacyPillarDone(
-  list: ChecklistItem[] | undefined,
-  pillarId: string,
-): boolean {
-  const aliases = LEGACY_PILLAR_DONE[pillarId] ?? [pillarId];
-  return (list ?? []).some((item) => aliases.includes(item.id) && item.done);
+  if (!list?.length) return false;
+  return list.some((item) => !item.id.startsWith("dailyChecklist-"));
 }
 
 function normalizeDailyChecklist(
-  date: string,
+  _date: string,
   list: ChecklistItem[] | undefined
 ): ChecklistItem[] {
-  if (!needsDailyRebuild(list)) {
-    // Keep labels in sync with the current pillar copy.
-    const byId = new Map((list ?? []).map((item) => [item.id, item]));
-    return buildDailyChecklist(date).map((item) => ({
-      ...item,
-      done: Boolean(byId.get(item.id)?.done),
-    }));
-  }
-  const built = buildDailyChecklist(date).map((item) => ({
-    ...item,
-    done: legacyPillarDone(list, item.id),
-  }));
-  const customs = (list ?? []).filter((i) =>
-    i.id.startsWith("dailyChecklist-")
-  );
-  return [...built, ...customs];
+  return (list ?? []).filter((item) => item.id.startsWith("dailyChecklist-"));
 }
 
 /** Old static morning list had followups/gbp/invoices as fixed items. */

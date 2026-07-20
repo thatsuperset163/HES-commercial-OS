@@ -109,11 +109,7 @@ export default function HomeApp() {
     const store = loadStore();
     const charts = getLastNDayCharts(store, 7, date);
     const recent = Object.values(store.days)
-      .filter(
-        (entry) =>
-          entry.date !== date &&
-          (entry.notes?.trim() || entry.personalNotes?.trim()),
-      )
+      .filter((entry) => entry.date !== date && entry.notes?.trim())
       .sort((a, b) => (a.date < b.date ? 1 : -1))
       .slice(0, 4);
     const pipeline = buildPipelineCounts(store);
@@ -128,7 +124,7 @@ export default function HomeApp() {
       pipeline,
       week,
       workTop: workActions[0] ?? null,
-      personalStreak: getRealmStreaks(store, date).personal,
+      workStreak: getRealmStreaks(store, date).work,
       totals: {
         doors: charts.reduce((sum, point) => sum + point.doors, 0),
         conversations: charts.reduce(
@@ -150,13 +146,11 @@ export default function HomeApp() {
     );
   }
 
-  const personalGoal = day.goals.find((goal) => goal.category === "personal");
-  const personalFocus = personalGoal?.text;
   const workFocus = day.goals.find((goal) => goal.category === "business")?.text;
-  const personalChecklistDone = day.dailyChecklist.filter((item) => item.done)
-    .length;
-  const personalChecklistTotal = day.dailyChecklist.length;
-  const personalStreak = snapshot.personalStreak;
+  const workGoal = day.goals.find((goal) => goal.category === "business");
+  const morningDone = day.morningWorkChecklist.filter((item) => item.done).length;
+  const morningTotal = day.morningWorkChecklist.length;
+  const workStreak = snapshot.workStreak;
 
   return (
     <AppShell>
@@ -227,7 +221,7 @@ export default function HomeApp() {
         {snapshot.workTop ? (
           <section className="hq-card hq-work-next">
             <div className="hq-section-head">
-              <h2>Work · do this next</h2>
+              <h2>Do this next</h2>
               <span className="hq-pill">Live</span>
             </div>
             <p className="hq-work-next-title">{snapshot.workTop.title}</p>
@@ -244,31 +238,22 @@ export default function HomeApp() {
               <h2>Current focus</h2>
               <span className="hq-pill">Today</span>
             </div>
-            <div className="hq-focus-grid">
-              <article className="hq-focus-card">
-                <span className="hq-kicker">Personal</span>
-                <p>{personalFocus || "Open Personal for today’s hunt coach."}</p>
-                <p className="hq-focus-meta">
-                  {personalGoal?.done ? "Focus done · " : ""}
-                  Checklist {personalChecklistDone}/{personalChecklistTotal}
-                  {personalStreak > 0 ? ` · ${personalStreak}d streak` : ""}
-                </p>
-                <Link href="/personal" className="hq-link">
-                  Open Personal →
-                </Link>
-              </article>
-              <article className="hq-focus-card">
-                <span className="hq-kicker">Work</span>
-                <p>
-                  {workFocus ||
-                    snapshot.workTop?.title ||
-                    "Open Work and pick a desk."}
-                </p>
-                <Link href="/work" className="hq-link">
-                  Open Work →
-                </Link>
-              </article>
-            </div>
+            <article className="hq-focus-card">
+              <span className="hq-kicker">Work</span>
+              <p>
+                {workFocus ||
+                  snapshot.workTop?.title ||
+                  "Open Work and pick a desk."}
+              </p>
+              <p className="hq-focus-meta">
+                {workGoal?.done ? "Focus done · " : ""}
+                Morning {morningDone}/{morningTotal}
+                {workStreak > 0 ? ` · ${workStreak}d streak` : ""}
+              </p>
+              <Link href="/work" className="hq-link">
+                Open Work →
+              </Link>
+            </article>
           </section>
 
           <section className="hq-card sales-launch">
@@ -324,19 +309,10 @@ export default function HomeApp() {
         <div className="hq-split">
           <section className="hq-card">
             <div className="hq-section-head">
-              <h2>Today&apos;s notes</h2>
+              <h2>Today&apos;s work notes</h2>
               <span className="hq-pill">Live</span>
             </div>
-            <div className="notes-summary">
-              <div>
-                <span className="hq-kicker">Personal</span>
-                <p>{day.personalNotes || "No personal note yet."}</p>
-              </div>
-              <div>
-                <span className="hq-kicker">Work</span>
-                <p>{day.notes || "No work note yet."}</p>
-              </div>
-            </div>
+            <p>{day.notes || "No work note yet."}</p>
           </section>
           <section className="hq-card">
             <div className="hq-section-head">
@@ -348,7 +324,7 @@ export default function HomeApp() {
                 {snapshot.recent.map((entry) => (
                   <article className="signal-row" key={entry.date}>
                     <span>{formatShortDate(entry.date)}</span>
-                    <p>{entry.notes?.trim() || entry.personalNotes}</p>
+                    <p>{entry.notes?.trim()}</p>
                   </article>
                 ))}
               </div>

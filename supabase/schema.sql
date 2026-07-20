@@ -63,7 +63,7 @@ create policy "commercial_prospects_all"
   using (true)
   with check (true);
 
--- Shared HQ, Personal, and Work blackboard state
+-- Shared HQ and Work blackboard state
 create table if not exists blackboard_workspace (
   id text primary key default 'default',
   state jsonb not null default '{"days":{}}'::jsonb,
