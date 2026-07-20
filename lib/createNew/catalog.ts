@@ -16,7 +16,7 @@ export type CreateNewOption = {
   group: CreateNewGroup;
   label: string;
   description: string;
-  /** Compact glyph (emoji-free letter mark for a11y-friendly icons). */
+  /** Compact icon shown beside the label. */
   mark: string;
   /** Appears on the Jobs calendar when dated. */
   onCalendar: boolean;
@@ -31,7 +31,7 @@ export const CREATE_NEW_OPTIONS: CreateNewOption[] = [
     group: "schedule",
     label: "Job",
     description: "Schedule approved work",
-    mark: "J",
+    mark: "🔨",
     onCalendar: true,
   },
   {
@@ -39,7 +39,7 @@ export const CREATE_NEW_OPTIONS: CreateNewOption[] = [
     group: "schedule",
     label: "Request",
     description: "Add a new lead or service request",
-    mark: "R",
+    mark: "📥",
     onCalendar: false,
     hrefAfter: "/work/requests",
     openLabel: "Go to Requests Center",
@@ -49,7 +49,7 @@ export const CREATE_NEW_OPTIONS: CreateNewOption[] = [
     group: "schedule",
     label: "Quote Visit",
     description: "Schedule an on-site estimate",
-    mark: "V",
+    mark: "📋",
     onCalendar: true,
   },
   {
@@ -57,7 +57,7 @@ export const CREATE_NEW_OPTIONS: CreateNewOption[] = [
     group: "schedule",
     label: "Task",
     description: "Add a business to-do",
-    mark: "T",
+    mark: "✅",
     onCalendar: true,
     hrefAfter: "/work/tasks",
     openLabel: "Open Tasks",
@@ -67,7 +67,7 @@ export const CREATE_NEW_OPTIONS: CreateNewOption[] = [
     group: "schedule",
     label: "Blocked Time",
     description: "Reserve unavailable time",
-    mark: "B",
+    mark: "🔒",
     onCalendar: true,
   },
   {
@@ -75,7 +75,7 @@ export const CREATE_NEW_OPTIONS: CreateNewOption[] = [
     group: "record",
     label: "Client",
     description: "Add a person, company, or property",
-    mark: "C",
+    mark: "👤",
     onCalendar: false,
     hrefAfter: "/work/clients",
     openLabel: "Open Client",
@@ -85,7 +85,7 @@ export const CREATE_NEW_OPTIONS: CreateNewOption[] = [
     group: "record",
     label: "Quote",
     description: "Create pricing for requested work",
-    mark: "Q",
+    mark: "💵",
     onCalendar: false,
     hrefAfter: "/work/quotes",
     openLabel: "Open Quote",
@@ -95,7 +95,7 @@ export const CREATE_NEW_OPTIONS: CreateNewOption[] = [
     group: "record",
     label: "Invoice",
     description: "Bill a client for completed work",
-    mark: "I",
+    mark: "🧾",
     onCalendar: false,
     hrefAfter: "/work/invoices",
     openLabel: "Open Invoice",
@@ -105,7 +105,7 @@ export const CREATE_NEW_OPTIONS: CreateNewOption[] = [
     group: "record",
     label: "Expense",
     description: "Record business spending",
-    mark: "E",
+    mark: "💳",
     onCalendar: false,
     hrefAfter: "/work/expenses",
     openLabel: "Open Expense",
