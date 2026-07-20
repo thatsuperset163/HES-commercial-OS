@@ -105,26 +105,27 @@
 }
 
 .create-new-mark {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
   display: grid;
   place-items: center;
-  font-weight: 700;
-  font-size: 0.85rem;
-  background: rgba(100, 116, 139, 0.25);
-  color: var(--ink, #eef2f7);
+  font-size: 1.2rem;
+  line-height: 1;
+  background: transparent;
 }
 
-.create-new-mark.kind-job { background: rgba(59, 130, 246, 0.28); }
-.create-new-mark.kind-request { background: rgba(34, 160, 107, 0.28); }
-.create-new-mark.kind-quote_visit { background: rgba(234, 88, 12, 0.28); }
-.create-new-mark.kind-task { background: rgba(139, 92, 246, 0.28); }
-.create-new-mark.kind-blocked_time { background: rgba(107, 114, 128, 0.35); }
-.create-new-mark.kind-client { background: rgba(14, 165, 233, 0.28); }
-.create-new-mark.kind-quote { background: rgba(212, 160, 23, 0.28); }
-.create-new-mark.kind-invoice { background: rgba(34, 160, 107, 0.32); }
-.create-new-mark.kind-expense { background: rgba(244, 63, 94, 0.22); }
+.create-new-mark.kind-job,
+.create-new-mark.kind-request,
+.create-new-mark.kind-quote_visit,
+.create-new-mark.kind-task,
+.create-new-mark.kind-blocked_time,
+.create-new-mark.kind-client,
+.create-new-mark.kind-quote,
+.create-new-mark.kind-invoice,
+.create-new-mark.kind-expense {
+  background: transparent;
+}
 
 .create-new-copy {
   display: flex;
