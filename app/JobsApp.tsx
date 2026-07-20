@@ -23,7 +23,6 @@ import {
   hydrateStoreFromCloud,
   listClients,
   listJobs,
-  listRequests,
   listTasks,
   upsertJob,
 } from "@/lib/storage";
@@ -82,9 +81,6 @@ export default function JobsApp() {
   const [toast, setToast] = useState<string | null>(null);
   const [undo, setUndo] = useState<UndoState>(null);
   const [clients, setClients] = useState(listClients());
-  const [requestOptions, setRequestOptions] = useState<
-    { id: string; label: string }[]
-  >([]);
   const [intakeRows, setIntakeRows] = useState<IntakeRequest[]>([]);
   const [createContext, setCreateContext] = useState<CreateContext | null>(null);
 
@@ -130,12 +126,6 @@ export default function JobsApp() {
 
   const refreshLocalMeta = useCallback(() => {
     setClients(listClients());
-    setRequestOptions(
-      listRequests().map((r) => ({
-        id: r.id,
-        label: `${r.clientName} · ${r.summary || "Request"}`,
-      })),
-    );
   }, []);
 
   const loadIntake = useCallback(async () => {
@@ -523,8 +513,6 @@ export default function JobsApp() {
           open={formOpen}
           initial={formInitial}
           clients={clients}
-          requests={requestOptions}
-          prospects={[]}
           saving={saving}
           error={error}
           onClose={() => setFormOpen(false)}

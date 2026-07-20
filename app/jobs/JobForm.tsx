@@ -7,14 +7,10 @@ import { JOB_STATUSES } from "@/lib/jobs/types";
 import { OFFERED_SERVICE_LABELS } from "@/lib/hesServices";
 import type { WorkClient } from "@/lib/work/types";
 
-type LinkOption = { id: string; label: string };
-
 type Props = {
   open: boolean;
   initial?: Partial<Job> | null;
   clients: WorkClient[];
-  requests: LinkOption[];
-  prospects: LinkOption[];
   saving: boolean;
   error: string | null;
   onClose: () => void;
@@ -27,8 +23,6 @@ export default function JobForm({
   open,
   initial,
   clients,
-  requests,
-  prospects,
   saving,
   error,
   onClose,
@@ -44,8 +38,6 @@ export default function JobForm({
   const [phone, setPhone] = useState(initial?.phone || "");
   const [email, setEmail] = useState(initial?.email || "");
   const [address, setAddress] = useState(initial?.address || "");
-  const [requestId, setRequestId] = useState(initial?.requestId || "");
-  const [prospectId, setProspectId] = useState(initial?.prospectId || "");
   const [service, setService] = useState(initial?.service || SERVICES[0]);
   const [title, setTitle] = useState(initial?.title || "");
   const [description, setDescription] = useState(initial?.description || "");
@@ -87,8 +79,6 @@ export default function JobForm({
     setPhone(initial?.phone || "");
     setEmail(initial?.email || "");
     setAddress(initial?.address || "");
-    setRequestId(initial?.requestId || "");
-    setProspectId(initial?.prospectId || "");
     setService(initial?.service || SERVICES[0]);
     setTitle(initial?.title || "");
     setDescription(initial?.description || "");
@@ -133,8 +123,9 @@ export default function JobForm({
     onSubmit({
       id: initial?.id,
       customerId: customerMode === "existing" && customerId ? customerId : null,
-      requestId: requestId || null,
-      prospectId: prospectId || null,
+      // Keep any existing link quietly; UI no longer edits these.
+      requestId: initial?.requestId ?? null,
+      prospectId: initial?.prospectId ?? null,
       customerName: name,
       companyName,
       contactName,
@@ -249,36 +240,6 @@ export default function JobForm({
                 onChange={(e) => setAddress(e.target.value)}
               />
             </label>
-            <div className="jobs-form-row">
-              <label className="jobs-field">
-                <span>Link request</span>
-                <select
-                  value={requestId}
-                  onChange={(e) => setRequestId(e.target.value)}
-                >
-                  <option value="">None</option>
-                  {requests.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="jobs-field">
-                <span>Link prospect</span>
-                <select
-                  value={prospectId}
-                  onChange={(e) => setProspectId(e.target.value)}
-                >
-                  <option value="">None</option>
-                  {prospects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
           </fieldset>
 
           <fieldset className="jobs-fieldset">
