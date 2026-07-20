@@ -23,7 +23,7 @@ function syncDotClass(status: BlackboardCloudStatus): string {
 
 function sectionTitle(pathname: string): string {
   if (pathname === "/") return "Home";
-  if (pathname.startsWith("/work/jobs")) return "Jobs OS";
+  if (pathname.startsWith("/work/jobs")) return "Schedule";
   if (pathname.startsWith("/work/requests")) return "Requests";
   if (pathname.startsWith("/work/sales")) return "Sales OS";
   if (pathname.startsWith("/work/clients")) return "Clients";
