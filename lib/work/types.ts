@@ -16,12 +16,23 @@ export type QuoteStatus = "draft" | "sent" | "won" | "lost";
 export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue";
 export type ExpenseStatus = "logged" | "paid";
 
+/** Extra property / site for a client (primary lives in `address`). */
+export type ClientProperty = {
+  id: string;
+  /** Optional label e.g. Home, Shop, Warehouse */
+  label: string;
+  line: string;
+};
+
 export type WorkClient = {
   id: string;
   name: string;
   phone: string;
   email: string;
+  /** Primary property address (shown in directory). */
   address: string;
+  /** Additional properties beyond the primary address. */
+  properties: ClientProperty[];
   notes: string;
   status: ClientStatus;
   createdAt: string;

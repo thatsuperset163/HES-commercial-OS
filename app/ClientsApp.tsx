@@ -110,6 +110,11 @@ export default function ClientsApp() {
     refresh();
   };
 
+  const onSaveClient = (client: WorkClient) => {
+    upsertClient(client);
+    refresh();
+  };
+
   const onArchive = (client: WorkClient) => {
     // Soft archive — pause the client. Related jobs/invoices stay intact.
     if (client.status === "active") {
@@ -200,6 +205,7 @@ export default function ClientsApp() {
           invoices={listInvoices()}
           tasks={listTasks()}
           onClose={closeDrawer}
+          onSave={onSaveClient}
           onTogglePause={onTogglePause}
           onArchive={onArchive}
         />

@@ -17,6 +17,7 @@ function client(partial: Partial<WorkClient> & { name: string }): WorkClient {
     phone: partial.phone ?? "",
     email: partial.email ?? "",
     address: partial.address ?? "",
+    properties: partial.properties ?? [],
     notes: partial.notes ?? "",
     status: partial.status ?? "active",
     createdAt: partial.createdAt ?? "",
@@ -75,5 +76,17 @@ describe("client directory display helpers", () => {
     assert.equal(matchesClientQuery(row, "336"), true);
     assert.equal(matchesClientQuery(row, "zzz"), false);
     assert.equal(clientDisplayName(row), "Hal Fisher");
+  });
+
+  it("matches additional property addresses in search", () => {
+    const row = client({
+      name: "Hal Fisher",
+      address: "3935 Leinbach Dr",
+      properties: [
+        { id: "p1", label: "Shop", line: "450 N Spring St" },
+      ],
+    });
+    assert.equal(matchesClientQuery(row, "spring"), true);
+    assert.equal(matchesClientQuery(row, "shop"), true);
   });
 });
