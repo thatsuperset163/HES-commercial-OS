@@ -63,7 +63,6 @@ export default function OsMenu({ className = "" }: Props) {
                   onClick={() => setOpen(false)}
                 >
                   <strong>{item.label}</strong>
-                  <span>{item.description}</span>
                 </Link>
               </li>
             ))}
