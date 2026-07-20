@@ -1,5 +1,6 @@
 import { todayKey } from "../dates.ts";
 import type {
+  ClientProperty,
   ClientStatus,
   ExpenseDoc,
   ExpenseStatus,
@@ -49,10 +50,87 @@ export function createClient(input: {
     phone: (input.phone ?? "").trim(),
     email: (input.email ?? "").trim(),
     address: (input.address ?? "").trim(),
+    properties: [],
     notes: (input.notes ?? "").trim(),
     status: "active",
     createdAt: now,
     updatedAt: now,
+  };
+}
+
+function normalizeProperty(row: unknown): ClientProperty | null {
+  if (!row || typeof row !== "object") return null;
+  const rec = row as Record<string, unknown>;
+  const line = asString(rec.line || rec.address).trim();
+  if (!line) return null;
+  return {
+    id: asString(rec.id) || workUid("prop"),
+    label: asString(rec.label).trim(),
+    line,
+  };
+}
+
+export function addClientProperty(
+  client: WorkClient,
+  input: { line: string; label?: string },
+): WorkClient {
+  const line = input.line.trim();
+  if (!line) return client;
+  const property: ClientProperty = {
+    id: workUid("prop"),
+    label: (input.label ?? "").trim(),
+    line,
+  };
+  // If they have no primary yet, first added address becomes primary.
+  if (!client.address.trim()) {
+    return {
+      ...client,
+      address: line,
+      properties: client.properties ?? [],
+      updatedAt: new Date().toISOString(),
+    };
+  }
+  return {
+    ...client,
+    properties: [...(client.properties ?? []), property],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function removeClientProperty(
+  client: WorkClient,
+  propertyId: string,
+): WorkClient {
+  return {
+    ...client,
+    properties: (client.properties ?? []).filter((p) => p.id !== propertyId),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function setClientPrimaryAddress(
+  client: WorkClient,
+  line: string,
+): WorkClient {
+  const next = line.trim();
+  const prev = client.address.trim();
+  if (!next || next === prev) {
+    return { ...client, address: next, updatedAt: new Date().toISOString() };
+  }
+  // Keep the old primary as an additional property when it still has content.
+  const properties = [...(client.properties ?? [])];
+  if (prev && !properties.some((p) => p.line === prev)) {
+    properties.unshift({
+      id: workUid("prop"),
+      label: "Previous primary",
+      line: prev,
+    });
+  }
+  return {
+    ...client,
+    address: next,
+    properties: properties.filter((p) => p.line !== next),
+    updatedAt: new Date().toISOString(),
   };
 }
 
@@ -171,17 +249,24 @@ export function normalizeClients(value: unknown): WorkClient[] {
   const statuses: ClientStatus[] = ["active", "paused"];
   return value
     .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object")
-    .map((row) => ({
-      id: asString(row.id) || workUid("client"),
-      name: asString(row.name).trim() || "Client",
-      phone: asString(row.phone),
-      email: asString(row.email),
-      address: asString(row.address),
-      notes: asString(row.notes),
-      status: pickStatus(row.status, statuses, "active"),
-      createdAt: asString(row.createdAt) || new Date().toISOString(),
-      updatedAt: asString(row.updatedAt) || new Date().toISOString(),
-    }));
+    .map((row) => {
+      const rawProps = Array.isArray(row.properties) ? row.properties : [];
+      const properties = rawProps
+        .map(normalizeProperty)
+        .filter((p): p is ClientProperty => Boolean(p));
+      return {
+        id: asString(row.id) || workUid("client"),
+        name: asString(row.name).trim() || "Client",
+        phone: asString(row.phone),
+        email: asString(row.email),
+        address: asString(row.address),
+        properties,
+        notes: asString(row.notes),
+        status: pickStatus(row.status, statuses, "active"),
+        createdAt: asString(row.createdAt) || new Date().toISOString(),
+        updatedAt: asString(row.updatedAt) || new Date().toISOString(),
+      };
+    });
 }
 
 export function normalizeRequests(value: unknown): ServiceRequest[] {

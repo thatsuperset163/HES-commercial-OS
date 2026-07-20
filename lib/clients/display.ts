@@ -49,6 +49,7 @@ export function matchesClientQuery(client: WorkClient, query: string): boolean {
     client.email,
     client.address,
     client.notes,
+    ...(client.properties ?? []).flatMap((p) => [p.line, p.label]),
   ]
     .join(" ")
     .toLowerCase();

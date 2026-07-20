@@ -23,6 +23,7 @@ import type {
   WorkTask,
 } from "@/lib/work/types";
 import ClientInitialsAvatar from "./ClientInitialsAvatar";
+import ClientProperties from "./ClientProperties";
 
 type Props = {
   client: WorkClient;
@@ -32,6 +33,7 @@ type Props = {
   invoices: InvoiceDoc[];
   tasks: WorkTask[];
   onClose: () => void;
+  onSave: (client: WorkClient) => void;
   onTogglePause: (client: WorkClient) => void;
   onArchive: (client: WorkClient) => void;
 };
@@ -48,6 +50,7 @@ export default function ClientDetailDrawer({
   invoices,
   tasks,
   onClose,
+  onSave,
   onTogglePause,
   onArchive,
 }: Props) {
@@ -195,10 +198,6 @@ export default function ClientDetailDrawer({
               <dt>Email</dt>
               <dd>{client.email || "—"}</dd>
             </div>
-            <div>
-              <dt>Address</dt>
-              <dd>{client.address || "—"}</dd>
-            </div>
             {client.notes ? (
               <div>
                 <dt>Notes</dt>
@@ -207,6 +206,8 @@ export default function ClientDetailDrawer({
             ) : null}
           </dl>
         </section>
+
+        <ClientProperties client={client} onSave={onSave} />
 
         <section className="client-drawer-section">
           <h3>Quick actions</h3>
