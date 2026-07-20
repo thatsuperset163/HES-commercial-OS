@@ -13,7 +13,6 @@ import {
   hydrateStoreFromCloud,
   listClients,
   listJobs,
-  listRequests,
   loadStore,
   upsertJob,
 } from "@/lib/storage";
@@ -51,19 +50,10 @@ export default function HomeApp() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [clients, setClients] = useState(listClients());
-  const [requestOptions, setRequestOptions] = useState<
-    { id: string; label: string }[]
-  >([]);
   const date = todayKey();
 
   const refreshMeta = useCallback(() => {
     setClients(listClients());
-    setRequestOptions(
-      listRequests().map((r) => ({
-        id: r.id,
-        label: `${r.clientName} · ${r.summary || "Request"}`,
-      })),
-    );
     setTick((v) => v + 1);
   }, []);
 
@@ -238,8 +228,6 @@ export default function HomeApp() {
         open={formOpen}
         initial={formInitial}
         clients={clients}
-        requests={requestOptions}
-        prospects={[]}
         saving={saving}
         error={formError}
         onClose={() => setFormOpen(false)}

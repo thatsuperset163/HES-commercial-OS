@@ -228,9 +228,10 @@ export function normalizeJobRecord(row: Record<string, unknown>): Job {
 export function jobToRow(job: Job): Record<string, unknown> {
   return {
     id: job.id,
-    customer_id: job.customerId,
-    request_id: job.requestId,
-    prospect_id: job.prospectId,
+    // DB columns are NOT NULL with default ''; never send null.
+    customer_id: job.customerId || "",
+    request_id: job.requestId || "",
+    prospect_id: job.prospectId || "",
     customer_name: job.customerName,
     company_name: job.companyName,
     contact_name: job.contactName,
