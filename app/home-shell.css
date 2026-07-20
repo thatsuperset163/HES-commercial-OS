@@ -305,7 +305,8 @@
   min-height: 40px;
 }
 
-.home-search-hit:hover {
+.home-search-hit:hover,
+.home-search-hit.is-active {
   background: rgba(59, 130, 246, 0.12);
 }
 
