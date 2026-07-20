@@ -31,7 +31,7 @@ function sectionTitle(pathname: string): string {
   if (pathname.startsWith("/work/invoices")) return "Invoices";
   if (pathname.startsWith("/work/tasks")) return "Tasks";
   if (pathname.startsWith("/work/expenses")) return "Expenses";
-  if (pathname.startsWith("/work")) return "Work";
+  if (pathname.startsWith("/work")) return "Home";
   return "HES OS";
 }
 

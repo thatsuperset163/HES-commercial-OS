@@ -8,14 +8,14 @@ export type OsNavItem = {
   keywords?: string[];
 };
 
-/** All live operating systems for menu + home search. */
+/** All live operating systems for menu + home search. Home is always first. */
 export const OS_NAV_ITEMS: OsNavItem[] = [
   {
     id: "home",
     label: "Home",
     description: "Today’s week and next moves",
     href: "/",
-    keywords: ["home", "start"],
+    keywords: ["home", "start", "work"],
   },
   {
     id: "sales",
@@ -31,13 +31,6 @@ export const OS_NAV_ITEMS: OsNavItem[] = [
     href: desk.href,
     keywords: [desk.hqLabel, desk.singular, desk.id, desk.name],
   })),
-  {
-    id: "work-home",
-    label: "Work launcher",
-    description: "All desks in one place",
-    href: "/work",
-    keywords: ["work", "desks", "launcher"],
-  },
 ];
 
 export type QuickLink = {
@@ -87,7 +80,7 @@ export function resolveQuickHref(href: string, today: string) {
 
 export function filterOsNav(query: string): OsNavItem[] {
   const q = query.trim().toLowerCase();
-  if (!q) return OS_NAV_ITEMS.filter((item) => item.id !== "home");
+  if (!q) return OS_NAV_ITEMS;
   return OS_NAV_ITEMS.filter((item) => {
     const hay = [item.label, item.description, ...(item.keywords ?? [])]
       .join(" ")
