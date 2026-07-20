@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   blackboardCloudStatusLabel,
   getBlackboardCloudStatus,
@@ -11,16 +11,9 @@ import {
   subscribeBlackboardCloudStatus,
   type BlackboardCloudStatus,
 } from "@/lib/storage";
-
-const NAV = [
-  { href: "/", label: "HQ", icon: "H", match: (path: string) => path === "/" },
-  {
-    href: "/work",
-    label: "Work",
-    icon: "W",
-    match: (path: string) => path.startsWith("/work"),
-  },
-] as const;
+import HomeSearch from "./HomeSearch";
+import OsMenu from "./OsMenu";
+import "./home-shell.css";
 
 function syncDotClass(status: BlackboardCloudStatus): string {
   if (status === "synced") return "sync-dot";
@@ -28,14 +21,28 @@ function syncDotClass(status: BlackboardCloudStatus): string {
   return "sync-dot is-danger";
 }
 
+function sectionTitle(pathname: string): string {
+  if (pathname === "/") return "Home";
+  if (pathname.startsWith("/work/jobs")) return "Jobs OS";
+  if (pathname.startsWith("/work/requests")) return "Requests";
+  if (pathname.startsWith("/work/sales")) return "Sales OS";
+  if (pathname.startsWith("/work/clients")) return "Clients";
+  if (pathname.startsWith("/work/quotes")) return "Quotes";
+  if (pathname.startsWith("/work/invoices")) return "Invoices";
+  if (pathname.startsWith("/work/tasks")) return "Tasks";
+  if (pathname.startsWith("/work/expenses")) return "Expenses";
+  if (pathname.startsWith("/work")) return "Work";
+  return "HES OS";
+}
+
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [cloudStatus, setCloudStatus] = useState<BlackboardCloudStatus>(
     getBlackboardCloudStatus,
   );
-
-  const current = NAV.find((item) => item.match(pathname)) ?? NAV[0];
+  const searchRef = useRef<HTMLInputElement>(null);
   const statusLabel = blackboardCloudStatusLabel(cloudStatus);
+  const isHome = pathname === "/";
 
   useEffect(() => {
     const unsub = subscribeBlackboardCloudStatus(setCloudStatus);
@@ -43,70 +50,74 @@ export default function AppShell({ children }: { children: ReactNode }) {
     return unsub;
   }, []);
 
+  // On home, printable keys focus search — no Shift/Cmd required.
+  useEffect(() => {
+    if (!isHome) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (event.key.length === 1) {
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isHome]);
+
   async function logout() {
     await fetch("/api/auth", { method: "DELETE" });
     window.location.href = "/login";
   }
 
   return (
-    <main className="app-shell">
-      <aside className="shell-sidebar">
-        <div className="brand-lockup">
-          <Image
-            className="brand-logo"
-            src="/hes-logo.png"
-            alt="Harris Exterior Solutions"
-            width={144}
-            height={144}
-            priority
-          />
-          <div className="brand-block">
-            <p className="brand-eyebrow">Harris Exterior</p>
-            <h1 className="brand-title">HES OS</h1>
-          </div>
-        </div>
-        <nav className="hq-nav" aria-label="Sections">
-          {NAV.map((item) => {
-            const active = item.match(pathname);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`hq-nav-link${active ? " active" : ""}`}
-                aria-current={active ? "page" : undefined}
-              >
-                <span className="hq-nav-icon" aria-hidden="true">
-                  {item.icon}
-                </span>
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="sidebar-foot" title={statusLabel}>
-          <span className={syncDotClass(cloudStatus)} aria-hidden />
-          <span>{statusLabel}</span>
-        </div>
-      </aside>
-
-      <section className="shell-main">
-        <header className="topbar">
-          <div>
-            <p className="brand-eyebrow">HES Operating System</p>
-            <h2 className="section-heading">{current.label}</h2>
-          </div>
-          <div className="utility-area">
-            <span className="utility-status" title={statusLabel}>
-              <span className={syncDotClass(cloudStatus)} aria-hidden />
-              {statusLabel}
+    <main className="app-shell home-shell">
+      <header className="home-topbar">
+        <div className="home-topbar-left">
+          <OsMenu />
+          <Link href="/" className="home-brand" aria-label="HES OS home">
+            <Image
+              className="home-brand-logo"
+              src="/hes-logo.png"
+              alt=""
+              width={40}
+              height={40}
+              priority
+            />
+            <span className="home-brand-text">
+              <span className="brand-eyebrow">Harris Exterior</span>
+              <strong>HES OS</strong>
             </span>
-            <button type="button" className="icon-btn" onClick={logout}>
-              Lock
-            </button>
-          </div>
-        </header>
-        <div className="shell-content">{children}</div>
-      </section>
+          </Link>
+        </div>
+
+        <HomeSearch inputRef={searchRef} className="home-topbar-search" />
+
+        <div className="home-topbar-right">
+          <span className="utility-status" title={statusLabel}>
+            <span className={syncDotClass(cloudStatus)} aria-hidden />
+            <span className="utility-status-label">{statusLabel}</span>
+          </span>
+          {!isHome ? (
+            <span className="home-section-chip is-visible">
+              {sectionTitle(pathname)}
+            </span>
+          ) : null}
+          <button type="button" className="icon-btn" onClick={logout}>
+            Lock
+          </button>
+        </div>
+      </header>
+
+      <div className="shell-content home-shell-content">{children}</div>
     </main>
   );
 }
