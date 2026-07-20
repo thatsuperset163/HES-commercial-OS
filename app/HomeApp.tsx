@@ -9,6 +9,8 @@ import {
   buildHomeModules,
   buildTodayAttention,
 } from "@/lib/home/commandCenter";
+import { buildWeekJobValue } from "@/lib/clients/weekValue";
+import JobValueWeekCard from "./JobValueWeekCard";
 import {
   hydrateStoreFromCloud,
   listClients,
@@ -106,6 +108,7 @@ export default function HomeApp() {
     const jobs = scheduleJobs.length ? scheduleJobs : listJobs();
     return {
       week: buildWeekGlance(jobs, date),
+      weekValue: buildWeekJobValue(jobs, date),
       today: buildTodayAttention(store, jobs, 5),
       clearMessage: buildClearDayMessage(jobs, date),
       modules: buildHomeModules(store, jobs),
@@ -197,6 +200,8 @@ export default function HomeApp() {
             <p className="home-today-clear">{snapshot.clearMessage}</p>
           )}
         </section>
+
+        <JobValueWeekCard value={snapshot.weekValue} />
 
         <section className="home-secondary" aria-label="This week">
           <HQWeekAtGlance days={snapshot.week} />

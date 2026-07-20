@@ -27,7 +27,11 @@ export function clientInitials(client: WorkClient): string {
 
 /** Best secondary line for a compact directory row. */
 export function clientSecondaryDetail(client: WorkClient): string {
+  if (client.companyName.trim() && client.companyName.trim() !== client.name.trim()) {
+    return client.companyName.trim();
+  }
   if (client.address.trim()) return client.address.trim();
+  if (client.city.trim()) return client.city.trim();
   if (client.phone.trim()) return client.phone.trim();
   if (client.email.trim()) return client.email.trim();
   return "No contact details";
@@ -45,10 +49,15 @@ export function matchesClientQuery(client: WorkClient, query: string): boolean {
   if (!q) return true;
   const hay = [
     client.name,
+    client.companyName,
     client.phone,
     client.email,
     client.address,
+    client.billingAddress,
+    client.city,
     client.notes,
+    client.clientType,
+    ...(client.tags ?? []),
     ...(client.properties ?? []).flatMap((p) => [p.line, p.label]),
   ]
     .join(" ")

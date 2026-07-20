@@ -192,6 +192,36 @@ export function buildClientActivity(
     .slice(0, limit);
 }
 
+export type ClientRowSignals = {
+  upcoming: boolean;
+  unpaid: boolean;
+  followUp: boolean;
+};
+
+export function buildClientRowSignals(
+  related: ClientRelated,
+  today = todayKey(),
+): ClientRowSignals {
+  return {
+    upcoming: related.jobs.some(
+      (j) =>
+        j.scheduledDate &&
+        j.scheduledDate >= today &&
+        j.status !== "cancelled" &&
+        j.status !== "completed",
+    ),
+    unpaid: related.invoices.some(
+      (i) =>
+        i.status === "overdue" ||
+        i.status === "sent" ||
+        (i.status === "draft" && (i.amount ?? 0) > 0),
+    ),
+    followUp: related.quotes.some(
+      (q) => q.status === "sent" && q.followUpDate <= today,
+    ),
+  };
+}
+
 export function moneyLabel(value: number): string {
   if (!value) return "$0";
   return `$${Math.round(value).toLocaleString("en-US")}`;

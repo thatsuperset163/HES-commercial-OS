@@ -6,7 +6,15 @@
 }
 
 .clients-page.has-drawer {
-  width: min(1120px, 100%);
+  width: min(1180px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+  gap: 1rem;
+  align-items: start;
+}
+
+.clients-main {
+  min-width: 0;
 }
 
 .clients-page-header {
@@ -34,7 +42,7 @@
 /* Search */
 .client-search {
   position: relative;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .client-search-input {
@@ -584,6 +592,215 @@
   margin-top: 0.15rem;
 }
 
+.clients-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+  align-items: center;
+}
+
+.clients-filters button {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.clients-filters button.is-active {
+  border-color: var(--accent);
+  color: var(--ink);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.clients-filter-sep {
+  width: 1px;
+  height: 1rem;
+  background: var(--line);
+  margin: 0 0.2rem;
+}
+
+.client-row-meta {
+  font-size: 0.72rem !important;
+  color: var(--text-muted) !important;
+}
+
+.client-row-signals {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.client-row-signals .sig {
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.client-row-signals .sig.upcoming {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+.client-row-signals .sig.unpaid {
+  background: rgba(212, 160, 23, 0.22);
+  color: #fbbf24;
+}
+.client-row-signals .sig.follow {
+  background: rgba(234, 88, 12, 0.2);
+  color: #fb923c;
+}
+
+.client-row.is-favorite strong {
+  color: #fde68a;
+}
+
+.clients-split-profile {
+  position: sticky;
+  top: 0.5rem;
+  max-height: calc(100dvh - 5rem);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-elevated);
+}
+
+.clients-split-profile .client-drawer {
+  width: 100%;
+  height: auto;
+  max-height: none;
+  border: 0;
+  box-shadow: none;
+  padding: 0.85rem 1rem 1.5rem;
+}
+
+.clients-mobile-drawer {
+  display: none;
+}
+
+.client-drawer-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.client-drawer-company {
+  margin: 0.2rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.client-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.45rem;
+}
+
+.client-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  color: var(--text-muted);
+}
+
+.client-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--line-soft);
+  padding-bottom: 0.35rem;
+}
+
+.client-tabs button {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0.4rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.client-tabs button.is-active {
+  background: rgba(59, 130, 246, 0.14);
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.client-tab-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.client-next-card {
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  background: color-mix(in srgb, var(--surface) 85%, rgba(59, 130, 246, 0.1));
+  border-radius: 10px;
+  padding: 0.85rem 0.9rem;
+}
+
+.client-next-card strong {
+  display: block;
+  margin: 0.35rem 0 0.15rem;
+}
+
+.client-next-card p {
+  margin: 0 0 0.45rem;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.client-edit-form,
+.client-notes-edit {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.client-edit-form label,
+.client-notes-edit {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.client-edit-form input,
+.client-edit-form select,
+.client-edit-form textarea,
+.client-notes-edit textarea {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 0.55rem 0.65rem;
+  font: inherit;
+}
+
+.client-check {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.client-related-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
 @media (max-width: 860px) {
   .clients-alpha-index {
     display: none;
@@ -591,6 +808,18 @@
 
   .clients-directory-layout {
     grid-template-columns: 1fr;
+  }
+
+  .clients-page.has-drawer {
+    grid-template-columns: 1fr;
+  }
+
+  .clients-split-profile {
+    display: none;
+  }
+
+  .clients-mobile-drawer {
+    display: block;
   }
 
   .client-drawer {

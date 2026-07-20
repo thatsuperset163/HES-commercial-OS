@@ -8,11 +8,14 @@ import {
   REQUEST_SOURCES,
   type IntakeRequest,
 } from "@/lib/requestsCenter/types";
+import type { WorkClient } from "@/lib/work/types";
 import { listClients } from "@/lib/storage";
 
 type Props = {
   open: boolean;
   defaultDate?: string;
+  /** Prefill from an open client profile. */
+  defaultClient?: WorkClient | null;
   /** When set, also schedule a quote visit estimate on this date. */
   scheduleEstimate?: boolean;
   onClose: () => void;
@@ -26,19 +29,25 @@ type Props = {
 export default function CreateRequestModal({
   open,
   defaultDate,
+  defaultClient = null,
   scheduleEstimate = false,
   onClose,
   onCreated,
 }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [clientMode, setClientMode] = useState<"existing" | "new">("new");
+  const [clientMode, setClientMode] = useState<"existing" | "new">(
+    defaultClient ? "existing" : "new",
+  );
   const clients = open ? listClients() : [];
   const date = defaultDate || todayKey();
 
   useEffect(() => {
-    if (open) setError(null);
-  }, [open]);
+    if (open) {
+      setError(null);
+      setClientMode(defaultClient ? "existing" : "new");
+    }
+  }, [open, defaultClient]);
 
   if (!open) return null;
 
@@ -157,7 +166,7 @@ export default function CreateRequestModal({
               Select client
               <select
                 className="field"
-                defaultValue=""
+                defaultValue={defaultClient?.id || ""}
                 onChange={(e) =>
                   applyClient(e.target.value, e.currentTarget.form!)
                 }
@@ -174,26 +183,50 @@ export default function CreateRequestModal({
           <div className="jobs-form-row">
             <label className="field-label">
               Customer name *
-              <input className="field" name="customerName" required autoFocus />
+              <input
+                className="field"
+                name="customerName"
+                required
+                autoFocus
+                defaultValue={defaultClient?.name || ""}
+              />
             </label>
             <label className="field-label">
               Company
-              <input className="field" name="company" />
+              <input
+                className="field"
+                name="company"
+                defaultValue={defaultClient?.companyName || ""}
+              />
             </label>
           </div>
           <div className="jobs-form-row">
             <label className="field-label">
               Phone
-              <input className="field" name="phone" type="tel" />
+              <input
+                className="field"
+                name="phone"
+                type="tel"
+                defaultValue={defaultClient?.phone || ""}
+              />
             </label>
             <label className="field-label">
               Email
-              <input className="field" name="email" type="email" />
+              <input
+                className="field"
+                name="email"
+                type="email"
+                defaultValue={defaultClient?.email || ""}
+              />
             </label>
           </div>
           <label className="field-label">
             Service address
-            <input className="field" name="address" />
+            <input
+              className="field"
+              name="address"
+              defaultValue={defaultClient?.address || ""}
+            />
           </label>
           <label className="field-label">
             Service requested

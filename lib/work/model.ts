@@ -2,10 +2,12 @@ import { todayKey } from "../dates.ts";
 import type {
   ClientProperty,
   ClientStatus,
+  ClientType,
   ExpenseDoc,
   ExpenseStatus,
   InvoiceDoc,
   InvoiceStatus,
+  PreferredContact,
   QuoteDoc,
   QuoteStatus,
   RequestStatus,
@@ -42,15 +44,29 @@ export function createClient(input: {
   email?: string;
   address?: string;
   notes?: string;
+  companyName?: string;
+  billingAddress?: string;
+  city?: string;
+  clientType?: ClientType;
+  preferredContact?: PreferredContact;
+  tags?: string[];
+  favorite?: boolean;
 }): WorkClient {
   const now = new Date().toISOString();
   return {
     id: workUid("client"),
     name: input.name.trim() || "Client",
+    companyName: (input.companyName ?? "").trim(),
     phone: (input.phone ?? "").trim(),
     email: (input.email ?? "").trim(),
     address: (input.address ?? "").trim(),
+    billingAddress: (input.billingAddress ?? "").trim(),
     properties: [],
+    city: (input.city ?? "").trim(),
+    clientType: input.clientType === "commercial" ? "commercial" : "residential",
+    preferredContact: input.preferredContact ?? "",
+    tags: (input.tags ?? []).map((t) => t.trim()).filter(Boolean),
+    favorite: Boolean(input.favorite),
     notes: (input.notes ?? "").trim(),
     status: "active",
     createdAt: now,
@@ -247,6 +263,8 @@ export function createExpense(input: {
 export function normalizeClients(value: unknown): WorkClient[] {
   if (!Array.isArray(value)) return [];
   const statuses: ClientStatus[] = ["active", "paused"];
+  const types: ClientType[] = ["residential", "commercial"];
+  const prefs: PreferredContact[] = ["phone", "email", "text", ""];
   return value
     .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object")
     .map((row) => {
@@ -254,19 +272,43 @@ export function normalizeClients(value: unknown): WorkClient[] {
       const properties = rawProps
         .map(normalizeProperty)
         .filter((p): p is ClientProperty => Boolean(p));
+      const tags = Array.isArray(row.tags)
+        ? row.tags.map((t) => asString(t).trim()).filter(Boolean)
+        : [];
+      const address = asString(row.address);
       return {
         id: asString(row.id) || workUid("client"),
         name: asString(row.name).trim() || "Client",
+        companyName: asString(row.companyName),
         phone: asString(row.phone),
         email: asString(row.email),
-        address: asString(row.address),
+        address,
+        billingAddress: asString(row.billingAddress),
         properties,
+        city: asString(row.city) || guessCity(address),
+        clientType: pickStatus(row.clientType, types, "residential"),
+        preferredContact: pickStatus(
+          row.preferredContact,
+          prefs,
+          "",
+        ) as PreferredContact,
+        tags,
+        favorite: Boolean(row.favorite),
         notes: asString(row.notes),
         status: pickStatus(row.status, statuses, "active"),
         createdAt: asString(row.createdAt) || new Date().toISOString(),
         updatedAt: asString(row.updatedAt) || new Date().toISOString(),
       };
     });
+}
+
+function guessCity(address: string): string {
+  const parts = address
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length >= 2) return parts[parts.length - 2] || "";
+  return "";
 }
 
 export function normalizeRequests(value: unknown): ServiceRequest[] {

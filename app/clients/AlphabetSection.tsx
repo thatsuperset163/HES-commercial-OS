@@ -1,12 +1,14 @@
 "use client";
 
 import type { WorkClient } from "@/lib/work/types";
+import type { ClientRowSignals } from "@/lib/clients/related";
 import ClientListRow from "./ClientListRow";
 
 type Props = {
   letter: string;
   clients: WorkClient[];
   selectedId: string | null;
+  signals?: Record<string, ClientRowSignals>;
   onOpen: (client: WorkClient) => void;
   sectionRef?: (el: HTMLElement | null) => void;
 };
@@ -15,6 +17,7 @@ export default function AlphabetSection({
   letter,
   clients,
   selectedId,
+  signals,
   onOpen,
   sectionRef,
 }: Props) {
@@ -34,6 +37,7 @@ export default function AlphabetSection({
             <ClientListRow
               client={client}
               selected={selectedId === client.id}
+              signals={signals?.[client.id]}
               onOpen={onOpen}
             />
           </li>

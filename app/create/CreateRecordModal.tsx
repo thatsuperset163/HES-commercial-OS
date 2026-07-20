@@ -27,6 +27,8 @@ type Props = {
   deskId: DeskKind;
   /** Prefill date-ish fields (dueDate / followUpDate / date). */
   defaultDate?: string;
+  /** Prefill named fields (e.g. clientName from a client profile). */
+  defaultValues?: Record<string, string>;
   onClose: () => void;
   onCreated: (result: {
     id: string;
@@ -48,6 +50,7 @@ export default function CreateRecordModal({
   open,
   deskId,
   defaultDate,
+  defaultValues,
   onClose,
   onCreated,
 }: Props) {
@@ -57,12 +60,12 @@ export default function CreateRecordModal({
   const date = defaultDate || todayKey();
 
   const defaults = useMemo(() => {
-    const map: Record<string, string> = {};
+    const map: Record<string, string> = { ...(defaultValues || {}) };
     for (const field of desk.fields) {
-      if (field.type === "date") map[field.key] = date;
+      if (field.type === "date" && !map[field.key]) map[field.key] = date;
     }
     return map;
-  }, [desk.fields, date]);
+  }, [desk.fields, date, defaultValues]);
 
   useEffect(() => {
     if (open) {
