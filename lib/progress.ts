@@ -183,14 +183,6 @@ export function allTimeRangeLabel(store: BoardStore): string {
   return formatRangeLabel(keys[0], keys[keys.length - 1]);
 }
 
-export function dayHasPersonalActivity(entry: DayEntry): boolean {
-  const day = normalizeDayEntry(entry);
-  if (day.dailyChecklist.some((i) => i.done)) return true;
-  if (day.goals.some((g) => g.category === "personal" && g.done)) return true;
-  if (day.personalNotes?.trim()) return true;
-  return false;
-}
-
 export function dayHasWorkActivity(entry: DayEntry): boolean {
   const day = normalizeDayEntry(entry);
   const m = day.metrics;
@@ -207,7 +199,8 @@ export function dayHasWorkActivity(entry: DayEntry): boolean {
   if (
     day.morningWorkChecklist.some((i) => i.done) ||
     day.afternoonWorkChecklist.some((i) => i.done) ||
-    day.outreach.some((i) => i.done)
+    day.outreach.some((i) => i.done) ||
+    (day.huntChecklist ?? []).some((i) => i.done)
   ) {
     return true;
   }
@@ -245,7 +238,6 @@ function addDaysLocal(key: string, delta: number): string {
 }
 
 export type RealmStreaks = {
-  personal: number;
   work: number;
 };
 
@@ -254,7 +246,6 @@ export function getRealmStreaks(
   endKey: string = todayKey()
 ): RealmStreaks {
   return {
-    personal: countStreak(store, dayHasPersonalActivity, endKey),
     work: countStreak(store, dayHasWorkActivity, endKey),
   };
 }

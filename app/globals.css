@@ -1653,7 +1653,6 @@ a.tab {
   margin: 0;
 }
 
-.personal-grid,
 .work-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -1661,13 +1660,6 @@ a.tab {
 .journal-panel,
 .metrics-panel {
   grid-column: 1 / -1;
-}
-
-.personal-intro-side {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.75rem;
 }
 
 .hunt-coach {

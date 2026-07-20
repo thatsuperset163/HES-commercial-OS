@@ -7,7 +7,6 @@ Private company HQ for **Harris Exterior Solutions**:
 - **Sales OS** (`/work/sales/`) — commercial pipeline & outreach
 - **Jobs OS** (`/work/jobs`) — schedule → run → done
 - **Next Work OSes** — Money, Inbox/Leads, Reputation (see `docs/OS-ROADMAP.md`)
-- **Personal** — parked for now (pillars already exist at `/personal`)
 
 PIN-protected HQ. Data syncs through **Supabase** with browser storage as an offline backup. Built for **Vercel**.
 
@@ -48,10 +47,10 @@ That rebuilds into `public/work/sales/` (commit those files before deploy).
 
 Copy `.env.example` → `.env.local` and fill in values for local work. On Vercel, add the **same variable names** under Project → Settings → Environment Variables, then **redeploy**.
 
-**Supabase data:** run the latest `supabase/schema.sql` in the SQL Editor. With Sales v2 (sync pill says **Cloud: Sales v2**), prospects live in **`companies`**, **`contacts`**, and **`opportunities`** — not only `commercial_prospects`. HQ / Personal / Jobs blackboard state is in **`blackboard_workspace`**. Details: [`supabase/README.md`](./supabase/README.md).
+**Supabase data:** run the latest `supabase/schema.sql` in the SQL Editor. With Sales v2 (sync pill says **Cloud: Sales v2**), prospects live in **`companies`**, **`contacts`**, and **`opportunities`** — not only `commercial_prospects`. HQ / Jobs blackboard state is in **`blackboard_workspace`**. Details: [`supabase/README.md`](./supabase/README.md).
 
 **Before trusting live data:**
-- **Whole site (HQ / Jobs / Personal):** sidebar and top bar should say **Cloud synced** (green). If it says **Local only**, **Cloud offline**, or **Save error**, fixes may only live in that browser.
+- **Whole site (HQ / Jobs):** sidebar and top bar should say **Cloud synced** (green). If it says **Local only**, **Cloud offline**, or **Save error**, fixes may only live in that browser.
 - **Sales:** open `/work/sales/` and confirm the pill says **Cloud: Sales v2** (green).
 
 ## Deploy on Vercel

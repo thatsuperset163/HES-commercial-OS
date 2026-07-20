@@ -23,7 +23,7 @@ const hq = Montserrat({
 
 export const metadata: Metadata = {
   title: "HES Operating System",
-  description: "Personal direction, field operations, and commercial growth for Harris Exterior Solutions",
+  description: "Field operations and commercial growth for Harris Exterior Solutions",
   appleWebApp: {
     capable: true,
     title: "HES OS",

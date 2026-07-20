@@ -1,6 +1,6 @@
 # HES peer operating systems (Work)
 
-Equal peers. Each owns one job. Personal coaches the hunt; Work holds the desks.
+Equal peers under Work. Each desk owns one job.
 
 ## Steady pipeline (live)
 
@@ -19,17 +19,15 @@ These desks appear on **HQ** and live under **Work**:
 | — | **Work home** | Launcher + pipeline strip | `/work` |
 | — | **Public site** | Marketing + estimate form | `/site` (no PIN) |
 
-## Later polish
+## How they relate
 
-| OS | Owns | Route |
-|----|------|--------|
-| Money rollup | Unbilled + unpaid dashboard | `/work/money` (can fold invoices/expenses) |
-| Reputation | Reviews / referrals after jobs | `/work/reputation` |
+1. **Requests Center** is the front door for new work (website + phone + door).  
+2. Approved requests convert into **Client + Job + Invoice draft + Task**.  
+3. **Sales** hunts commercial accounts that are not yet requests.  
+4. **Jobs** is the calendar / field execution OS.  
+5. Hunt / next-action steps **deep-link** into these desks — never leave you guessing where to go  
 
-## Rules for every desk
+## Not built yet (still peers when added)
 
-1. Real entities + statuses (not chore checklists)  
-2. “Do this next” when it helps  
-3. One-tap actions that change state  
-4. Logging is a side effect of doing the work  
-5. Personal hunt steps **deep-link** into these desks — never leave you guessing where to go  
+- **Money OS** — cash, deposits, P&L (beyond invoice desk)  
+- **Reputation OS** — reviews / proof content  

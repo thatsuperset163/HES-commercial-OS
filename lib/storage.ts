@@ -216,7 +216,7 @@ function alertLocalOnly(): void {
   window.setTimeout(() => {
     window.alert(
       "HQ / Jobs cloud is not available on this deployment. " +
-        "Personal days and jobs will only save in this browser and can disappear. " +
+        "Days and jobs will only save in this browser and can disappear. " +
         "Add NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and " +
         "SUPABASE_SERVICE_ROLE_KEY on Vercel, then redeploy.",
     );
@@ -383,25 +383,18 @@ function looksLikeLegacyOutreach(entry: DayEntry): boolean {
 
 function needsDailyRebuild(entry: DayEntry): boolean {
   const list = entry.dailyChecklist;
-  if (!list?.length) return true;
-  const ids = new Set(list.map((i) => i.id));
-  return (
-    !ids.has("train") ||
-    !ids.has("golf") ||
-    !ids.has("no-porn") ||
-    !ids.has("no-weed") ||
-    !ids.has("faith") ||
-    !ids.has("people")
-  );
+  if (!list?.length) return false;
+  // Strip legacy personal-pillar rows once.
+  return list.some((item) => !item.id.startsWith("dailyChecklist-"));
 }
 
 function needsGoalsRebuild(entry: DayEntry): boolean {
   const goals = entry.goals;
-  if (!goals || goals.length !== 2) return true;
-  const [a, b] = goals;
-  if (a.category !== "personal" || b.category !== "business") return true;
-  if (!a.text?.trim() || !b.text?.trim()) return true;
-  return false;
+  if (!goals?.length) return true;
+  const business = goals.filter((g) => g.category === "business");
+  if (business.length !== 1) return true;
+  if (!business[0]?.text?.trim()) return true;
+  return goals.some((g) => g.category !== "business");
 }
 
 export function getOrCreateDay(store: BoardStore, date: string): DayEntry {

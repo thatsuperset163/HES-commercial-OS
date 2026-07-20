@@ -5,7 +5,6 @@ import { addDays, parseDateKey, todayKey } from "./dates";
 export type DayChartPoint = {
   date: string;
   label: string;
-  personalPct: number;
   workPct: number;
   doors: number;
   conversations: number;
@@ -22,25 +21,26 @@ function listPct(done: number, total: number) {
 
 function dayPercents(entry: DayEntry | undefined) {
   if (!entry) {
-    return { personalPct: 0, workPct: 0, doors: 0, conversations: 0, phoneNumbers: 0, quotes: 0, jobsBooked: 0, activityScore: 0 };
+    return {
+      workPct: 0,
+      doors: 0,
+      conversations: 0,
+      phoneNumbers: 0,
+      quotes: 0,
+      jobsBooked: 0,
+      activityScore: 0,
+    };
   }
   const day = normalizeDayEntry(entry);
-  const personalBoxes = [
-    ...day.dailyChecklist,
-    ...day.goals.filter((g) => g.category === "personal"),
-  ];
   const workBoxes = [
     ...day.morningWorkChecklist,
     ...day.afternoonWorkChecklist,
     ...day.outreach,
+    ...day.huntChecklist ?? [],
     ...day.goals.filter((g) => g.category === "business"),
   ];
   const m = day.metrics;
   return {
-    personalPct: listPct(
-      personalBoxes.filter((i) => i.done).length,
-      personalBoxes.length
-    ),
     workPct: listPct(workBoxes.filter((i) => i.done).length, workBoxes.length),
     doors: m.doors || 0,
     conversations: m.conversations || 0,

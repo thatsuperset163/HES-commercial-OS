@@ -5,7 +5,7 @@ import { dayHasActivity } from "./progress";
 export type InsightRow = {
   id: string;
   label: string;
-  realm: "personal" | "work";
+  realm: "work";
   done: number;
   total: number;
   days: number;
@@ -19,7 +19,7 @@ function pct(done: number, total: number) {
 
 type Agg = {
   label: string;
-  realm: "personal" | "work";
+  realm: "work";
   done: number;
   total: number;
   days: number;
@@ -29,7 +29,7 @@ function bumpItem(
   map: Map<string, Agg>,
   id: string,
   label: string,
-  realm: "personal" | "work",
+  realm: "work",
   done: boolean
 ) {
   const cur = map.get(id) ?? {
@@ -50,7 +50,7 @@ function bumpSection(
   map: Map<string, Agg>,
   id: string,
   label: string,
-  realm: "personal" | "work",
+  realm: "work",
   list: ChecklistItem[]
 ) {
   if (!list.length) return;
@@ -73,13 +73,6 @@ function collectSections(map: Map<string, Agg>, entry: DayEntry) {
 
   bumpSection(
     map,
-    "sec-personal-daily",
-    "Personal daily checklist",
-    "personal",
-    day.dailyChecklist
-  );
-  bumpSection(
-    map,
     "sec-morning",
     "Morning work",
     "work",
@@ -93,23 +86,17 @@ function collectSections(map: Map<string, Agg>, entry: DayEntry) {
     day.afternoonWorkChecklist
   );
   bumpSection(map, "sec-outreach", "Commercial outreach", "work", day.outreach);
+  bumpSection(map, "sec-hunt", "Hunt checklist", "work", day.huntChecklist ?? []);
 
-  const pGoal = day.goals.find((g) => g.category === "personal");
-  if (pGoal) {
-    bumpItem(map, "sec-personal-goal", "Personal goal", "personal", pGoal.done);
-  }
   const bGoal = day.goals.find((g) => g.category === "business");
   if (bGoal) {
-    bumpItem(map, "sec-business-goal", "Business goal", "work", bGoal.done);
+    bumpItem(map, "sec-business-goal", "Work goal", "work", bGoal.done);
   }
 }
 
 function collectItems(map: Map<string, Agg>, entry: DayEntry) {
   const day = normalizeDayEntry(entry);
 
-  for (const item of day.dailyChecklist) {
-    bumpItem(map, `personal:${item.id}`, item.label, "personal", item.done);
-  }
   for (const item of day.morningWorkChecklist) {
     bumpItem(map, `work:am:${item.id}`, item.label, "work", item.done);
   }
@@ -118,6 +105,9 @@ function collectItems(map: Map<string, Agg>, entry: DayEntry) {
   }
   for (const item of day.outreach) {
     bumpItem(map, `work:out:${item.id}`, item.label, "work", item.done);
+  }
+  for (const item of day.huntChecklist ?? []) {
+    bumpItem(map, `work:hunt:${item.id}`, item.label, "work", item.done);
   }
 }
 
