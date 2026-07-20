@@ -29,6 +29,37 @@
   border-radius: 12px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
   padding: 8px;
+  color-scheme: dark;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text-muted, #8494a7) 55%, transparent)
+    var(--surface-elevated, #162234);
+}
+
+.create-new-panel::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.create-new-panel::-webkit-scrollbar-track {
+  background: var(--surface-elevated, #162234);
+  border-radius: 999px;
+}
+
+.create-new-panel::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-muted, #8494a7) 50%, transparent);
+  border-radius: 999px;
+  border: 1px solid var(--surface-elevated, #162234);
+  background-clip: padding-box;
+}
+
+.create-new-panel::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-muted, #8494a7) 75%, transparent);
+  border: 1px solid var(--surface-elevated, #162234);
+  background-clip: padding-box;
+}
+
+.create-new-panel::-webkit-scrollbar-corner {
+  background: var(--surface-elevated, #162234);
 }
 
 .create-new-group + .create-new-group {

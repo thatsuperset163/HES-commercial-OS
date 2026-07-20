@@ -73,7 +73,7 @@ export default function BoardApp() {
     <AppShell>
       <div className="page-intro">
         <div>
-          <p className="hq-eyebrow">Work</p>
+          <p className="hq-eyebrow">Home</p>
           <h2>{formatDisplayDate(date)}</h2>
           <p>
             Steady pipeline — tap a desk, do the next move, come back.

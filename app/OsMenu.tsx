@@ -30,7 +30,7 @@ export default function OsMenu({ className = "" }: Props) {
     };
   }, [open]);
 
-  const items = OS_NAV_ITEMS.filter((item) => item.id !== "home");
+  const items = OS_NAV_ITEMS;
 
   return (
     <div className={`os-menu ${className}${open ? " is-open" : ""}`} ref={rootRef}>

@@ -103,7 +103,6 @@ export default function HomeSearch({ inputRef, className = "" }: Props) {
                       onClick={() => setOpen(false)}
                     >
                       <strong>{item.label}</strong>
-                      <span>{item.description}</span>
                     </Link>
                   </li>
                 ))}
@@ -124,7 +123,6 @@ export default function HomeSearch({ inputRef, className = "" }: Props) {
                       onClick={() => setOpen(false)}
                     >
                       <strong>{item.label}</strong>
-                      <span>{item.description}</span>
                     </Link>
                   </li>
                 ))}
