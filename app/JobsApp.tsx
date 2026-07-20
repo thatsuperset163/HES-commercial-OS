@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { addDays, formatDisplayDate, getWeekKeys, todayKey } from "@/lib/dates";
 import {
@@ -49,12 +50,28 @@ type UndoState = {
   previous: { scheduledDate: string; startTime: string; endTime: string; status: Job["status"] };
 } | null;
 
+function parseViewParam(value: string | null): CalendarView | null {
+  if (value === "month" || value === "week" || value === "day") return value;
+  return null;
+}
+
+function parseDateParam(value: string | null): string | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  return value;
+}
+
 export default function JobsApp() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [ready, setReady] = useState(false);
   const [cloud, setCloud] = useState(true);
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [view, setView] = useState<CalendarView>("month");
-  const [anchorKey, setAnchorKey] = useState(todayKey());
+  const [view, setView] = useState<CalendarView>(
+    () => parseViewParam(searchParams.get("view")) ?? "month",
+  );
+  const [anchorKey, setAnchorKey] = useState(
+    () => parseDateParam(searchParams.get("date")) ?? todayKey(),
+  );
   const [filters, setFilters] = useState<ScheduleFilterState>(DEFAULT_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selected, setSelected] = useState<Job | null>(null);
@@ -70,6 +87,41 @@ export default function JobsApp() {
   >([]);
   const [intakeRows, setIntakeRows] = useState<IntakeRequest[]>([]);
   const [createContext, setCreateContext] = useState<CreateContext | null>(null);
+
+  const syncScheduleUrl = useCallback(
+    (nextView: CalendarView, nextDate: string) => {
+      const params = new URLSearchParams();
+      params.set("view", nextView);
+      params.set("date", nextDate);
+      router.replace(`/work/jobs?${params.toString()}`, { scroll: false });
+    },
+    [router],
+  );
+
+  const goToView = useCallback(
+    (nextView: CalendarView) => {
+      setView(nextView);
+      syncScheduleUrl(nextView, anchorKey);
+    },
+    [anchorKey, syncScheduleUrl],
+  );
+
+  const goToDate = useCallback(
+    (nextDate: string, nextView: CalendarView = view) => {
+      setAnchorKey(nextDate);
+      setView(nextView);
+      syncScheduleUrl(nextView, nextDate);
+    },
+    [syncScheduleUrl, view],
+  );
+
+  // Deep-link from Home "This Week" (and shareable URLs).
+  useEffect(() => {
+    const nextView = parseViewParam(searchParams.get("view"));
+    const nextDate = parseDateParam(searchParams.get("date"));
+    if (nextView) setView(nextView);
+    if (nextDate) setAnchorKey(nextDate);
+  }, [searchParams]);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -158,15 +210,23 @@ export default function JobsApp() {
   }, [view, anchorKey]);
 
   const goPrev = () => {
-    if (view === "month") setAnchorKey((k) => shiftMonth(k, -1));
-    else if (view === "week") setAnchorKey((k) => shiftWeek(k, -1));
-    else setAnchorKey((k) => addDays(k, -1));
+    const next =
+      view === "month"
+        ? shiftMonth(anchorKey, -1)
+        : view === "week"
+          ? shiftWeek(anchorKey, -1)
+          : addDays(anchorKey, -1);
+    goToDate(next, view);
   };
 
   const goNext = () => {
-    if (view === "month") setAnchorKey((k) => shiftMonth(k, 1));
-    else if (view === "week") setAnchorKey((k) => shiftWeek(k, 1));
-    else setAnchorKey((k) => addDays(k, 1));
+    const next =
+      view === "month"
+        ? shiftMonth(anchorKey, 1)
+        : view === "week"
+          ? shiftWeek(anchorKey, 1)
+          : addDays(anchorKey, 1);
+    goToDate(next, view);
   };
 
   const persistRemote = async (job: Job) => {
@@ -354,7 +414,7 @@ export default function JobsApp() {
               <button
                 type="button"
                 className="btn ghost small"
-                onClick={() => setAnchorKey(todayKey())}
+                onClick={() => goToDate(todayKey(), view)}
               >
                 Today
               </button>
@@ -370,7 +430,7 @@ export default function JobsApp() {
                   role="tab"
                   aria-selected={view === id}
                   className={view === id ? "is-active" : ""}
-                  onClick={() => setView(id)}
+                  onClick={() => goToView(id)}
                 >
                   {id[0].toUpperCase() + id.slice(1)}
                 </button>
@@ -425,8 +485,7 @@ export default function JobsApp() {
             filters={filters}
             onSelectJob={selectJob}
             onOpenDay={(dateKey) => {
-              setAnchorKey(dateKey);
-              setView("day");
+              goToDate(dateKey, "day");
             }}
             onCreateOnDate={(dateKey, startTime) => openCreate(dateKey, startTime)}
             onPatchJob={handlePatch}

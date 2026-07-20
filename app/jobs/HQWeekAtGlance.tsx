@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { moneyLabel } from "@/lib/jobs/statusStyles";
 import type { WeekGlanceDay } from "@/lib/jobs/calendar";
+import { jobsDayHref } from "@/lib/osNav";
 
 type Props = {
   days: WeekGlanceDay[];
@@ -19,8 +20,9 @@ export default function HQWeekAtGlance({ days }: Props) {
       </div>
       <div className="hq-week-grid">
         {days.map((day) => (
-          <article
+          <Link
             key={day.dateKey}
+            href={jobsDayHref(day.dateKey)}
             className={`hq-week-day${day.isToday ? " is-today" : ""}`}
           >
             <header>
@@ -41,7 +43,7 @@ export default function HQWeekAtGlance({ days }: Props) {
             ) : (
               <p className="hq-week-empty">Open</p>
             )}
-          </article>
+          </Link>
         ))}
       </div>
     </section>

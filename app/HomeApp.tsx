@@ -2,11 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { DayEntry, MetricKey } from "@/lib/types";
-import { METRIC_LABELS } from "@/lib/types";
-import { formatDisplayDate, formatShortDate, todayKey } from "@/lib/dates";
-import { getLastNDayCharts } from "@/lib/charts";
-import { getRealmStreaks } from "@/lib/progress";
+import { formatDisplayDate, todayKey } from "@/lib/dates";
 import {
   getOrCreateDay,
   hydrateStoreFromCloud,
@@ -20,16 +16,19 @@ import {
 import { createJobRemote, fetchJobs } from "@/lib/jobs/api";
 import { buildWeekGlance } from "@/lib/jobs/calendar";
 import type { Job, JobInput } from "@/lib/jobs/types";
+import { buildPipelineNextActions } from "@/lib/work/pipeline";
 import {
-  buildPipelineCounts,
-  buildPipelineNextActions,
-} from "@/lib/work/pipeline";
+  HOME_QUICK_LINKS,
+  jobsDayHref,
+  resolveQuickHref,
+} from "@/lib/osNav";
+import type { DayEntry } from "@/lib/types";
 import AppShell from "./AppShell";
-import { BarChart } from "./BarChart";
 import CreateNewController from "./create/CreateNewController";
 import JobForm from "./jobs/JobForm";
 import HQWeekAtGlance from "./jobs/HQWeekAtGlance";
 import "./jobs-os.css";
+import "./home-shell.css";
 
 export default function HomeApp() {
   const [ready, setReady] = useState(false);
@@ -107,119 +106,70 @@ export default function HomeApp() {
   const snapshot = useMemo(() => {
     if (!day) return null;
     const store = loadStore();
-    const charts = getLastNDayCharts(store, 7, date);
-    const recent = Object.values(store.days)
-      .filter((entry) => entry.date !== date && entry.notes?.trim())
-      .sort((a, b) => (a.date < b.date ? 1 : -1))
-      .slice(0, 4);
-    const pipeline = buildPipelineCounts(store);
     const workActions = buildPipelineNextActions(store);
     const week = buildWeekGlance(
       scheduleJobs.length ? scheduleJobs : listJobs(),
       date,
     );
     return {
-      charts,
-      recent,
-      pipeline,
       week,
       workTop: workActions[0] ?? null,
-      workStreak: getRealmStreaks(store, date).work,
-      totals: {
-        doors: charts.reduce((sum, point) => sum + point.doors, 0),
-        conversations: charts.reduce(
-          (sum, point) => sum + point.conversations,
-          0,
-        ),
-        phoneNumbers: charts.reduce((sum, point) => sum + point.phoneNumbers, 0),
-        quotes: charts.reduce((sum, point) => sum + point.quotes, 0),
-        jobsBooked: charts.reduce((sum, point) => sum + point.jobsBooked, 0),
-      },
     };
   }, [day, date, scheduleJobs]);
 
   if (!ready || !day || !snapshot) {
     return (
       <AppShell>
-        <p className="hq-lede">Loading HQ…</p>
+        <p className="hq-lede">Loading…</p>
       </AppShell>
     );
   }
 
-  const workFocus = day.goals.find((goal) => goal.category === "business")?.text;
-  const workGoal = day.goals.find((goal) => goal.category === "business");
-  const morningDone = day.morningWorkChecklist.filter((item) => item.done).length;
-  const morningTotal = day.morningWorkChecklist.length;
-  const workStreak = snapshot.workStreak;
+  const quickLinks = HOME_QUICK_LINKS.map((link) => ({
+    ...link,
+    href: resolveQuickHref(link.href, date),
+  }));
 
   return (
     <AppShell>
-      <div className="hq-page">
-        <header className="page-intro">
+      <div className="home-page">
+        <header className="home-hero">
           <div>
-            <p className="hq-eyebrow">Command overview</p>
-            <h2>{formatDisplayDate(date)}</h2>
-            <p>
-              Today&apos;s direction, operating pulse, and next moves across HES.
+            <p className="hq-eyebrow">Harris Exterior Solutions</p>
+            <h1 className="home-hero-title">{formatDisplayDate(date)}</h1>
+            <p className="home-hero-lede">
+              Your week, next move, and shortcuts — open any OS from the menu or
+              search.
             </p>
           </div>
-          <div className="hq-intro-actions">
-            <CreateNewController
-              size="small"
-              label="Create New"
-              onOpenJobForm={(initial) => {
-                setFormInitial(initial);
-                setFormError(null);
-                setFormOpen(true);
-              }}
-              onQuickCreateJob={async (input) => {
-                const saved = await createJobRemote(input);
-                upsertJob(saved);
-                setScheduleJobs((prev) => [...prev, saved]);
-              }}
-              onCreated={async () => {
-                refreshMeta();
-                try {
-                  setScheduleJobs(await fetchJobs());
-                } catch {
-                  setScheduleJobs(listJobs());
-                }
-              }}
-            />
-            <span className="hq-pill accent">Live overview</span>
-          </div>
+          <CreateNewController
+            size="small"
+            label="Create New"
+            onOpenJobForm={(initial) => {
+              setFormInitial(initial);
+              setFormError(null);
+              setFormOpen(true);
+            }}
+            onQuickCreateJob={async (input) => {
+              const saved = await createJobRemote(input);
+              upsertJob(saved);
+              setScheduleJobs((prev) => [...prev, saved]);
+            }}
+            onCreated={async () => {
+              refreshMeta();
+              try {
+                setScheduleJobs(await fetchJobs());
+              } catch {
+                setScheduleJobs(listJobs());
+              }
+            }}
+          />
         </header>
-
-        <section
-          className="hq-metric-strip"
-          aria-label="Seven-day operating metrics"
-        >
-          {(Object.keys(METRIC_LABELS) as MetricKey[]).map((key) => (
-            <div className="hq-metric" key={key}>
-              <span>{METRIC_LABELS[key]} · 7d</span>
-              <strong>{snapshot.totals[key]}</strong>
-            </div>
-          ))}
-        </section>
-
-        <section className="pipeline-strip hq-pipeline" aria-label="Work pipeline">
-          {snapshot.pipeline.map((item) => (
-            <Link key={item.id} href={item.href} className="pipeline-chip">
-              <span className="pipeline-chip-label">{item.label}</span>
-              <strong>{item.count}</strong>
-              {item.attention > 0 ? (
-                <span className="pipeline-chip-attn">{item.attention} open</span>
-              ) : (
-                <span className="pipeline-chip-attn muted">Clear</span>
-              )}
-            </Link>
-          ))}
-        </section>
 
         <HQWeekAtGlance days={snapshot.week} />
 
         {snapshot.workTop ? (
-          <section className="hq-card hq-work-next">
+          <section className="home-card home-next">
             <div className="hq-section-head">
               <h2>Do this next</h2>
               <span className="hq-pill">Live</span>
@@ -227,114 +177,43 @@ export default function HomeApp() {
             <p className="hq-work-next-title">{snapshot.workTop.title}</p>
             <p>{snapshot.workTop.reason}</p>
             <Link href={snapshot.workTop.href} className="hq-link">
-              Open in Work →
+              Open →
             </Link>
           </section>
         ) : null}
 
-        <div className="hq-split">
-          <section className="hq-card focus-summary">
-            <div className="hq-section-head">
-              <h2>Current focus</h2>
-              <span className="hq-pill">Today</span>
-            </div>
-            <article className="hq-focus-card">
-              <span className="hq-kicker">Work</span>
-              <p>
-                {workFocus ||
-                  snapshot.workTop?.title ||
-                  "Open Work and pick a desk."}
-              </p>
-              <p className="hq-focus-meta">
-                {workGoal?.done ? "Focus done · " : ""}
-                Morning {morningDone}/{morningTotal}
-                {workStreak > 0 ? ` · ${workStreak}d streak` : ""}
-              </p>
-              <Link href="/work" className="hq-link">
-                Open Work →
-              </Link>
-            </article>
-          </section>
-
-          <section className="hq-card sales-launch">
-            <p className="hq-eyebrow">Work operating systems</p>
-            <h2>Get to work, Son</h2>
-            <p>
-              Requests, clients, quotes, jobs, invoices, tasks, and expenses —
-              live under Work, visible here.
-            </p>
-            <Link href="/work" className="hq-btn">
-              Open Work →
-            </Link>
-          </section>
-        </div>
-
-        <section className="hq-card">
+        <section className="home-card" aria-label="Quick links">
           <div className="hq-section-head">
-            <h2>Operating trend</h2>
-            <span className="hq-pill">Last 7 days</span>
+            <h2>Quick links</h2>
+            <span className="hq-pill">Shortcuts</span>
           </div>
-          <div className="chart-grid">
-            <BarChart
-              title="Doors knocked"
-              points={snapshot.charts.map((point) => ({
-                label: point.label,
-                value: point.doors,
-              }))}
-            />
-            <BarChart
-              title="Conversations"
-              points={snapshot.charts.map((point) => ({
-                label: point.label,
-                value: point.conversations,
-              }))}
-            />
-            <BarChart
-              title="Quotes"
-              points={snapshot.charts.map((point) => ({
-                label: point.label,
-                value: point.quotes,
-              }))}
-            />
-            <BarChart
-              title="Jobs booked"
-              points={snapshot.charts.map((point) => ({
-                label: point.label,
-                value: point.jobsBooked,
-              }))}
-            />
+          <div className="home-quick-grid">
+            {quickLinks.map((link) => (
+              <Link key={link.id} href={link.href} className="home-quick-card">
+                <strong>{link.label}</strong>
+                <span>{link.description}</span>
+              </Link>
+            ))}
+            <div className="home-quick-card is-placeholder" aria-hidden>
+              <strong>More soon</strong>
+              <span>Room for the shortcuts you use most</span>
+            </div>
           </div>
         </section>
 
-        <div className="hq-split">
-          <section className="hq-card">
-            <div className="hq-section-head">
-              <h2>Today&apos;s work notes</h2>
-              <span className="hq-pill">Live</span>
-            </div>
-            <p>{day.notes || "No work note yet."}</p>
-          </section>
-          <section className="hq-card">
-            <div className="hq-section-head">
-              <h2>Recent signals</h2>
-              <span className="hq-pill">History</span>
-            </div>
-            {snapshot.recent.length ? (
-              <div className="signal-list">
-                {snapshot.recent.map((entry) => (
-                  <article className="signal-row" key={entry.date}>
-                    <span>{formatShortDate(entry.date)}</span>
-                    <p>{entry.notes?.trim()}</p>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <p className="empty-state">
-                Notes and operating signals will surface here over time.
-              </p>
-            )}
-          </section>
-        </div>
+        <section className="home-card home-note-slot" aria-label="Ideas">
+          <div className="hq-section-head">
+            <h2>Ideas &amp; later</h2>
+            <span className="hq-pill">Open</span>
+          </div>
+          <p>
+            Space for widgets you invent as you use the OS — pin a desk, a cash
+            pulse, or whatever you open every morning.
+          </p>
+          <Link href={jobsDayHref(date)} className="hq-link">
+            Jump to today&apos;s agenda →
+          </Link>
+        </section>
       </div>
 
       <JobForm
