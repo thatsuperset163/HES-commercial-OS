@@ -158,6 +158,18 @@ export default function QuotesApp() {
     refresh();
   }
 
+  function deleteQuote(id: string, clientName?: string) {
+    const label = clientName?.trim() || "this quote";
+    if (!window.confirm(`Delete quote for ${label}? This cannot be undone.`)) {
+      return;
+    }
+    removeQuote(id);
+    if (selectedId === id || mode !== "list") {
+      backToList();
+    }
+    flash("Quote deleted");
+  }
+
   function startNewQuote(prefill?: Partial<QuoteDraftFields>) {
     setDraft(emptyDraft(prefill));
     setSelectedId(null);
@@ -338,6 +350,15 @@ export default function QuotesApp() {
               >
                 Print / PDF
               </button>
+              {selected ? (
+                <button
+                  type="button"
+                  className="btn danger"
+                  onClick={() => deleteQuote(selected.id, selected.clientName)}
+                >
+                  Delete
+                </button>
+              ) : null}
             </div>
           </header>
 
@@ -379,18 +400,6 @@ export default function QuotesApp() {
                   </button>
                 </>
               ) : null}
-              <button
-                type="button"
-                className="btn secondary small"
-                onClick={() => {
-                  if (!window.confirm("Remove this quote?")) return;
-                  removeQuote(selected.id);
-                  backToList();
-                  flash("Removed");
-                }}
-              >
-                Remove
-              </button>
             </div>
           ) : null}
 
@@ -475,7 +484,7 @@ export default function QuotesApp() {
               ) : (
                 <ul className="quotes-list">
                   {filtered.map((row) => (
-                    <li key={row.id}>
+                    <li key={row.id} className="quotes-list-item">
                       <button
                         type="button"
                         className="quotes-row"
@@ -499,6 +508,17 @@ export default function QuotesApp() {
                             .filter(Boolean)
                             .join(" · ")}
                         </p>
+                      </button>
+                      <button
+                        type="button"
+                        className="btn danger small quotes-row-delete"
+                        aria-label={`Delete quote for ${row.clientName}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          deleteQuote(row.id, row.clientName);
+                        }}
+                      >
+                        Delete
                       </button>
                     </li>
                   ))}
