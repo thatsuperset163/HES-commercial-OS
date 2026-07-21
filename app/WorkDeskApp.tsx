@@ -172,7 +172,9 @@ export default function WorkDeskApp({ deskId }: { deskId: WorkDeskId }) {
       if (deskId === "tasks") return row.status === "open";
       if (deskId === "requests") return row.status !== "closed";
       if (deskId === "quotes") return row.status === "draft" || row.status === "sent";
-      if (deskId === "invoices") return row.status !== "paid";
+      if (deskId === "invoices") {
+        return row.status !== "paid" && row.status !== "void";
+      }
       if (deskId === "expenses") return row.status === "logged";
       return true;
     });

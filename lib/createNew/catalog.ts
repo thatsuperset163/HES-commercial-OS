@@ -94,7 +94,7 @@ export const CREATE_NEW_OPTIONS: CreateNewOption[] = [
     id: "invoice",
     group: "record",
     label: "Invoice",
-    description: "Bill a client for completed work",
+    description: "Open the HES invoice page to bill and print",
     mark: "🧾",
     onCalendar: false,
     hrefAfter: "/work/invoices",

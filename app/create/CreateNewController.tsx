@@ -147,7 +147,17 @@ export default function CreateNewController({
         return;
       }
       if (kind === "invoice") {
-        setDesk("invoices");
+        const params = new URLSearchParams({ new: "1" });
+        if (clientPrefill?.id) params.set("clientId", clientPrefill.id);
+        if (clientPrefill?.name) params.set("clientName", clientPrefill.name);
+        if (clientPrefill?.companyName) {
+          params.set("companyName", clientPrefill.companyName);
+        }
+        if (clientPrefill?.address) {
+          params.set("serviceAddress", clientPrefill.address);
+          params.set("billingAddress", clientPrefill.address);
+        }
+        window.location.assign(`/work/invoices?${params.toString()}`);
         return;
       }
       if (kind === "expense") {
