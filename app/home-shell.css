@@ -127,37 +127,12 @@
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
   padding: 10px;
   color-scheme: dark;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--text-muted) 55%, transparent)
-    var(--surface-elevated);
 }
 
-.os-menu-panel::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
 
-.os-menu-panel::-webkit-scrollbar-track {
-  background: var(--surface-elevated);
-  border-radius: 999px;
-}
 
-.os-menu-panel::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--text-muted) 50%, transparent);
-  border-radius: 999px;
-  border: 1px solid var(--surface-elevated);
-  background-clip: padding-box;
-}
 
-.os-menu-panel::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--text-muted) 75%, transparent);
-  border: 1px solid var(--surface-elevated);
-  background-clip: padding-box;
-}
 
-.os-menu-panel::-webkit-scrollbar-corner {
-  background: var(--surface-elevated);
-}
 
 .os-menu-heading {
   margin: 4px 8px 8px;
@@ -238,37 +213,12 @@
   max-height: min(60vh, 420px);
   overflow: auto;
   color-scheme: dark;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--text-muted) 55%, transparent)
-    var(--surface-elevated);
 }
 
-.home-search-panel::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
 
-.home-search-panel::-webkit-scrollbar-track {
-  background: var(--surface-elevated);
-  border-radius: 999px;
-}
 
-.home-search-panel::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--text-muted) 50%, transparent);
-  border-radius: 999px;
-  border: 1px solid var(--surface-elevated);
-  background-clip: padding-box;
-}
 
-.home-search-panel::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--text-muted) 75%, transparent);
-  border: 1px solid var(--surface-elevated);
-  background-clip: padding-box;
-}
 
-.home-search-panel::-webkit-scrollbar-corner {
-  background: var(--surface-elevated);
-}
 
 .home-search-hint,
 .home-search-empty {

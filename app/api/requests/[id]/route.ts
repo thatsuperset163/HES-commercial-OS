@@ -73,6 +73,14 @@ export async function PATCH(request: Request, { params }: Params) {
       internalNotes: "internalNotes",
       attachments: "attachments",
       photos: "photos",
+      followUpDate: "followUpDate",
+      followUpType: "followUpType",
+      followUpNotes: "followUpNotes",
+      potentialValue: "potentialValue",
+      propertyType: "propertyType",
+      siteVisitOutcome: "siteVisitOutcome",
+      linkedClientId: "linkedClientId",
+      convertedQuoteId: "convertedQuoteId",
     };
     for (const [key, target] of Object.entries(map)) {
       if (body[key] !== undefined) patch[target] = body[key];

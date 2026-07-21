@@ -312,22 +312,10 @@
   grid-template-columns: 64px repeat(7, minmax(0, 1fr));
   gap: 4px;
   overflow-x: auto;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--text-muted) 55%, transparent) transparent;
 }
 
-.jobs-week-grid::-webkit-scrollbar {
-  height: 4px;
-}
 
-.jobs-week-grid::-webkit-scrollbar-track {
-  background: transparent;
-}
 
-.jobs-week-grid::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--text-muted) 45%, transparent);
-  border-radius: 999px;
-}
 
 .jobs-week-gutter,
 .jobs-week-col {
