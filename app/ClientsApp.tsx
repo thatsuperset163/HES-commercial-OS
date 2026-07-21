@@ -26,6 +26,9 @@ import {
   upsertJob,
 } from "@/lib/storage";
 import AppShell from "./AppShell";
+import AddClientModal, {
+  type AddClientFormState,
+} from "./clients/AddClientModal";
 import AlphabetSection from "./clients/AlphabetSection";
 import ClientDetailDrawer from "./clients/ClientDetailDrawer";
 import ClientEmptyState from "./clients/ClientEmptyState";
@@ -38,6 +41,16 @@ const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ#".split("");
 
 type StatusFilter = "all" | "active" | "paused" | "favorites";
 type TypeFilter = "all" | ClientType;
+
+const EMPTY_FORM: AddClientFormState = {
+  name: "",
+  companyName: "",
+  phone: "",
+  email: "",
+  address: "",
+  clientType: "residential",
+  notes: "",
+};
 
 export default function ClientsApp() {
   const [ready, setReady] = useState(false);
@@ -53,15 +66,7 @@ export default function ClientsApp() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [clientSaving, setClientSaving] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    companyName: "",
-    phone: "",
-    email: "",
-    address: "",
-    clientType: "residential" as ClientType,
-    notes: "",
-  });
+  const [form, setForm] = useState<AddClientFormState>(EMPTY_FORM);
   const sectionEls = useRef<Record<string, HTMLElement | null>>({});
   const addLock = useRef(false);
 
@@ -180,15 +185,7 @@ export default function ClientsApp() {
       );
       upsertClient(row);
       setShowNew(false);
-      setForm({
-        name: "",
-        companyName: "",
-        phone: "",
-        email: "",
-        address: "",
-        clientType: "residential",
-        notes: "",
-      });
+      setForm(EMPTY_FORM);
       refresh();
       openClient(row);
     } finally {
@@ -254,7 +251,7 @@ export default function ClientsApp() {
             </div>
             <button
               type="button"
-              className="btn primary"
+              className="btn primary clients-add-btn"
               onClick={() => setShowNew(true)}
             >
               Add client
@@ -452,120 +449,18 @@ export default function ClientsApp() {
         onSubmit={handleJobSubmit}
       />
 
-      {showNew ? (
-        <div
-          className="modal-backdrop"
-          role="presentation"
-          onClick={() => setShowNew(false)}
-        >
-          <div
-            className="modal-card create-record-modal"
-            role="dialog"
-            aria-label="Add client"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="panel-head">
-              <div>
-                <p className="hq-eyebrow">Clients</p>
-                <h2 className="panel-title">Add client</h2>
-              </div>
-              <button
-                type="button"
-                className="btn ghost small"
-                onClick={() => setShowNew(false)}
-              >
-                Close
-              </button>
-            </div>
-            <form className="jobs-form" onSubmit={onAdd}>
-              <label>
-                Name *
-                <input
-                  required
-                  value={form.name}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, name: e.target.value }))
-                  }
-                  placeholder="Hal Fisher"
-                  autoFocus
-                />
-              </label>
-              <label>
-                Company
-                <input
-                  value={form.companyName}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, companyName: e.target.value }))
-                  }
-                />
-              </label>
-              <label>
-                Type
-                <select
-                  value={form.clientType}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      clientType: e.target.value as ClientType,
-                    }))
-                  }
-                >
-                  <option value="residential">Residential</option>
-                  <option value="commercial">Commercial</option>
-                </select>
-              </label>
-              <label>
-                Phone
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, phone: e.target.value }))
-                  }
-                />
-              </label>
-              <label>
-                Email
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, email: e.target.value }))
-                  }
-                />
-              </label>
-              <label>
-                Address
-                <input
-                  value={form.address}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, address: e.target.value }))
-                  }
-                />
-              </label>
-              <label>
-                Notes
-                <textarea
-                  rows={3}
-                  value={form.notes}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, notes: e.target.value }))
-                  }
-                />
-              </label>
-              <div className="row-actions">
-                <button
-                  type="submit"
-                  className="btn primary"
-                  disabled={clientSaving || !form.name.trim()}
-                >
-                  {clientSaving ? "Saving…" : "Save client"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+      <AddClientModal
+        open={showNew}
+        form={form}
+        saving={clientSaving}
+        clients={clients}
+        onChange={setForm}
+        onClose={() => {
+          if (clientSaving) return;
+          setShowNew(false);
+        }}
+        onSubmit={onAdd}
+      />
     </AppShell>
   );
 }
