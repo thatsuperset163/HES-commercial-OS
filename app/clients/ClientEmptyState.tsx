@@ -19,7 +19,7 @@ export default function ClientEmptyState({ searching, onAdd }: Props) {
     <div className="client-empty">
       <strong>No clients yet</strong>
       <p>Add your first client, or create one from a new request.</p>
-      <button type="button" className="btn primary" onClick={onAdd}>
+      <button type="button" className="btn primary clients-add-btn" onClick={onAdd}>
         Add client
       </button>
     </div>
