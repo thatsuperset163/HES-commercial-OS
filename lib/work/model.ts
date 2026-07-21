@@ -12,6 +12,9 @@ import type {
   ExpenseDoc,
   ExpenseStatus,
   InvoiceDoc,
+  InvoiceLineItem,
+  InvoicePayment,
+  InvoicePaymentMethod,
   InvoiceStatus,
   PreferredContact,
   QuoteDoc,
@@ -277,22 +280,59 @@ export function createQuote(input: {
 
 export function createInvoice(input: {
   clientName: string;
+  companyName?: string;
+  clientId?: string;
+  billingAddress?: string;
+  serviceAddress?: string;
   jobLabel?: string;
+  jobId?: string;
+  quoteId?: string;
+  requestId?: string;
+  lineItems?: InvoiceLineItem[];
   amount?: number | null;
+  discount?: number;
+  taxRate?: number;
+  payments?: InvoicePayment[];
   dueDate?: string;
+  issueDate?: string;
+  paymentTerms?: string;
   notes?: string;
+  number?: string;
+  status?: InvoiceStatus;
 }): InvoiceDoc {
   const now = new Date().toISOString();
+  const lineItems = Array.isArray(input.lineItems) ? input.lineItems : [];
+  const amountFromLines =
+    lineItems.length > 0
+      ? lineItems.reduce((s, i) => s + Math.max(0, i.quantity * i.rate), 0)
+      : null;
+  const amount =
+    input.amount === undefined || input.amount === null || Number.isNaN(Number(input.amount))
+      ? amountFromLines
+      : Math.max(0, Number(input.amount));
   return {
     id: workUid("inv"),
+    number: (input.number ?? "").trim() || `INV-${workUid("n").slice(-8).toUpperCase()}`,
     clientName: input.clientName.trim() || "Client",
+    companyName: (input.companyName ?? "").trim(),
+    clientId: (input.clientId ?? "").trim(),
+    billingAddress: (input.billingAddress ?? "").trim(),
+    serviceAddress: (input.serviceAddress ?? "").trim(),
     jobLabel: (input.jobLabel ?? "").trim() || "Completed work",
-    amount:
-      input.amount === undefined || input.amount === null || Number.isNaN(input.amount)
-        ? null
-        : Math.max(0, Number(input.amount)),
-    status: "draft",
+    jobId: (input.jobId ?? "").trim(),
+    quoteId: (input.quoteId ?? "").trim(),
+    requestId: (input.requestId ?? "").trim(),
+    lineItems,
+    amount,
+    discount: Math.max(0, Number(input.discount) || 0),
+    taxRate: Math.max(0, Number(input.taxRate) || 0),
+    payments: Array.isArray(input.payments) ? input.payments : [],
+    status: input.status ?? "draft",
+    issueDate: input.issueDate?.trim() || todayKey(),
     dueDate: input.dueDate?.trim() || todayKey(),
+    paymentTerms:
+      (input.paymentTerms ?? "").trim() ||
+      "Payment due upon completion unless arranged in writing.",
     notes: (input.notes ?? "").trim(),
     createdAt: now,
     updatedAt: now,
@@ -443,20 +483,76 @@ export function normalizeQuotes(value: unknown): QuoteDoc[] {
 
 export function normalizeInvoices(value: unknown): InvoiceDoc[] {
   if (!Array.isArray(value)) return [];
-  const statuses: InvoiceStatus[] = ["draft", "sent", "paid", "overdue"];
+  const statuses: InvoiceStatus[] = [
+    "draft",
+    "sent",
+    "partial",
+    "paid",
+    "overdue",
+    "void",
+  ];
+  const methods: InvoicePaymentMethod[] = [
+    "cash",
+    "check",
+    "card",
+    "ach",
+    "other",
+  ];
   return value
     .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object")
-    .map((row) => ({
-      id: asString(row.id) || workUid("inv"),
-      clientName: asString(row.clientName).trim() || "Client",
-      jobLabel: asString(row.jobLabel).trim() || "Completed work",
-      amount: asAmount(row.amount),
-      status: pickStatus(row.status, statuses, "draft"),
-      dueDate: asString(row.dueDate) || todayKey(),
-      notes: asString(row.notes),
-      createdAt: asString(row.createdAt) || new Date().toISOString(),
-      updatedAt: asString(row.updatedAt) || new Date().toISOString(),
-    }));
+    .map((row) => {
+      const id = asString(row.id) || workUid("inv");
+      const amount = asAmount(row.amount);
+      const rawLines = Array.isArray(row.lineItems) ? row.lineItems : [];
+      const lineItems: InvoiceLineItem[] = rawLines
+        .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+        .map((item) => ({
+          id: asString(item.id) || workUid("line"),
+          description: asString(item.description).trim() || "Service",
+          quantity: Math.max(0, Number(item.quantity) || 0),
+          rate: Math.max(0, Number(item.rate) || 0),
+        }));
+      const rawPayments = Array.isArray(row.payments) ? row.payments : [];
+      const payments: InvoicePayment[] = rawPayments
+        .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+        .map((item) => ({
+          id: asString(item.id) || workUid("pay"),
+          date: asString(item.date) || todayKey(),
+          amount: Math.max(0, Number(item.amount) || 0),
+          method: pickStatus(item.method, methods, "other"),
+          note: asString(item.note),
+        }));
+      return {
+        id,
+        number: asString(row.number).trim() || id.replace(/^inv-/, "INV-").toUpperCase(),
+        clientName: asString(row.clientName).trim() || "Client",
+        companyName: asString(row.companyName),
+        clientId: asString(row.clientId),
+        billingAddress: asString(row.billingAddress),
+        serviceAddress: asString(row.serviceAddress || row.address),
+        jobLabel: asString(row.jobLabel).trim() || "Completed work",
+        jobId: asString(row.jobId),
+        quoteId: asString(row.quoteId),
+        requestId: asString(row.requestId),
+        lineItems,
+        amount,
+        discount: Math.max(0, Number(row.discount) || 0),
+        taxRate: Math.max(0, Number(row.taxRate) || 0),
+        payments,
+        status: pickStatus(row.status, statuses, "draft"),
+        issueDate:
+          asString(row.issueDate) ||
+          asString(row.createdAt).slice(0, 10) ||
+          todayKey(),
+        dueDate: asString(row.dueDate) || todayKey(),
+        paymentTerms:
+          asString(row.paymentTerms) ||
+          "Payment due upon completion unless arranged in writing.",
+        notes: asString(row.notes),
+        createdAt: asString(row.createdAt) || new Date().toISOString(),
+        updatedAt: asString(row.updatedAt) || new Date().toISOString(),
+      };
+    });
 }
 
 export function normalizeExpenses(value: unknown): ExpenseDoc[] {
@@ -537,12 +633,19 @@ export function advanceInvoiceStatus(row: InvoiceDoc): InvoiceDoc {
   const next: Record<InvoiceStatus, InvoiceStatus | null> = {
     draft: "sent",
     sent: "paid",
+    partial: "paid",
     overdue: "paid",
     paid: null,
+    void: null,
   };
   const status = next[row.status];
   if (!status) return row;
   return { ...row, status, updatedAt: new Date().toISOString() };
+}
+
+export function voidInvoice(row: InvoiceDoc): InvoiceDoc {
+  if (row.status === "void") return row;
+  return { ...row, status: "void", updatedAt: new Date().toISOString() };
 }
 
 export function advanceExpenseStatus(row: ExpenseDoc): ExpenseDoc {

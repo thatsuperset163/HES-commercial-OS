@@ -15,8 +15,36 @@ export type PreferredContact = "phone" | "email" | "text" | "";
 export type RequestStatus = "new" | "contacted" | "quoted" | "closed";
 export type TaskStatus = "open" | "done";
 export type QuoteStatus = "draft" | "sent" | "won" | "lost";
-export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue";
+export type InvoiceStatus =
+  | "draft"
+  | "sent"
+  | "partial"
+  | "paid"
+  | "overdue"
+  | "void";
 export type ExpenseStatus = "logged" | "paid";
+
+export type InvoicePaymentMethod =
+  | "cash"
+  | "check"
+  | "card"
+  | "ach"
+  | "other";
+
+export type InvoiceLineItem = {
+  id: string;
+  description: string;
+  quantity: number;
+  rate: number;
+};
+
+export type InvoicePayment = {
+  id: string;
+  date: string;
+  amount: number;
+  method: InvoicePaymentMethod;
+  note: string;
+};
 
 /** Extra property / site for a client (primary lives in `address`). */
 export type ClientProperty = {
@@ -85,11 +113,32 @@ export type QuoteDoc = {
 
 export type InvoiceDoc = {
   id: string;
+  /** Human-readable number e.g. INV-2026-0007 (separate from id). */
+  number: string;
   clientName: string;
+  companyName: string;
+  /** Stable WorkClient id when known. */
+  clientId: string;
+  billingAddress: string;
+  serviceAddress: string;
   jobLabel: string;
+  jobId: string;
+  quoteId: string;
+  requestId: string;
+  lineItems: InvoiceLineItem[];
+  /**
+   * Legacy single total. Used when lineItems is empty so older records
+   * still round-trip. Prefer lineItems for new documents.
+   */
   amount: number | null;
+  discount: number;
+  /** Tax percent (e.g. 0 or 7.5). */
+  taxRate: number;
+  payments: InvoicePayment[];
   status: InvoiceStatus;
+  issueDate: string;
   dueDate: string;
+  paymentTerms: string;
   notes: string;
   createdAt: string;
   updatedAt: string;
