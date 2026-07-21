@@ -1,5 +1,10 @@
-import WorkDeskApp from "@/app/WorkDeskApp";
+import { Suspense } from "react";
+import InvoicesApp from "@/app/InvoicesApp";
 
 export default function Page() {
-  return <WorkDeskApp deskId="invoices" />;
+  return (
+    <Suspense fallback={<p className="hq-lede">Loading invoices…</p>}>
+      <InvoicesApp />
+    </Suspense>
+  );
 }

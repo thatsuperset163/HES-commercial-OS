@@ -30,7 +30,13 @@ export type PipelineAction = {
 };
 
 function moneyOpen(invoices: InvoiceDoc[]): number {
-  return invoices.filter((row) => row.status === "sent" || row.status === "overdue" || row.status === "draft").length;
+  return invoices.filter(
+    (row) =>
+      row.status === "sent" ||
+      row.status === "overdue" ||
+      row.status === "draft" ||
+      row.status === "partial",
+  ).length;
 }
 
 export function buildPipelineCounts(store: BoardStore): PipelineCount[] {

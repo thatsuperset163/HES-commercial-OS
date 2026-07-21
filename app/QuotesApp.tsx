@@ -353,6 +353,30 @@ export default function QuotesApp() {
               {selected ? (
                 <button
                   type="button"
+                  className="btn secondary"
+                  onClick={() => {
+                    const params = new URLSearchParams({
+                      new: "1",
+                      quoteId: selected.id,
+                      clientName: selected.clientName,
+                      serviceAddress: selected.address,
+                      billingAddress: selected.address,
+                      scope: selected.scope,
+                      amount:
+                        selected.amount == null ? "" : String(selected.amount),
+                      notes: selected.notes,
+                    });
+                    window.location.assign(
+                      `/work/invoices?${params.toString()}`,
+                    );
+                  }}
+                >
+                  Create invoice
+                </button>
+              ) : null}
+              {selected ? (
+                <button
+                  type="button"
                   className="btn danger"
                   onClick={() => deleteQuote(selected.id, selected.clientName)}
                 >
