@@ -1,3 +1,9 @@
+import {
+  findExistingClient,
+  logClientEvent,
+  stableClientFingerprint,
+  type ClientIdentityInput,
+} from "../clients/identity.ts";
 import { todayKey } from "../dates.ts";
 import type {
   ClientProperty,
@@ -38,7 +44,7 @@ function pickStatus<T extends string>(
   return allowed.includes(value as T) ? (value as T) : fallback;
 }
 
-export function createClient(input: {
+export type CreateClientInput = {
   name: string;
   phone?: string;
   email?: string;
@@ -51,7 +57,10 @@ export function createClient(input: {
   preferredContact?: PreferredContact;
   tags?: string[];
   favorite?: boolean;
-}): WorkClient {
+};
+
+/** Pure factory — always builds a new in-memory client. Prefer findOrCreateClient. */
+export function createClient(input: CreateClientInput): WorkClient {
   const now = new Date().toISOString();
   return {
     id: workUid("client"),
@@ -72,6 +81,60 @@ export function createClient(input: {
     createdAt: now,
     updatedAt: now,
   };
+}
+
+export type FindOrCreateClientResult = {
+  client: WorkClient;
+  created: boolean;
+  reason: string;
+};
+
+/**
+ * Reuse an existing client when identity matches. Only mint a new record when
+ * no match is found. This is the only safe entry point for inserts.
+ */
+export function findOrCreateClient(
+  existing: WorkClient[],
+  input: CreateClientInput,
+  source = "unspecified",
+): FindOrCreateClientResult {
+  logClientEvent("create_request_start", {
+    source,
+    name: input.name,
+    email: input.email ?? "",
+    phone: input.phone ?? "",
+  });
+
+  const identity: ClientIdentityInput = {
+    name: input.name,
+    companyName: input.companyName,
+    phone: input.phone,
+    email: input.email,
+    address: input.address,
+  };
+  const match = findExistingClient(existing, identity);
+  if (match) {
+    logClientEvent("reused_existing", {
+      source,
+      existingId: match.client.id,
+      reason: match.reason,
+      name: match.client.name,
+    });
+    return {
+      client: match.client,
+      created: false,
+      reason: `reused_by_${match.reason}`,
+    };
+  }
+
+  const client = createClient(input);
+  logClientEvent("created_new", {
+    source,
+    id: client.id,
+    reason: "no_identity_match",
+    name: client.name,
+  });
+  return { client, created: true, reason: "no_identity_match" };
 }
 
 function normalizeProperty(row: unknown): ClientProperty | null {
@@ -276,12 +339,27 @@ export function normalizeClients(value: unknown): WorkClient[] {
         ? row.tags.map((t) => asString(t).trim()).filter(Boolean)
         : [];
       const address = asString(row.address);
+      const name = asString(row.name).trim() || "Client";
+      const companyName = asString(row.companyName);
+      const phone = asString(row.phone);
+      const email = asString(row.email);
+      // Never mint a random id on normalize — that duplicates clients on every
+      // hydrate/merge when id was missing. Use a stable fingerprint instead.
+      const id =
+        asString(row.id) ||
+        stableClientFingerprint({
+          name,
+          companyName,
+          phone,
+          email,
+          address,
+        });
       return {
-        id: asString(row.id) || workUid("client"),
-        name: asString(row.name).trim() || "Client",
-        companyName: asString(row.companyName),
-        phone: asString(row.phone),
-        email: asString(row.email),
+        id,
+        name,
+        companyName,
+        phone,
+        email,
         address,
         billingAddress: asString(row.billingAddress),
         properties,

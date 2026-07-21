@@ -4,15 +4,16 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { todayKey } from "@/lib/dates";
 import { getWorkDesk } from "@/lib/work/catalog";
 import {
-  createClient,
   createExpense,
   createInvoice,
   createQuote,
   createTask,
+  findOrCreateClient,
 } from "@/lib/work/model";
 import type { WorkDeskId } from "@/lib/work/types";
 import {
   hydrateStoreFromCloud,
+  listClients,
   upsertClient,
   upsertExpense,
   upsertInvoice,
@@ -78,6 +79,7 @@ export default function CreateRecordModal({
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (saving) return;
     const fd = new FormData(event.currentTarget);
     const values: Record<string, string> = {};
     for (const field of desk.fields) {
@@ -90,13 +92,17 @@ export default function CreateRecordModal({
       let title = "";
       if (deskId === "clients") {
         if (!values.name) throw new Error("Name is required");
-        const row = createClient({
-          name: values.name,
-          phone: values.phone,
-          email: values.email,
-          address: values.address,
-          notes: values.notes,
-        });
+        const { client: row } = findOrCreateClient(
+          listClients(),
+          {
+            name: values.name,
+            phone: values.phone,
+            email: values.email,
+            address: values.address,
+            notes: values.notes,
+          },
+          "create_menu_client",
+        );
         upsertClient(row);
         id = row.id;
         title = row.name;

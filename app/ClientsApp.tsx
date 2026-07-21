@@ -12,7 +12,7 @@ import {
 import { pushRecentClientId, readRecentClientIds } from "@/lib/clients/recent";
 import { createJobRemote } from "@/lib/jobs/api";
 import type { Job, JobInput } from "@/lib/jobs/types";
-import { advanceClientStatus, createClient } from "@/lib/work/model";
+import { advanceClientStatus, findOrCreateClient } from "@/lib/work/model";
 import type { ClientType, WorkClient } from "@/lib/work/types";
 import {
   hydrateStoreFromCloud,
@@ -52,6 +52,7 @@ export default function ClientsApp() {
   const [formInitial, setFormInitial] = useState<Partial<Job> | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [clientSaving, setClientSaving] = useState(false);
   const [form, setForm] = useState({
     name: "",
     companyName: "",
@@ -62,6 +63,7 @@ export default function ClientsApp() {
     notes: "",
   });
   const sectionEls = useRef<Record<string, HTMLElement | null>>({});
+  const addLock = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -167,21 +169,32 @@ export default function ClientsApp() {
 
   const onAdd = (event: FormEvent) => {
     event.preventDefault();
-    if (!form.name.trim()) return;
-    const row = createClient(form);
-    upsertClient(row);
-    setShowNew(false);
-    setForm({
-      name: "",
-      companyName: "",
-      phone: "",
-      email: "",
-      address: "",
-      clientType: "residential",
-      notes: "",
-    });
-    refresh();
-    openClient(row);
+    if (!form.name.trim() || clientSaving || addLock.current) return;
+    addLock.current = true;
+    setClientSaving(true);
+    try {
+      const { client: row } = findOrCreateClient(
+        listClients(),
+        form,
+        "clients_os_new_form",
+      );
+      upsertClient(row);
+      setShowNew(false);
+      setForm({
+        name: "",
+        companyName: "",
+        phone: "",
+        email: "",
+        address: "",
+        clientType: "residential",
+        notes: "",
+      });
+      refresh();
+      openClient(row);
+    } finally {
+      addLock.current = false;
+      setClientSaving(false);
+    }
   };
 
   const onSaveClient = (client: WorkClient) => {
@@ -541,8 +554,12 @@ export default function ClientsApp() {
                 />
               </label>
               <div className="row-actions">
-                <button type="submit" className="btn primary">
-                  Save client
+                <button
+                  type="submit"
+                  className="btn primary"
+                  disabled={clientSaving || !form.name.trim()}
+                >
+                  {clientSaving ? "Saving…" : "Save client"}
                 </button>
               </div>
             </form>
