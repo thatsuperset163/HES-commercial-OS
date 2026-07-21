@@ -4,11 +4,13 @@ import type {
   IntakePriority,
   IntakeRequest,
   IntakeStatus,
+  PropertyType,
   RequestSource,
 } from "./types.ts";
 import {
   INTAKE_PRIORITIES,
   INTAKE_STATUSES,
+  PROPERTY_TYPES,
   REQUEST_SOURCES,
 } from "./types.ts";
 
@@ -18,6 +20,15 @@ export function intakeUid(prefix = "req"): string {
 
 function asString(value: unknown): string {
   return typeof value === "string" ? value : "";
+}
+
+function asAmount(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return Math.max(0, value);
+  if (typeof value === "string" && value.trim()) {
+    const n = Number(value);
+    if (Number.isFinite(n)) return Math.max(0, n);
+  }
+  return null;
 }
 
 function pick<T extends string>(
@@ -51,6 +62,11 @@ export function emptyIntakeInput() {
   };
 }
 
+function normalizePhoneDigits(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  return digits.length >= 10 ? digits.slice(-10) : digits;
+}
+
 export function createIntakeRequest(
   input: Partial<IntakeRequest> & { customerName: string },
 ): IntakeRequest {
@@ -79,6 +95,15 @@ export function createIntakeRequest(
     convertedClientId: input.convertedClientId ?? null,
     convertedJobId: input.convertedJobId ?? null,
     convertedInvoiceId: input.convertedInvoiceId ?? null,
+    convertedQuoteId: input.convertedQuoteId ?? null,
+    linkedClientId: input.linkedClientId ?? null,
+    followUpDate: input.followUpDate ?? null,
+    followUpType: (input.followUpType ?? "").trim(),
+    followUpNotes: (input.followUpNotes ?? "").trim(),
+    potentialValue:
+      input.potentialValue === undefined ? null : asAmount(input.potentialValue),
+    propertyType: pick(input.propertyType, PROPERTY_TYPES, ""),
+    siteVisitOutcome: (input.siteVisitOutcome ?? "").trim(),
     aiSummary: (input.aiSummary ?? "").trim(),
     aiSuggestedReply: (input.aiSuggestedReply ?? "").trim(),
     aiPriceEstimate: (input.aiPriceEstimate ?? "").trim(),
@@ -133,6 +158,16 @@ export function rowToIntake(row: Record<string, unknown>): IntakeRequest {
     convertedInvoiceId: row.converted_invoice_id
       ? asString(row.converted_invoice_id)
       : null,
+    convertedQuoteId: row.converted_quote_id
+      ? asString(row.converted_quote_id)
+      : null,
+    linkedClientId: row.linked_client_id ? asString(row.linked_client_id) : null,
+    followUpDate: row.follow_up_date ? asString(row.follow_up_date) : null,
+    followUpType: asString(row.follow_up_type),
+    followUpNotes: asString(row.follow_up_notes),
+    potentialValue: asAmount(row.potential_value),
+    propertyType: pick(row.property_type, PROPERTY_TYPES, "") as PropertyType,
+    siteVisitOutcome: asString(row.site_visit_outcome),
     aiSummary: asString(row.ai_summary),
     aiSuggestedReply: asString(row.ai_suggested_reply),
     aiPriceEstimate: asString(row.ai_price_estimate),
@@ -170,6 +205,14 @@ export function intakeToRow(request: IntakeRequest): Record<string, unknown> {
     converted_client_id: request.convertedClientId,
     converted_job_id: request.convertedJobId,
     converted_invoice_id: request.convertedInvoiceId,
+    converted_quote_id: request.convertedQuoteId,
+    linked_client_id: request.linkedClientId,
+    follow_up_date: request.followUpDate,
+    follow_up_type: request.followUpType,
+    follow_up_notes: request.followUpNotes,
+    potential_value: request.potentialValue,
+    property_type: request.propertyType,
+    site_visit_outcome: request.siteVisitOutcome,
     ai_summary: request.aiSummary,
     ai_suggested_reply: request.aiSuggestedReply,
     ai_price_estimate: request.aiPriceEstimate,
@@ -208,4 +251,32 @@ export function buildDashboard(rows: IntakeRequest[]): Record<IntakeStatus, numb
   };
   for (const row of rows) dash[row.status] += 1;
   return dash;
+}
+
+/**
+ * Detect a likely duplicate inbound request (same phone or email) among
+ * recent open rows — flag for review instead of silent multi-create.
+ */
+export function findRecentDuplicate(
+  existing: IntakeRequest[],
+  input: { phone?: string; email?: string; customerName?: string },
+  withinHours = 48,
+): IntakeRequest | null {
+  const phone = normalizePhoneDigits(input.phone ?? "");
+  const email = (input.email ?? "").trim().toLowerCase();
+  if (!phone && !email) return null;
+  const cutoff = Date.now() - withinHours * 60 * 60 * 1000;
+
+  return (
+    existing.find((row) => {
+      if (row.status === "declined") return false;
+      const created = Date.parse(row.createdAt || "");
+      if (!Number.isFinite(created) || created < cutoff) return false;
+      const rowPhone = normalizePhoneDigits(row.phone);
+      const rowEmail = row.email.trim().toLowerCase();
+      if (phone && rowPhone && phone === rowPhone) return true;
+      if (email && rowEmail && email === rowEmail) return true;
+      return false;
+    }) ?? null
+  );
 }

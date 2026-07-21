@@ -45,10 +45,48 @@
   --space: 8px;
   --radius: 8px;
   --hairline: 1px;
+
+  /* Global subtle scrollbar (matches Home Search) */
+  --scrollbar-size: 6px;
+  --scrollbar-thumb: color-mix(in srgb, var(--text-muted) 50%, transparent);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--text-muted) 75%, transparent);
+  --scrollbar-track: transparent;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* One app-wide vertical/horizontal scrollbar treatment */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 html,

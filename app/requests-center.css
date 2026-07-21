@@ -48,21 +48,6 @@
   overflow-x: auto;
   padding-bottom: 0.35rem;
   margin-bottom: 1rem;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--text-muted) 55%, transparent) transparent;
-}
-
-.rc-board::-webkit-scrollbar {
-  height: 4px;
-}
-
-.rc-board::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.rc-board::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--text-muted) 45%, transparent);
-  border-radius: 999px;
 }
 
 .rc-column {
@@ -252,5 +237,252 @@
 @media (max-width: 900px) {
   .rc-board {
     grid-template-columns: repeat(6, minmax(11.5rem, 1fr));
+  }
+}
+
+/* Requests OS layout */
+
+.rc-ops {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: 0.45rem;
+  margin: 0 0 0.85rem;
+}
+
+.rc-ops-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding: 0.55rem 0.65rem;
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rc-ops-chip span {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rc-ops-chip strong {
+  font-size: 1.05rem;
+  line-height: 1.1;
+}
+
+.rc-ops-chip.is-active {
+  outline: 2px solid var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 45%, var(--line));
+}
+
+.rc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin: 0 0 0.85rem;
+}
+
+.rc-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.rc-views button {
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.35rem 0.65rem;
+  cursor: pointer;
+}
+
+.rc-views button.is-active {
+  border-color: color-mix(in srgb, var(--color-primary) 50%, var(--line));
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--surface));
+}
+
+.rc-toolbar .rc-search {
+  min-width: min(16rem, 100%);
+  margin: 0;
+}
+
+.rc-mode-toggle {
+  display: inline-flex;
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.rc-mode-toggle button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+}
+
+.rc-mode-toggle button.is-active {
+  background: color-mix(in srgb, var(--color-primary) 14%, var(--surface));
+  color: var(--color-primary);
+}
+
+.rc-split {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (min-width: 960px) {
+  .rc-split.has-detail {
+    grid-template-columns: minmax(0, 1.05fr) minmax(20rem, 0.95fr);
+  }
+}
+
+.rc-split-main {
+  min-width: 0;
+}
+
+.rc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: min(70vh, 42rem);
+  overflow: auto;
+  padding-right: 0.15rem;
+}
+
+.rc-list-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  padding: 0.7rem 0.8rem;
+  cursor: pointer;
+}
+
+.rc-list-row.active {
+  outline: 2px solid var(--color-primary);
+}
+
+.rc-list-row-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.rc-list-row-top strong {
+  font-size: 0.95rem;
+}
+
+.rc-list-row-meta,
+.rc-list-row-next,
+.rc-list-row-foot {
+  margin: 0.25rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.rc-list-row-next {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.rc-list-row-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.rc-status {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.rc-existing {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--color-success);
+}
+
+.rc-next {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0 0 0.85rem;
+  padding: 0.7rem 0.8rem;
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 88%, var(--bg));
+}
+
+.rc-next strong {
+  font-size: 0.92rem;
+}
+
+.rc-next span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.rc-next.overdue {
+  border-color: color-mix(in srgb, var(--color-danger) 50%, var(--line));
+  background: color-mix(in srgb, var(--color-danger) 8%, var(--surface));
+}
+
+.rc-next.today {
+  border-color: color-mix(in srgb, var(--color-warning) 50%, var(--line));
+  background: color-mix(in srgb, var(--color-warning) 8%, var(--surface));
+}
+
+.rc-next.waiting {
+  border-color: color-mix(in srgb, var(--color-neutral) 50%, var(--line));
+}
+
+.rc-next.done {
+  border-color: color-mix(in srgb, var(--color-success) 50%, var(--line));
+  background: color-mix(in srgb, var(--color-success) 8%, var(--surface));
+}
+
+.rc-next.lost {
+  border-color: color-mix(in srgb, var(--color-danger) 35%, var(--line));
+}
+
+.rc-status-help {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+@media (max-width: 959px) {
+  .rc-split.has-detail .rc-detail {
+    position: relative;
   }
 }
