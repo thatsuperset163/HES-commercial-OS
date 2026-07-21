@@ -1,0 +1,233 @@
+/* HES printable quote document */
+
+.quote-doc {
+  --quote-ink: #132033;
+  --quote-muted: #5b6b7c;
+  --quote-line: #d7dee7;
+  --quote-paper: #ffffff;
+  background: var(--quote-paper);
+  color: var(--quote-ink);
+  border: 1px solid var(--line, #243447);
+  border-radius: 12px;
+  padding: 1.75rem 1.85rem 1.5rem;
+  max-width: 52rem;
+  margin: 0 auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+.quote-doc-brand {
+  margin-bottom: 1.1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 2px solid color-mix(in srgb, var(--accent, #3b82f6) 55%, #cbd5e1);
+}
+
+.quote-doc-eyebrow {
+  margin: 0 0 0.2rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--accent, #3b82f6);
+}
+
+.quote-doc-title {
+  margin: 0;
+  font-size: 1.85rem;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.quote-doc-id {
+  margin: 0.35rem 0 0;
+  color: var(--quote-muted);
+  font-size: 0.82rem;
+}
+
+.quote-doc-intro {
+  margin: 0 0 1.15rem;
+  color: var(--quote-ink);
+  line-height: 1.55;
+  font-size: 0.98rem;
+}
+
+.quote-doc-meta {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0 0 1.35rem;
+  padding: 0.9rem 1rem;
+  background: #f5f8fb;
+  border: 1px solid var(--quote-line);
+  border-radius: 10px;
+}
+
+.quote-doc-meta div {
+  display: grid;
+  grid-template-columns: 9.5rem minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.quote-doc-meta dt {
+  margin: 0;
+  color: var(--quote-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.quote-doc-meta dd {
+  margin: 0;
+  font-weight: 650;
+  font-size: 1rem;
+}
+
+.quote-doc-section {
+  margin: 0 0 1.25rem;
+}
+
+.quote-doc-section h2 {
+  margin: 0 0 0.45rem;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+
+.quote-doc-lede {
+  margin: 0 0 0.35rem;
+  color: var(--quote-muted);
+  font-size: 0.9rem;
+}
+
+.quote-doc-body {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  font-size: 0.98rem;
+}
+
+.quote-doc-price {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.quote-doc-price-notes {
+  margin: 0.4rem 0 0;
+  color: var(--quote-muted);
+  white-space: pre-wrap;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.quote-doc-terms {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 0.55rem;
+  line-height: 1.45;
+  font-size: 0.9rem;
+  color: #243447;
+}
+
+.quote-doc-signatures {
+  margin: 1.5rem 0 1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.quote-doc-sign-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto minmax(5rem, 8rem);
+  gap: 0.55rem;
+  align-items: end;
+  font-size: 0.9rem;
+}
+
+.quote-doc-line {
+  border-bottom: 1px solid #334155;
+  min-height: 1.4rem;
+}
+
+.quote-doc-line.short {
+  min-width: 5rem;
+}
+
+.quote-doc-footer {
+  margin-top: 1.25rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--quote-line);
+  color: var(--quote-muted);
+  font-size: 0.8rem;
+}
+
+.quote-doc-footer p {
+  margin: 0.15rem 0;
+}
+
+.quote-preview-shell {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.quote-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+@media print {
+  @page {
+    margin: 0.65in;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  .app-shell,
+  .hq-sidebar,
+  .hq-topbar,
+  .no-print,
+  .quotes-main,
+  .quote-preview-actions,
+  .modal-backdrop,
+  .toast {
+    display: none !important;
+  }
+
+  .quotes-preview {
+    position: static !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  .quote-print-root,
+  .quote-doc {
+    display: block !important;
+  }
+
+  .quote-doc {
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    max-width: none;
+    padding: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .quote-doc-meta div,
+  .quote-doc-sign-row {
+    grid-template-columns: 1fr;
+  }
+
+  .quote-doc {
+    padding: 1.15rem;
+  }
+}

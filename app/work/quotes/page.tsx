@@ -1,5 +1,5 @@
-import WorkDeskApp from "@/app/WorkDeskApp";
+import QuotesApp from "@/app/QuotesApp";
 
 export default function Page() {
-  return <WorkDeskApp deskId="quotes" />;
+  return <QuotesApp />;
 }
