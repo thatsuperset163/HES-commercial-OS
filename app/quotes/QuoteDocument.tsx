@@ -65,7 +65,9 @@ export default function QuoteDocument({
             <p className="quote-doc-eyebrow">{HES_COMPANY.brandName}</p>
             <h1 className="quote-doc-title">Service Quote</h1>
             <p className="quote-doc-id">
-              {quote.id.startsWith("draft-") ? "New quote" : `Quote ${quote.id}`}
+              {!quote.number || quote.id === "draft-new" || quote.id.startsWith("draft-")
+                ? "New quote"
+                : `Quote ${quote.number}`}
             </p>
           </div>
         </div>

@@ -59,6 +59,7 @@ export async function PATCH(request: Request, context: Ctx) {
       "customerId",
       "requestId",
       "prospectId",
+      "quoteId",
     ] as const;
 
     for (const key of strKeys) {

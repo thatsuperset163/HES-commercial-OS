@@ -18,6 +18,7 @@ import type {
   InvoiceStatus,
   PreferredContact,
   QuoteDoc,
+  QuoteKind,
   QuoteStatus,
   RequestStatus,
   ServiceRequest,
@@ -254,24 +255,48 @@ export function createTask(input: {
 
 export function createQuote(input: {
   clientName: string;
+  companyName?: string;
+  clientId?: string;
+  requestId?: string;
+  jobId?: string;
+  invoiceId?: string;
+  phone?: string;
+  email?: string;
   address?: string;
+  billingAddress?: string;
   scope?: string;
   amount?: number | null;
   followUpDate?: string;
   notes?: string;
+  number?: string;
+  quoteKind?: QuoteKind;
+  id?: string;
+  status?: QuoteStatus;
+  sentAt?: string;
 }): QuoteDoc {
   const now = new Date().toISOString();
   return {
-    id: workUid("quote"),
+    id: (input.id ?? "").trim() || workUid("quote"),
+    number: (input.number ?? "").trim() || `Q-${workUid("n").slice(-8).toUpperCase()}`,
     clientName: input.clientName.trim() || "Client",
+    companyName: (input.companyName ?? "").trim(),
+    clientId: (input.clientId ?? "").trim(),
+    requestId: (input.requestId ?? "").trim(),
+    jobId: (input.jobId ?? "").trim(),
+    invoiceId: (input.invoiceId ?? "").trim(),
+    phone: (input.phone ?? "").trim(),
+    email: (input.email ?? "").trim(),
     address: (input.address ?? "").trim(),
+    billingAddress: (input.billingAddress ?? "").trim(),
     scope: (input.scope ?? "").trim() || "Exterior cleaning",
     amount:
       input.amount === undefined || input.amount === null || Number.isNaN(input.amount)
         ? null
         : Math.max(0, Number(input.amount)),
-    status: "draft",
+    status: input.status ?? "draft",
     followUpDate: input.followUpDate?.trim() || todayKey(),
+    sentAt: (input.sentAt ?? "").trim(),
+    quoteKind: input.quoteKind ?? "primary",
     notes: (input.notes ?? "").trim(),
     createdAt: now,
     updatedAt: now,
@@ -465,20 +490,37 @@ export function normalizeTasks(value: unknown): WorkTask[] {
 export function normalizeQuotes(value: unknown): QuoteDoc[] {
   if (!Array.isArray(value)) return [];
   const statuses: QuoteStatus[] = ["draft", "sent", "won", "lost"];
+  const kinds: QuoteKind[] = ["primary", "revised", "alternate", "additional"];
   return value
     .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object")
-    .map((row) => ({
-      id: asString(row.id) || workUid("quote"),
-      clientName: asString(row.clientName).trim() || "Client",
-      address: asString(row.address),
-      scope: asString(row.scope).trim() || "Exterior cleaning",
-      amount: asAmount(row.amount),
-      status: pickStatus(row.status, statuses, "draft"),
-      followUpDate: asString(row.followUpDate) || todayKey(),
-      notes: asString(row.notes),
-      createdAt: asString(row.createdAt) || new Date().toISOString(),
-      updatedAt: asString(row.updatedAt) || new Date().toISOString(),
-    }));
+    .map((row) => {
+      const id = asString(row.id) || workUid("quote");
+      return {
+        id,
+        number:
+          asString(row.number).trim() ||
+          id.replace(/^quote-/, "Q-").toUpperCase(),
+        clientName: asString(row.clientName).trim() || "Client",
+        companyName: asString(row.companyName),
+        clientId: asString(row.clientId),
+        requestId: asString(row.requestId),
+        jobId: asString(row.jobId),
+        invoiceId: asString(row.invoiceId),
+        phone: asString(row.phone),
+        email: asString(row.email),
+        address: asString(row.address),
+        billingAddress: asString(row.billingAddress),
+        scope: asString(row.scope).trim() || "Exterior cleaning",
+        amount: asAmount(row.amount),
+        status: pickStatus(row.status, statuses, "draft"),
+        followUpDate: asString(row.followUpDate) || todayKey(),
+        sentAt: asString(row.sentAt),
+        quoteKind: pickStatus(row.quoteKind, kinds, "primary"),
+        notes: asString(row.notes),
+        createdAt: asString(row.createdAt) || new Date().toISOString(),
+        updatedAt: asString(row.updatedAt) || new Date().toISOString(),
+      };
+    });
 }
 
 export function normalizeInvoices(value: unknown): InvoiceDoc[] {
@@ -626,7 +668,17 @@ export function advanceQuoteStatus(row: QuoteDoc): QuoteDoc {
   };
   const status = next[row.status];
   if (!status) return row;
-  return { ...row, status, updatedAt: new Date().toISOString() };
+  const now = new Date().toISOString();
+  return {
+    ...row,
+    status,
+    sentAt: status === "sent" && !row.sentAt ? now : row.sentAt,
+    followUpDate:
+      status === "sent" && !row.followUpDate
+        ? todayKey()
+        : row.followUpDate,
+    updatedAt: now,
+  };
 }
 
 export function advanceInvoiceStatus(row: InvoiceDoc): InvoiceDoc {

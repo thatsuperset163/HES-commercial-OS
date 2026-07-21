@@ -30,6 +30,35 @@ export function buildRequestNextAction(
     };
   }
 
+  if (request.convertedQuoteId && !request.convertedJobId) {
+    if (request.waitingReason.includes("ready for job")) {
+      return {
+        title: "Create job from approved quote",
+        reason: `Quote ${request.convertedQuoteId}`,
+        urgency: "today",
+      };
+    }
+    if (request.status === "waiting_on_customer") {
+      return {
+        title: "Follow up on sent quote",
+        reason: request.followUpDate
+          ? `Quote follow-up ${request.followUpDate}`
+          : `Quote ${request.convertedQuoteId}`,
+        urgency:
+          request.followUpDate && request.followUpDate < today
+            ? "overdue"
+            : request.followUpDate === today
+              ? "today"
+              : "soon",
+      };
+    }
+    return {
+      title: "Finish and send quote",
+      reason: `Quote draft ${request.convertedQuoteId}`,
+      urgency: "soon",
+    };
+  }
+
   if (request.followUpDate && request.followUpDate < today) {
     return {
       title: "Overdue follow-up",

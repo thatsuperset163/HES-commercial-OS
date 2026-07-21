@@ -76,6 +76,90 @@ export type ClientMatch = {
   reason: ClientMatchReason;
 };
 
+export type PossibleClientMatchReason =
+  | "email"
+  | "phone"
+  | "company_and_address"
+  | "name_and_address";
+
+export type PossibleClientMatch = {
+  client: WorkClient;
+  reason: PossibleClientMatchReason;
+};
+
+/**
+ * Collect possible client matches for user confirmation.
+ * Does not auto-link. Used by Request → Create Quote.
+ *
+ * Match rules (exact normalized):
+ * 1. email
+ * 2. phone
+ * 3. company name + address
+ * 4. contact name + address
+ */
+export function findPossibleClientMatches(
+  clients: WorkClient[],
+  input: ClientIdentityInput,
+  options?: { excludeId?: string },
+): PossibleClientMatch[] {
+  const email = normalizeClientEmail(input.email ?? "");
+  const phone = normalizeClientPhone(input.phone ?? "");
+  const name = normalizeClientName(input.name ?? "");
+  const company = normalizeClientName(input.companyName ?? "");
+  const address = normalizeClientAddress(input.address ?? "");
+
+  const pool = options?.excludeId
+    ? clients.filter((c) => c.id !== options.excludeId)
+    : clients;
+
+  const byId = new Map<string, PossibleClientMatch>();
+  const add = (client: WorkClient, reason: PossibleClientMatchReason) => {
+    if (!byId.has(client.id)) byId.set(client.id, { client, reason });
+  };
+
+  if (email) {
+    for (const c of pool) {
+      if (c.email.trim() && normalizeClientEmail(c.email) === email) {
+        add(c, "email");
+      }
+    }
+  }
+
+  if (phone.length >= 7) {
+    for (const c of pool) {
+      if (normalizeClientPhone(c.phone) === phone) {
+        add(c, "phone");
+      }
+    }
+  }
+
+  if (company && address) {
+    for (const c of pool) {
+      if (
+        normalizeClientName(c.companyName) === company &&
+        normalizeClientAddress(c.address) === address &&
+        c.address.trim()
+      ) {
+        add(c, "company_and_address");
+      }
+    }
+  }
+
+  if (name && address) {
+    for (const c of pool) {
+      if (
+        normalizeClientName(c.name) === name &&
+        normalizeClientAddress(c.address) === address &&
+        c.address.trim()
+      ) {
+        add(c, "name_and_address");
+      }
+    }
+  }
+
+  return [...byId.values()];
+}
+
 /** Find an existing client that represents the same real-world person/business. */
 export function findExistingClient(
   clients: WorkClient[],

@@ -7,6 +7,7 @@ import {
 } from "../lib/home/commandCenter.ts";
 import type { Job } from "../lib/jobs/types.ts";
 import type { BoardStore } from "../lib/types.ts";
+import { createQuote } from "../lib/work/model.ts";
 
 function emptyStore(overrides: Partial<BoardStore> = {}): BoardStore {
   return {
@@ -43,18 +44,11 @@ describe("home command center", () => {
         },
       ],
       quotes: [
-        {
-          id: "q1",
+        createQuote({
           clientName: "Later Co",
-          address: "",
           scope: "Draft later",
-          amount: null,
-          status: "draft",
           followUpDate: "2099-01-01",
-          notes: "",
-          createdAt: "",
-          updatedAt: "",
-        },
+        }),
       ],
     });
     const items = buildTodayAttention(store, [], 5);

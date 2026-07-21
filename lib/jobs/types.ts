@@ -17,6 +17,8 @@ export type Job = {
   customerId: string | null;
   requestId: string | null;
   prospectId: string | null;
+  /** Originating quote when created from an approved quote. */
+  quoteId: string | null;
   customerName: string;
   companyName: string;
   contactName: string;
@@ -69,6 +71,7 @@ export type JobInput = {
   customerId?: string | null;
   requestId?: string | null;
   prospectId?: string | null;
+  quoteId?: string | null;
   invoiceStatus?: InvoiceStatus;
   paymentStatus?: PaymentStatus;
   recurringRule?: string;

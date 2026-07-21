@@ -81,6 +81,9 @@ export async function PATCH(request: Request, { params }: Params) {
       siteVisitOutcome: "siteVisitOutcome",
       linkedClientId: "linkedClientId",
       convertedQuoteId: "convertedQuoteId",
+      convertedJobId: "convertedJobId",
+      convertedClientId: "convertedClientId",
+      convertedInvoiceId: "convertedInvoiceId",
     };
     for (const [key, target] of Object.entries(map)) {
       if (body[key] !== undefined) patch[target] = body[key];
@@ -89,10 +92,17 @@ export async function PATCH(request: Request, { params }: Params) {
     const updated = await repo.update(id, patch as never);
 
     if (body.activityType || body.activityBody) {
+      const meta =
+        body.activityMeta &&
+        typeof body.activityMeta === "object" &&
+        !Array.isArray(body.activityMeta)
+          ? (body.activityMeta as Record<string, unknown>)
+          : {};
       await repo.addActivity(
         id,
         String(body.activityType || "note"),
         String(body.activityBody || body.internalNotes || "Updated"),
+        meta,
       );
     }
 
