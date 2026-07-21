@@ -11,12 +11,12 @@ import {
   advanceQuoteStatus,
   advanceRequestStatus,
   advanceTaskStatus,
-  createClient,
   createExpense,
   createInvoice,
   createQuote,
   createRequest,
   createTask,
+  findOrCreateClient,
   markQuoteLost,
 } from "@/lib/work/model";
 import type { WorkDeskId } from "@/lib/work/types";
@@ -192,15 +192,18 @@ export default function WorkDeskApp({ deskId }: { deskId: WorkDeskId }) {
     const amount = amountRaw === "" ? null : Number(amountRaw);
 
     if (deskId === "clients") {
-      upsertClient(
-        createClient({
+      const { client } = findOrCreateClient(
+        listClients(),
+        {
           name: str("name"),
           phone: str("phone"),
           email: str("email"),
           address: str("address"),
           notes: str("notes"),
-        }),
+        },
+        "work_desk_clients",
       );
+      upsertClient(client);
     } else if (deskId === "requests") {
       upsertRequest(
         createRequest({

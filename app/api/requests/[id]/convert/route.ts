@@ -1,10 +1,11 @@
 import { ApiError, ok, routeError, salesContext } from "@/lib/sales/http";
+import { dedupeClients, logClientEvent } from "@/lib/clients/identity";
 import { createJob, normalizeJobs } from "@/lib/jobs/model";
 import { IntakeRepo } from "@/lib/requestsCenter/repo";
 import {
-  createClient,
   createInvoice,
   createTask,
+  findOrCreateClient,
   normalizeClients,
   normalizeExpenses,
   normalizeInvoices,
@@ -35,20 +36,63 @@ export async function POST(request: Request, { params }: Params) {
     const { request: intake } = await repo.get(id);
 
     if (intake.status === "declined") {
-      throw new ApiError(400, "invalid_state", "Declined requests cannot convert to jobs");
+      throw new ApiError(
+        400,
+        "invalid_state",
+        "Declined requests cannot convert to jobs",
+      );
     }
 
-    const client = createClient({
-      name: intake.company || intake.customerName,
-      phone: intake.phone,
-      email: intake.email,
-      address: intake.address,
-      notes: `From Requests Center ${intake.id}`,
-    });
+    // Already converted — never mint another client.
+    if (intake.convertedClientId || intake.convertedJobId) {
+      logClientEvent("convert_already_done", {
+        requestId: intake.id,
+        convertedClientId: intake.convertedClientId,
+        convertedJobId: intake.convertedJobId,
+      });
+      throw new ApiError(
+        409,
+        "already_converted",
+        "This request was already converted. Reusing the existing client.",
+      );
+    }
+
+    const { data, error } = await db
+      .from("blackboard_workspace")
+      .select("state")
+      .eq("id", "default")
+      .maybeSingle();
+    if (error) throw error;
+
+    const state = (data?.state ?? { days: {} }) as BlackboardState;
+    const existingClients = normalizeClients(state.clients);
+
+    const resolved = findOrCreateClient(
+      existingClients,
+      {
+        name: intake.company || intake.customerName,
+        phone: intake.phone,
+        email: intake.email,
+        address: intake.address,
+        notes: `From Requests Center ${intake.id}`,
+      },
+      `requests_convert:${intake.id}`,
+    );
+
+    const clientForStore = resolved.created
+      ? resolved.client
+      : {
+          ...resolved.client,
+          phone: resolved.client.phone || (intake.phone ?? ""),
+          email: resolved.client.email || (intake.email ?? ""),
+          address: resolved.client.address || (intake.address ?? ""),
+          updatedAt: new Date().toISOString(),
+        };
 
     const jobDate = intake.estimateDate || intake.dateReceived;
     const job = createJob({
       customerName: intake.customerName,
+      customerId: clientForStore.id,
       address: intake.address,
       service: intake.serviceRequested,
       scheduledDate: jobDate,
@@ -84,18 +128,18 @@ export async function POST(request: Request, { params }: Params) {
         .join(" · "),
     });
 
-    const { data, error } = await db
-      .from("blackboard_workspace")
-      .select("state")
-      .eq("id", "default")
-      .maybeSingle();
-    if (error) throw error;
+    const clientsNext = resolved.created
+      ? [clientForStore, ...existingClients]
+      : existingClients.map((c) =>
+          c.id === clientForStore.id ? clientForStore : c,
+        );
 
-    const state = (data?.state ?? { days: {} }) as BlackboardState;
+    const { clients: uniqueClients } = dedupeClients(clientsNext);
+
     const nextState: BlackboardState = {
       ...state,
       days: state.days && typeof state.days === "object" ? state.days : {},
-      clients: [client, ...normalizeClients(state.clients)],
+      clients: uniqueClients,
       jobs: [job, ...normalizeJobs(state.jobs)],
       invoices: [invoice, ...normalizeInvoices(state.invoices)],
       tasks: [calendarTask, ...normalizeTasks(state.tasks)],
@@ -115,28 +159,34 @@ export async function POST(request: Request, { params }: Params) {
 
     const updated = await repo.update(id, {
       status: "approved",
-      convertedClientId: client.id,
+      convertedClientId: clientForStore.id,
       convertedJobId: job.id,
       convertedInvoiceId: invoice.id,
     });
     await repo.addActivity(
       id,
       "converted",
-      `Converted to client ${client.id}, job ${job.id}, invoice ${invoice.id}, calendar task ${calendarTask.id}`,
+      resolved.created
+        ? `Converted to new client ${clientForStore.id}, job ${job.id}, invoice ${invoice.id}`
+        : `Converted reusing client ${clientForStore.id} (${resolved.reason}), job ${job.id}, invoice ${invoice.id}`,
       {
-        clientId: client.id,
+        clientId: clientForStore.id,
         jobId: job.id,
         invoiceId: invoice.id,
         taskId: calendarTask.id,
+        clientCreated: resolved.created,
+        clientReason: resolved.reason,
       },
     );
 
     return ok({
       request: updated,
-      client,
+      client: clientForStore,
       job,
       invoice,
       calendarTask,
+      clientCreated: resolved.created,
+      clientReason: resolved.reason,
     });
   } catch (error) {
     return routeError(error);

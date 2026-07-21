@@ -16,6 +16,11 @@ import {
 } from "./defaults";
 import { normalizeJobs } from "./jobs/model";
 import {
+  dedupeClients,
+  findExistingClient,
+  logClientEvent,
+} from "./clients/identity";
+import {
   mergeByUpdatedAt,
   normalizeClients,
   normalizeExpenses,
@@ -60,8 +65,34 @@ function emptyStore(): BoardStore {
   return { days: {}, jobs: [], ...emptyPipeline(), ideaLot: "" };
 }
 
-function packStore(store: BoardStore): BoardStore {
+/** Collapse duplicate clients and remap job.customerId references. */
+export function sanitizeClientIntegrity(store: BoardStore): BoardStore {
+  const normalizedClients = normalizeClients(store.clients);
+  const { clients, idMap, removedCount } = dedupeClients(normalizedClients);
+  const jobs = normalizeJobs(store.jobs).map((job) => {
+    if (!job.customerId) return job;
+    const nextId = idMap[job.customerId];
+    if (!nextId || nextId === job.customerId) return job;
+    return { ...job, customerId: nextId };
+  });
+
+  if (removedCount > 0) {
+    logClientEvent("sanitize_collapsed_duplicates", {
+      removedCount,
+      remaining: clients.length,
+      remappedIds: Object.keys(idMap).length,
+    });
+  }
+
   return {
+    ...store,
+    clients,
+    jobs,
+  };
+}
+
+function packStore(store: BoardStore): BoardStore {
+  const packed = {
     days: store.days,
     jobs: normalizeJobs(store.jobs),
     clients: normalizeClients(store.clients),
@@ -72,6 +103,7 @@ function packStore(store: BoardStore): BoardStore {
     expenses: normalizeExpenses(store.expenses),
     ideaLot: store.ideaLot ?? "",
   };
+  return sanitizeClientIntegrity(packed);
 }
 
 function withPipeline(
@@ -138,7 +170,7 @@ function normalizeStore(value: unknown): BoardStore | null {
   if (!days || typeof days !== "object" || Array.isArray(days)) return null;
   const raw = value as Record<string, unknown>;
   const ideaLot = typeof raw.ideaLot === "string" ? raw.ideaLot : "";
-  return {
+  return sanitizeClientIntegrity({
     days: days as BoardStore["days"],
     jobs: normalizeJobs(raw.jobs),
     clients: normalizeClients(raw.clients),
@@ -148,7 +180,7 @@ function normalizeStore(value: unknown): BoardStore | null {
     invoices: normalizeInvoices(raw.invoices),
     expenses: normalizeExpenses(raw.expenses),
     ideaLot,
-  };
+  });
 }
 
 function storeHasData(store: BoardStore): boolean {
@@ -294,7 +326,17 @@ export function hydrateStoreFromCloud(): Promise<BoardStore> {
 
   setCloudStatus("loading");
   hydrationPromise = (async () => {
-    const local = loadStore();
+    const localLoaded = loadStore();
+    // Persist cleanup so duplicate clients cannot linger in localStorage
+    // across refreshes when cloud is offline.
+    const local = sanitizeClientIntegrity(localLoaded);
+    if (!storesEqual(local, localLoaded)) {
+      saveLocalStore(local);
+      logClientEvent("hydrate_cleaned_local_duplicates", {
+        before: localLoaded.clients.length,
+        after: local.clients.length,
+      });
+    }
 
     try {
       const response = await fetch(CLOUD_ENDPOINT, {
@@ -333,7 +375,9 @@ export function hydrateStoreFromCloud(): Promise<BoardStore> {
         return local;
       }
 
-      const cloud = normalizeStore(body.state) ?? emptyStore();
+      const cloud = sanitizeClientIntegrity(
+        normalizeStore(body.state) ?? emptyStore(),
+      );
       cloudEnabled = true;
 
       const cloudEmpty = !storeHasData(cloud);
@@ -351,7 +395,7 @@ export function hydrateStoreFromCloud(): Promise<BoardStore> {
         return local;
       }
 
-      const merged = mergeStores(local, cloud);
+      const merged = sanitizeClientIntegrity(mergeStores(local, cloud));
       saveLocalStore(merged);
 
       if (!storesEqual(merged, cloud)) {
@@ -482,8 +526,46 @@ export function listClients(store?: BoardStore): WorkClient[] {
 }
 export function upsertClient(row: WorkClient, store?: BoardStore): BoardStore {
   const current = store ?? loadStore();
+  const clients = listClients(current);
+  const byId = clients.find((c) => c.id === row.id);
+  if (byId) {
+    return saveStoreReturn(
+      withPipeline(current, { clients: upsertList(clients, row) }),
+    );
+  }
+
+  // New id — still refuse to insert a duplicate identity.
+  const match = findExistingClient(clients, row);
+  if (match) {
+    logClientEvent("upsert_blocked_duplicate", {
+      attemptedId: row.id,
+      existingId: match.client.id,
+      reason: match.reason,
+      name: row.name,
+    });
+    const merged: WorkClient = {
+      ...match.client,
+      name: row.name.trim() || match.client.name,
+      companyName: row.companyName.trim() || match.client.companyName,
+      phone: row.phone.trim() || match.client.phone,
+      email: row.email.trim() || match.client.email,
+      address: row.address.trim() || match.client.address,
+      billingAddress: row.billingAddress.trim() || match.client.billingAddress,
+      city: row.city.trim() || match.client.city,
+      preferredContact: row.preferredContact || match.client.preferredContact,
+      notes: row.notes.trim() || match.client.notes,
+      tags: [...new Set([...match.client.tags, ...row.tags])],
+      favorite: match.client.favorite || row.favorite,
+      clientType: row.clientType || match.client.clientType,
+      updatedAt: new Date().toISOString(),
+    };
+    return saveStoreReturn(
+      withPipeline(current, { clients: upsertList(clients, merged) }),
+    );
+  }
+
   return saveStoreReturn(
-    withPipeline(current, { clients: upsertList(listClients(current), row) }),
+    withPipeline(current, { clients: upsertList(clients, row) }),
   );
 }
 export function removeClient(id: string, store?: BoardStore): BoardStore {

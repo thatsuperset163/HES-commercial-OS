@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
+import { dedupeClients, logClientEvent } from "@/lib/clients/identity";
+import { normalizeJobs } from "@/lib/jobs/model";
 import {
   getSupabaseAdmin,
   getSupabaseServiceRole,
   supabaseConfigured,
   supabaseServiceRoleConfigured,
 } from "@/lib/supabase";
+import { normalizeClients } from "@/lib/work/model";
 
 function notConfigured() {
   return NextResponse.json(
@@ -17,6 +20,33 @@ function blackboardClient() {
   // Prefer service role for durable whole-site writes; anon still works while
   // blackboard_workspace keeps its open RLS policy.
   return getSupabaseServiceRole() ?? getSupabaseAdmin();
+}
+
+/** Enforce one logical client per identity before cloud write. */
+function sanitizeIncomingState(state: unknown): unknown {
+  if (!state || typeof state !== "object") return state;
+  const raw = state as Record<string, unknown>;
+  if (!Array.isArray(raw.clients)) return state;
+
+  const clients = normalizeClients(raw.clients);
+  const { clients: unique, idMap, removedCount } = dedupeClients(clients);
+  if (removedCount > 0) {
+    logClientEvent("api_put_deduped_clients", {
+      removedCount,
+      remaining: unique.length,
+    });
+  }
+
+  let jobs = raw.jobs;
+  if (Array.isArray(jobs) && Object.keys(idMap).length > 0) {
+    jobs = normalizeJobs(jobs).map((job) => {
+      if (!job.customerId) return job;
+      const nextId = idMap[job.customerId];
+      return nextId ? { ...job, customerId: nextId } : job;
+    });
+  }
+
+  return { ...raw, clients: unique, jobs };
 }
 
 export async function GET() {
@@ -114,9 +144,10 @@ export async function PUT(request: Request) {
   }
 
   const updatedAt = new Date().toISOString();
+  const sanitized = sanitizeIncomingState(state);
   const { error } = await supabase.from("blackboard_workspace").upsert({
     id: "default",
-    state,
+    state: sanitized,
     updated_at: updatedAt,
   });
 
