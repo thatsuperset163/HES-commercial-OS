@@ -123,6 +123,14 @@ describe("client next action", () => {
     jobs: [],
     invoices: [],
     tasks: [],
+    expenses: [],
+    legacy: {
+      requests: [],
+      quotes: [],
+      jobs: [],
+      invoices: [],
+      tasks: [],
+    },
   };
   const emptySummary: ClientSummary = {
     nextActivity: null,

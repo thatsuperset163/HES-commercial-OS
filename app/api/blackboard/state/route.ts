@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import {
+  backfillClientLinks,
+  remapStoreClientIds,
+} from "@/lib/clients/backfill";
 import { dedupeClients, logClientEvent } from "@/lib/clients/identity";
 import { normalizeJobs } from "@/lib/jobs/model";
 import {
@@ -7,7 +11,15 @@ import {
   supabaseConfigured,
   supabaseServiceRoleConfigured,
 } from "@/lib/supabase";
-import { normalizeClients } from "@/lib/work/model";
+import type { BoardStore } from "@/lib/types";
+import {
+  normalizeClients,
+  normalizeExpenses,
+  normalizeInvoices,
+  normalizeQuotes,
+  normalizeRequests,
+  normalizeTasks,
+} from "@/lib/work/model";
 
 function notConfigured() {
   return NextResponse.json(
@@ -22,11 +34,11 @@ function blackboardClient() {
   return getSupabaseServiceRole() ?? getSupabaseAdmin();
 }
 
-/** Enforce one logical client per identity before cloud write. */
+/** Enforce canonical client identity before cloud write. */
 function sanitizeIncomingState(state: unknown): unknown {
   if (!state || typeof state !== "object") return state;
   const raw = state as Record<string, unknown>;
-  if (!Array.isArray(raw.clients)) return state;
+  if (!raw.days || typeof raw.days !== "object") return state;
 
   const clients = normalizeClients(raw.clients);
   const { clients: unique, idMap, removedCount } = dedupeClients(clients);
@@ -37,16 +49,30 @@ function sanitizeIncomingState(state: unknown): unknown {
     });
   }
 
-  let jobs = raw.jobs;
-  if (Array.isArray(jobs) && Object.keys(idMap).length > 0) {
-    jobs = normalizeJobs(jobs).map((job) => {
-      if (!job.customerId) return job;
-      const nextId = idMap[job.customerId];
-      return nextId ? { ...job, customerId: nextId } : job;
+  let next = {
+    days: raw.days,
+    jobs: normalizeJobs(raw.jobs),
+    clients: unique,
+    requests: normalizeRequests(raw.requests),
+    tasks: normalizeTasks(raw.tasks),
+    quotes: normalizeQuotes(raw.quotes),
+    invoices: normalizeInvoices(raw.invoices),
+    expenses: normalizeExpenses(raw.expenses),
+    clientLinkFlags: Array.isArray(raw.clientLinkFlags)
+      ? raw.clientLinkFlags
+      : [],
+    ideaLot: typeof raw.ideaLot === "string" ? raw.ideaLot : "",
+  } as BoardStore;
+
+  next = remapStoreClientIds(next, idMap);
+  const backfilled = backfillClientLinks(next);
+  if (backfilled.linked > 0) {
+    logClientEvent("api_put_backfilled_client_links", {
+      linked: backfilled.linked,
+      flagged: backfilled.flags.length,
     });
   }
-
-  return { ...raw, clients: unique, jobs };
+  return { ...raw, ...backfilled.store };
 }
 
 export async function GET() {

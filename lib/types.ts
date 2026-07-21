@@ -1,4 +1,5 @@
 import type { Job } from "./jobs/types";
+import type { ClientLinkFlag } from "./clients/resolver";
 import type {
   ExpenseDoc,
   InvoiceDoc,
@@ -18,6 +19,7 @@ export type {
   WorkDeskId,
   WorkTask,
 } from "./work/types";
+export type { ClientLinkFlag } from "./clients/resolver";
 
 export type MetricKey =
   | "doors"
@@ -82,6 +84,11 @@ export type BoardStore = {
   quotes: QuoteDoc[];
   invoices: InvoiceDoc[];
   expenses: ExpenseDoc[];
+  /**
+   * Records that could not be safely auto-linked to a Client during backfill.
+   * Never auto-resolved — requires intentional review.
+   */
+  clientLinkFlags?: ClientLinkFlag[];
   /** ADHD idea parking lot — capture distractions without switching tasks. */
   ideaLot?: string;
 };

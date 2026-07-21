@@ -44,6 +44,7 @@ test("open tasks with due dates become calendar overlays", () => {
   const overlays = tasksToOverlays([
     {
       id: "t1",
+      clientId: "",
       title: "Call plumber supplier",
       dueDate: "2026-07-22",
       status: "open",
@@ -53,6 +54,7 @@ test("open tasks with due dates become calendar overlays", () => {
     },
     {
       id: "t2",
+      clientId: "",
       title: "Done already",
       dueDate: "2026-07-22",
       status: "done",

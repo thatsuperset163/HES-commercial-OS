@@ -122,7 +122,13 @@ export async function POST(request: Request, { params }: Params) {
 
     const invoice = createInvoice({
       clientName: intake.customerName,
+      companyName: intake.company,
+      clientId: clientForStore.id,
+      billingAddress: intake.address,
+      serviceAddress: intake.address,
       jobLabel: intake.serviceRequested,
+      jobId: job.id,
+      requestId: intake.id,
       amount: null,
       dueDate: jobDate,
       notes: `Draft invoice for job ${job.id} (from request ${intake.id})`,
@@ -131,6 +137,7 @@ export async function POST(request: Request, { params }: Params) {
     const calendarTask = createTask({
       title: `Job / calendar: ${intake.customerName} — ${intake.serviceRequested}`,
       dueDate: jobDate,
+      clientId: clientForStore.id,
       notes: [
         intake.estimateTime ? `Time: ${intake.estimateTime}` : "",
         intake.address,

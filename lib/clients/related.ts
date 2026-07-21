@@ -1,12 +1,14 @@
 import { todayKey } from "../dates.ts";
 import type { Job } from "../jobs/types.ts";
 import type {
+  ExpenseDoc,
   InvoiceDoc,
   QuoteDoc,
   ServiceRequest,
   WorkClient,
   WorkTask,
 } from "../work/types.ts";
+import { jobClientId } from "./resolver.ts";
 
 export type ClientRelated = {
   requests: ServiceRequest[];
@@ -14,6 +16,15 @@ export type ClientRelated = {
   jobs: Job[];
   invoices: InvoiceDoc[];
   tasks: WorkTask[];
+  expenses: ExpenseDoc[];
+  /** Name-only matches for records that still lack clientId (legacy). */
+  legacy: {
+    requests: ServiceRequest[];
+    quotes: QuoteDoc[];
+    jobs: Job[];
+    invoices: InvoiceDoc[];
+    tasks: WorkTask[];
+  };
 };
 
 export type ClientSummary = {
@@ -30,6 +41,7 @@ export type ClientActivityItem = {
   detail: string;
   at: string;
   href: string;
+  legacy?: boolean;
 };
 
 function nameMatch(a: string, b: string): boolean {
@@ -42,7 +54,10 @@ function mentions(text: string, name: string): boolean {
   return text.toLowerCase().includes(n);
 }
 
-/** Gather related records using id (jobs) or clientName string match. */
+/**
+ * Gather related Work records by stable clientId.
+ * Legacy name matches are returned separately and never mixed into id results.
+ */
 export function gatherClientRelated(
   client: WorkClient,
   input: {
@@ -51,31 +66,94 @@ export function gatherClientRelated(
     jobs: Job[];
     invoices: InvoiceDoc[];
     tasks: WorkTask[];
+    expenses?: ExpenseDoc[];
   },
 ): ClientRelated {
   const name = client.name;
+  const company = client.companyName;
+
+  const requestsById = input.requests.filter(
+    (r) => (r.clientId || "").trim() === client.id,
+  );
+  const quotesById = input.quotes.filter(
+    (q) => (q.clientId || "").trim() === client.id,
+  );
+  const jobsById = input.jobs.filter((j) => jobClientId(j) === client.id);
+  const invoicesById = input.invoices.filter(
+    (i) => (i.clientId || "").trim() === client.id,
+  );
+  const tasksById = input.tasks.filter(
+    (t) => (t.clientId || "").trim() === client.id,
+  );
+  const expensesById = (input.expenses || []).filter(
+    (e) => (e.clientId || "").trim() === client.id,
+  );
+
+  const requestIds = new Set(requestsById.map((r) => r.id));
+  const quoteIds = new Set(quotesById.map((q) => q.id));
+  const jobIds = new Set(jobsById.map((j) => j.id));
+  const invoiceIds = new Set(invoicesById.map((i) => i.id));
+  const taskIds = new Set(tasksById.map((t) => t.id));
+
   return {
-    requests: input.requests.filter((r) => nameMatch(r.clientName, name)),
-    quotes: input.quotes.filter((q) => {
-      if (q.clientId && q.clientId === client.id) return true;
-      // Legacy fallback — name only when no clientId is stored.
-      if (!q.clientId) return nameMatch(q.clientName, name);
-      return false;
-    }),
-    jobs: input.jobs.filter(
-      (j) =>
-        j.customerId === client.id ||
-        nameMatch(j.customerName, name) ||
-        nameMatch(j.companyName || "", name),
-    ),
-    invoices: input.invoices.filter((i) => {
-      if (i.clientId && i.clientId === client.id) return true;
-      if (!i.clientId) return nameMatch(i.clientName, name);
-      return false;
-    }),
-    tasks: input.tasks.filter(
-      (t) => mentions(t.title, name) || mentions(t.notes, name),
-    ),
+    requests: requestsById,
+    quotes: quotesById,
+    jobs: jobsById,
+    invoices: invoicesById,
+    tasks: tasksById,
+    expenses: expensesById,
+    legacy: {
+      requests: input.requests.filter(
+        (r) =>
+          !requestIds.has(r.id) &&
+          !(r.clientId || "").trim() &&
+          nameMatch(r.clientName, name),
+      ),
+      quotes: input.quotes.filter(
+        (q) =>
+          !quoteIds.has(q.id) &&
+          !(q.clientId || "").trim() &&
+          nameMatch(q.clientName, name),
+      ),
+      jobs: input.jobs.filter(
+        (j) =>
+          !jobIds.has(j.id) &&
+          !jobClientId(j) &&
+          (nameMatch(j.customerName, name) ||
+            (company && nameMatch(j.companyName || "", company))),
+      ),
+      invoices: input.invoices.filter(
+        (i) =>
+          !invoiceIds.has(i.id) &&
+          !(i.clientId || "").trim() &&
+          nameMatch(i.clientName, name),
+      ),
+      tasks: input.tasks.filter(
+        (t) =>
+          !taskIds.has(t.id) &&
+          !(t.clientId || "").trim() &&
+          (mentions(t.title, name) || mentions(t.notes, name)),
+      ),
+    },
+  };
+}
+
+/** All related rows for summaries — id-linked first, then legacy. */
+export function flattenClientRelated(related: ClientRelated): {
+  requests: ServiceRequest[];
+  quotes: QuoteDoc[];
+  jobs: Job[];
+  invoices: InvoiceDoc[];
+  tasks: WorkTask[];
+  expenses: ExpenseDoc[];
+} {
+  return {
+    requests: [...related.requests, ...related.legacy.requests],
+    quotes: [...related.quotes, ...related.legacy.quotes],
+    jobs: [...related.jobs, ...related.legacy.jobs],
+    invoices: [...related.invoices, ...related.legacy.invoices],
+    tasks: [...related.tasks, ...related.legacy.tasks],
+    expenses: related.expenses,
   };
 }
 
@@ -83,16 +161,17 @@ export function buildClientSummary(
   related: ClientRelated,
   today = todayKey(),
 ): ClientSummary {
-  const openQuotes = related.quotes.filter(
+  const flat = flattenClientRelated(related);
+  const openQuotes = flat.quotes.filter(
     (q) => q.status === "draft" || q.status === "sent",
   );
-  const openInvoices = related.invoices.filter(
+  const openInvoices = flat.invoices.filter(
     (i) => i.status === "draft" || i.status === "sent" || i.status === "overdue",
   );
-  const completed = related.jobs.filter((j) => j.status === "completed");
-  const paid = related.invoices.filter((i) => i.status === "paid");
+  const completed = flat.jobs.filter((j) => j.status === "completed");
+  const paid = flat.invoices.filter((i) => i.status === "paid");
 
-  const upcomingJobs = related.jobs
+  const upcomingJobs = flat.jobs
     .filter(
       (j) =>
         j.scheduledDate &&
@@ -141,13 +220,33 @@ export function buildClientActivity(
       href: "/work/requests",
     });
   }
+  for (const r of related.legacy.requests) {
+    items.push({
+      id: `req-legacy-${r.id}`,
+      label: "Request (legacy)",
+      detail: r.summary || r.status,
+      at: r.createdAt || r.updatedAt,
+      href: "/work/requests",
+      legacy: true,
+    });
+  }
   for (const q of related.quotes) {
     items.push({
       id: `quote-${q.id}`,
       label: q.status === "sent" ? "Quote sent" : "Quote",
       detail: q.scope || q.status,
       at: q.updatedAt || q.createdAt,
-      href: "/work/quotes",
+      href: `/work/quotes?id=${encodeURIComponent(q.id)}`,
+    });
+  }
+  for (const q of related.legacy.quotes) {
+    items.push({
+      id: `quote-legacy-${q.id}`,
+      label: "Quote (legacy)",
+      detail: q.scope || q.status,
+      at: q.updatedAt || q.createdAt,
+      href: `/work/quotes?id=${encodeURIComponent(q.id)}`,
+      legacy: true,
     });
   }
   for (const j of related.jobs) {
@@ -166,6 +265,16 @@ export function buildClientActivity(
         : "/work/jobs",
     });
   }
+  for (const j of related.legacy.jobs) {
+    items.push({
+      id: `job-legacy-${j.id}`,
+      label: "Job (legacy)",
+      detail: j.service || j.title || j.status,
+      at: j.updatedAt || j.createdAt || `${j.scheduledDate || ""}T12:00:00`,
+      href: "/work/jobs",
+      legacy: true,
+    });
+  }
   for (const i of related.invoices) {
     items.push({
       id: `inv-${i.id}`,
@@ -182,7 +291,17 @@ export function buildClientActivity(
         .filter(Boolean)
         .join(" · "),
       at: i.updatedAt || i.createdAt,
-      href: "/work/invoices",
+      href: `/work/invoices?id=${encodeURIComponent(i.id)}`,
+    });
+  }
+  for (const i of related.legacy.invoices) {
+    items.push({
+      id: `inv-legacy-${i.id}`,
+      label: "Invoice (legacy)",
+      detail: i.jobLabel || i.status,
+      at: i.updatedAt || i.createdAt,
+      href: `/work/invoices?id=${encodeURIComponent(i.id)}`,
+      legacy: true,
     });
   }
   for (const t of related.tasks) {
@@ -192,6 +311,16 @@ export function buildClientActivity(
       detail: t.title,
       at: t.updatedAt || t.createdAt,
       href: "/work/tasks",
+    });
+  }
+  for (const t of related.legacy.tasks) {
+    items.push({
+      id: `task-legacy-${t.id}`,
+      label: "Task (legacy)",
+      detail: t.title,
+      at: t.updatedAt || t.createdAt,
+      href: "/work/tasks",
+      legacy: true,
     });
   }
 
@@ -211,21 +340,22 @@ export function buildClientRowSignals(
   related: ClientRelated,
   today = todayKey(),
 ): ClientRowSignals {
+  const flat = flattenClientRelated(related);
   return {
-    upcoming: related.jobs.some(
+    upcoming: flat.jobs.some(
       (j) =>
         j.scheduledDate &&
         j.scheduledDate >= today &&
         j.status !== "cancelled" &&
         j.status !== "completed",
     ),
-    unpaid: related.invoices.some(
+    unpaid: flat.invoices.some(
       (i) =>
         i.status === "overdue" ||
         i.status === "sent" ||
         (i.status === "draft" && (i.amount ?? 0) > 0),
     ),
-    followUp: related.quotes.some(
+    followUp: flat.quotes.some(
       (q) => q.status === "sent" && q.followUpDate <= today,
     ),
   };
@@ -234,4 +364,17 @@ export function buildClientRowSignals(
 export function moneyLabel(value: number): string {
   if (!value) return "$0";
   return `$${Math.round(value).toLocaleString("en-US")}`;
+}
+
+/** Intake requests that intentionally reference this Work client. */
+export function intakeBelongsToClient(
+  intake: {
+    linkedClientId?: string | null;
+    convertedClientId?: string | null;
+  },
+  clientId: string,
+): boolean {
+  const id = clientId.trim();
+  if (!id) return false;
+  return intake.linkedClientId === id || intake.convertedClientId === id;
 }

@@ -424,51 +424,99 @@ export default function ClientDetailDrawer({
       {tab === "requests" ? (
         <RelatedList
           empty="No requests yet. Create one with Create → Request."
-          items={related.requests.map((r) => ({
-            id: r.id,
-            label: r.summary || r.status,
-            meta: r.status,
-            href: "/work/requests",
-          }))}
+          items={[
+            ...related.requests.map((r) => ({
+              id: r.id,
+              label: r.summary || r.status,
+              meta: r.status,
+              href: "/work/requests",
+            })),
+            ...related.legacy.requests.map((r) => ({
+              id: `legacy-${r.id}`,
+              label: r.summary || r.status,
+              meta: `${r.status} · legacy name match`,
+              href: "/work/requests",
+            })),
+          ]}
         />
       ) : null}
       {tab === "quotes" ? (
         <RelatedList
           empty="No quotes yet. Create one with Create → Quote."
-          items={related.quotes.map((q) => ({
-            id: q.id,
-            label: q.scope || q.status,
-            meta: [q.amount != null ? moneyLabel(q.amount) : null, q.status]
-              .filter(Boolean)
-              .join(" · "),
-            href: `/work/quotes?id=${encodeURIComponent(q.id)}`,
-          }))}
+          items={[
+            ...related.quotes.map((q) => ({
+              id: q.id,
+              label: q.scope || q.status,
+              meta: [q.amount != null ? moneyLabel(q.amount) : null, q.status]
+                .filter(Boolean)
+                .join(" · "),
+              href: `/work/quotes?id=${encodeURIComponent(q.id)}`,
+            })),
+            ...related.legacy.quotes.map((q) => ({
+              id: `legacy-${q.id}`,
+              label: q.scope || q.status,
+              meta: [
+                q.amount != null ? moneyLabel(q.amount) : null,
+                q.status,
+                "legacy name match",
+              ]
+                .filter(Boolean)
+                .join(" · "),
+              href: `/work/quotes?id=${encodeURIComponent(q.id)}`,
+            })),
+          ]}
         />
       ) : null}
       {tab === "jobs" ? (
         <RelatedList
           empty="No jobs yet. Create one with Create → Job."
-          items={related.jobs.map((j) => ({
-            id: j.id,
-            label: j.service || j.title || j.customerName,
-            meta: [j.scheduledDate, j.status].filter(Boolean).join(" · "),
-            href: j.scheduledDate
-              ? `/work/jobs?view=day&date=${encodeURIComponent(j.scheduledDate)}`
-              : "/work/jobs",
-          }))}
+          items={[
+            ...related.jobs.map((j) => ({
+              id: j.id,
+              label: j.service || j.title || j.customerName,
+              meta: [j.scheduledDate, j.status].filter(Boolean).join(" · "),
+              href: j.scheduledDate
+                ? `/work/jobs?view=day&date=${encodeURIComponent(j.scheduledDate)}`
+                : "/work/jobs",
+            })),
+            ...related.legacy.jobs.map((j) => ({
+              id: `legacy-${j.id}`,
+              label: j.service || j.title || j.customerName,
+              meta: [j.scheduledDate, j.status, "legacy name match"]
+                .filter(Boolean)
+                .join(" · "),
+              href: j.scheduledDate
+                ? `/work/jobs?view=day&date=${encodeURIComponent(j.scheduledDate)}`
+                : "/work/jobs",
+            })),
+          ]}
         />
       ) : null}
       {tab === "invoices" ? (
         <RelatedList
           empty="No invoices yet. Create one with Create → Invoice."
-          items={related.invoices.map((i) => ({
-            id: i.id,
-            label: i.jobLabel || i.status,
-            meta: [i.amount != null ? moneyLabel(i.amount) : null, i.status]
-              .filter(Boolean)
-              .join(" · "),
-            href: "/work/invoices",
-          }))}
+          items={[
+            ...related.invoices.map((i) => ({
+              id: i.id,
+              label: i.jobLabel || i.status,
+              meta: [i.amount != null ? moneyLabel(i.amount) : null, i.status]
+                .filter(Boolean)
+                .join(" · "),
+              href: `/work/invoices?id=${encodeURIComponent(i.id)}`,
+            })),
+            ...related.legacy.invoices.map((i) => ({
+              id: `legacy-${i.id}`,
+              label: i.jobLabel || i.status,
+              meta: [
+                i.amount != null ? moneyLabel(i.amount) : null,
+                i.status,
+                "legacy name match",
+              ]
+                .filter(Boolean)
+                .join(" · "),
+              href: `/work/invoices?id=${encodeURIComponent(i.id)}`,
+            })),
+          ]}
         />
       ) : null}
 

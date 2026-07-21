@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { formatDisplayDate, todayKey } from "@/lib/dates";
+import { resolveClient } from "@/lib/clients/resolver";
 import { getWorkDesk, statusLabel } from "@/lib/work/catalog";
 import {
   advanceClientStatus,
@@ -207,9 +208,17 @@ export default function WorkDeskApp({ deskId }: { deskId: WorkDeskId }) {
       );
       upsertClient(client);
     } else if (deskId === "requests") {
+      const resolved = resolveClient(listClients(), {
+        identity: {
+          name: str("clientName"),
+          phone: str("phone"),
+        },
+      });
       upsertRequest(
         createRequest({
           clientName: str("clientName"),
+          clientId:
+            resolved.status === "resolved" ? resolved.client.id : "",
           summary: str("summary"),
           phone: str("phone"),
           notes: str("notes"),
@@ -224,9 +233,17 @@ export default function WorkDeskApp({ deskId }: { deskId: WorkDeskId }) {
         }),
       );
     } else if (deskId === "quotes") {
+      const resolved = resolveClient(listClients(), {
+        identity: {
+          name: str("clientName"),
+          address: str("address"),
+        },
+      });
       upsertQuote(
         createQuote({
           clientName: str("clientName"),
+          clientId:
+            resolved.status === "resolved" ? resolved.client.id : "",
           address: str("address"),
           scope: str("scope"),
           amount,
@@ -235,9 +252,14 @@ export default function WorkDeskApp({ deskId }: { deskId: WorkDeskId }) {
         }),
       );
     } else if (deskId === "invoices") {
+      const resolved = resolveClient(listClients(), {
+        identity: { name: str("clientName") },
+      });
       upsertInvoice(
         createInvoice({
           clientName: str("clientName"),
+          clientId:
+            resolved.status === "resolved" ? resolved.client.id : "",
           jobLabel: str("jobLabel"),
           amount,
           dueDate: str("dueDate") || today,
