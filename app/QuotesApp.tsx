@@ -229,6 +229,12 @@ export default function QuotesApp() {
   }
 
   function printQuote() {
+    // Prefer printing only when the document stage is on screen.
+    const root = document.querySelector(".quote-print-root");
+    if (!root) {
+      flash("Open a quote first, then print");
+      return;
+    }
     window.print();
   }
 

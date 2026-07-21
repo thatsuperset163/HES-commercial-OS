@@ -233,62 +233,84 @@
 
 @media print {
   @page {
-    margin: 0.65in;
+    margin: 0.6in;
   }
 
   html,
   body {
     background: #fff !important;
+    color: #132033 !important;
+  }
+
+  /*
+   * Never display:none ancestors of the quote (e.g. .app-shell) — that blanks
+   * the whole print preview. Only hide chrome siblings / marked no-print UI.
+   */
+  .home-topbar,
+  .no-print,
+  .toast,
+  .modal-backdrop,
+  .os-menu-panel,
+  .create-new-root,
+  .home-search-panel {
+    display: none !important;
   }
 
   .app-shell,
   .home-shell,
-  .hq-sidebar,
-  .home-rail,
-  .os-menu-panel,
-  .no-print,
-  .quotes-main,
-  .quote-composer-bar,
-  .quote-status-actions,
-  .quote-preview-actions,
-  .modal-backdrop,
-  .toast {
-    display: none !important;
-  }
-
   .shell-content,
   .home-shell-content,
-  .quotes-page,
-  .quotes-preview,
-  .quote-print-root {
+  .quote-composer,
+  .quote-composer-stage,
+  .quote-print-root,
+  .quotes-preview {
     display: block !important;
+    position: static !important;
     width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    min-height: 0 !important;
+  }
+
+  .quote-doc {
+    display: block !important;
+    visibility: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
     max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
+    background: #fff !important;
+    color: #132033 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
-  .quotes-preview {
-    position: static !important;
-    max-height: none !important;
-    overflow: visible !important;
+  .quote-doc * {
+    visibility: visible !important;
+  }
+
+  .quote-doc-input,
+  .quote-doc-textarea {
     border: none !important;
-    background: transparent !important;
+    outline: none !important;
     box-shadow: none !important;
+    background: transparent !important;
     padding: 0 !important;
+    resize: none !important;
   }
 
-  .quote-print-root,
-  .quote-doc {
-    display: block !important;
-  }
-
-  .quote-doc {
-    border: none;
-    box-shadow: none;
-    border-radius: 0;
-    max-width: none;
-    padding: 0;
+  .quote-doc-logo {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 }
 
