@@ -70,11 +70,22 @@ export const WORK_DESKS: WorkDeskDef[] = [
     hqLabel: "Quotes",
     fields: [
       { key: "clientName", label: "Client", type: "text", required: true },
-      { key: "address", label: "Address", type: "text" },
-      { key: "scope", label: "Scope", type: "textarea", required: true },
-      { key: "amount", label: "Amount ($)", type: "number" },
+      { key: "address", label: "Property address", type: "text" },
+      {
+        key: "scope",
+        label: "Project overview (This project includes…)",
+        type: "textarea",
+        required: true,
+        placeholder: "Describe the work included in this quote",
+      },
+      { key: "amount", label: "Pricing ($)", type: "number" },
       { key: "followUpDate", label: "Follow up", type: "date" },
-      { key: "notes", label: "Notes", type: "textarea" },
+      {
+        key: "notes",
+        label: "Pricing notes",
+        type: "textarea",
+        placeholder: "Optional notes shown under Pricing",
+      },
     ],
   },
   {
