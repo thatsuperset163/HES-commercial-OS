@@ -81,6 +81,8 @@ export type WorkClient = {
 
 export type ServiceRequest = {
   id: string;
+  /** Stable WorkClient id when known. */
+  clientId: string;
   clientName: string;
   summary: string;
   phone: string;
@@ -92,6 +94,8 @@ export type ServiceRequest = {
 
 export type WorkTask = {
   id: string;
+  /** Stable WorkClient id when this task belongs to a client. */
+  clientId: string;
   title: string;
   dueDate: string;
   status: TaskStatus;
@@ -165,6 +169,8 @@ export type InvoiceDoc = {
 
 export type ExpenseDoc = {
   id: string;
+  /** Stable WorkClient id when this expense is client-attributed. */
+  clientId: string;
   vendor: string;
   category: string;
   amount: number | null;

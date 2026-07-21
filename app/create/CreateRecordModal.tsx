@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { todayKey } from "@/lib/dates";
+import { resolveClient } from "@/lib/clients/resolver";
 import { getWorkDesk } from "@/lib/work/catalog";
 import {
   createExpense,
@@ -110,8 +111,19 @@ export default function CreateRecordModal({
         if (!values.clientName || !values.scope) {
           throw new Error("Client and scope are required");
         }
+        // Never mint a Client from quote create — resolve id when unique.
+        const resolved = resolveClient(listClients(), {
+          clientId: values.clientId,
+          identity: {
+            name: values.clientName,
+            address: values.address,
+          },
+        });
+        const clientId =
+          resolved.status === "resolved" ? resolved.client.id : "";
         const row = createQuote({
           clientName: values.clientName,
+          clientId,
           address: values.address,
           scope: values.scope,
           followUpDate: values.followUpDate,
@@ -123,8 +135,15 @@ export default function CreateRecordModal({
         title = row.clientName;
       } else if (deskId === "invoices") {
         if (!values.clientName) throw new Error("Client is required");
+        const resolved = resolveClient(listClients(), {
+          clientId: values.clientId,
+          identity: { name: values.clientName },
+        });
+        const clientId =
+          resolved.status === "resolved" ? resolved.client.id : "";
         const row = createInvoice({
           clientName: values.clientName,
+          clientId,
           jobLabel: values.jobLabel,
           dueDate: values.dueDate,
           notes: values.notes,

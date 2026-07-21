@@ -222,10 +222,12 @@ export function createRequest(input: {
   summary: string;
   phone?: string;
   notes?: string;
+  clientId?: string;
 }): ServiceRequest {
   const now = new Date().toISOString();
   return {
     id: workUid("req"),
+    clientId: (input.clientId ?? "").trim(),
     clientName: input.clientName.trim() || "Lead",
     summary: input.summary.trim() || "New request",
     phone: (input.phone ?? "").trim(),
@@ -240,10 +242,12 @@ export function createTask(input: {
   title: string;
   dueDate?: string;
   notes?: string;
+  clientId?: string;
 }): WorkTask {
   const now = new Date().toISOString();
   return {
     id: workUid("task"),
+    clientId: (input.clientId ?? "").trim(),
     title: input.title.trim() || "Task",
     dueDate: input.dueDate?.trim() || todayKey(),
     status: "open",
@@ -370,10 +374,12 @@ export function createExpense(input: {
   amount?: number | null;
   date?: string;
   notes?: string;
+  clientId?: string;
 }): ExpenseDoc {
   const now = new Date().toISOString();
   return {
     id: workUid("exp"),
+    clientId: (input.clientId ?? "").trim(),
     vendor: input.vendor.trim() || "Vendor",
     category: (input.category ?? "").trim() || "Supplies",
     amount:
@@ -461,6 +467,7 @@ export function normalizeRequests(value: unknown): ServiceRequest[] {
     .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object")
     .map((row) => ({
       id: asString(row.id) || workUid("req"),
+      clientId: asString(row.clientId),
       clientName: asString(row.clientName).trim() || "Lead",
       summary: asString(row.summary).trim() || "Request",
       phone: asString(row.phone),
@@ -478,6 +485,7 @@ export function normalizeTasks(value: unknown): WorkTask[] {
     .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object")
     .map((row) => ({
       id: asString(row.id) || workUid("task"),
+      clientId: asString(row.clientId),
       title: asString(row.title).trim() || "Task",
       dueDate: asString(row.dueDate) || todayKey(),
       status: pickStatus(row.status, statuses, "open"),
@@ -604,6 +612,7 @@ export function normalizeExpenses(value: unknown): ExpenseDoc[] {
     .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object")
     .map((row) => ({
       id: asString(row.id) || workUid("exp"),
+      clientId: asString(row.clientId),
       vendor: asString(row.vendor).trim() || "Vendor",
       category: asString(row.category).trim() || "Supplies",
       amount: asAmount(row.amount),

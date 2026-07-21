@@ -21,6 +21,11 @@ import {
   logClientEvent,
 } from "./clients/identity";
 import {
+  backfillClientLinks,
+  remapStoreClientIds,
+} from "./clients/backfill";
+import type { ClientLinkFlag } from "./clients/resolver";
+import {
   mergeByUpdatedAt,
   normalizeClients,
   normalizeExpenses,
@@ -62,19 +67,73 @@ function emptyPipeline() {
 }
 
 function emptyStore(): BoardStore {
-  return { days: {}, jobs: [], ...emptyPipeline(), ideaLot: "" };
+  return { days: {}, jobs: [], ...emptyPipeline(), clientLinkFlags: [], ideaLot: "" };
 }
 
-/** Collapse duplicate clients and remap job.customerId references. */
+function normalizeClientLinkFlags(value: unknown): ClientLinkFlag[] {
+  if (!Array.isArray(value)) return [];
+  const entityTypes: ClientLinkFlag["entityType"][] = [
+    "request",
+    "quote",
+    "job",
+    "invoice",
+    "task",
+    "expense",
+  ];
+  return value
+    .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object")
+    .map((row) => {
+      const entityType = entityTypes.includes(row.entityType as ClientLinkFlag["entityType"])
+        ? (row.entityType as ClientLinkFlag["entityType"])
+        : "quote";
+      const status: ClientLinkFlag["status"] =
+        row.status === "ambiguous" || row.status === "unmatched"
+          ? row.status
+          : "unmatched";
+      const entityId = typeof row.entityId === "string" ? row.entityId : "";
+      const candidateClientIds = Array.isArray(row.candidateClientIds)
+        ? row.candidateClientIds.filter((id): id is string => typeof id === "string")
+        : [];
+      const flag: ClientLinkFlag = {
+        id:
+          typeof row.id === "string" && row.id
+            ? row.id
+            : `clf-${entityType}-${entityId}-${status}`,
+        entityType,
+        entityId,
+        status,
+        candidateClientIds,
+        updatedAt:
+          typeof row.updatedAt === "string" && row.updatedAt
+            ? row.updatedAt
+            : new Date().toISOString(),
+      };
+      return flag;
+    })
+    .filter((row) => row.entityId);
+}
+
+/**
+ * Collapse duplicate clients, remap ALL Work clientId references,
+ * then safely backfill missing clientIds (never create Clients).
+ */
 export function sanitizeClientIntegrity(store: BoardStore): BoardStore {
   const normalizedClients = normalizeClients(store.clients);
   const { clients, idMap, removedCount } = dedupeClients(normalizedClients);
-  const jobs = normalizeJobs(store.jobs).map((job) => {
-    if (!job.customerId) return job;
-    const nextId = idMap[job.customerId];
-    if (!nextId || nextId === job.customerId) return job;
-    return { ...job, customerId: nextId };
-  });
+
+  let next: BoardStore = {
+    ...store,
+    clients,
+    jobs: normalizeJobs(store.jobs),
+    requests: normalizeRequests(store.requests),
+    tasks: normalizeTasks(store.tasks),
+    quotes: normalizeQuotes(store.quotes),
+    invoices: normalizeInvoices(store.invoices),
+    expenses: normalizeExpenses(store.expenses),
+    clientLinkFlags: normalizeClientLinkFlags(store.clientLinkFlags),
+  };
+
+  next = remapStoreClientIds(next, idMap);
 
   if (removedCount > 0) {
     logClientEvent("sanitize_collapsed_duplicates", {
@@ -84,11 +143,15 @@ export function sanitizeClientIntegrity(store: BoardStore): BoardStore {
     });
   }
 
-  return {
-    ...store,
-    clients,
-    jobs,
-  };
+  const backfilled = backfillClientLinks(next);
+  if (backfilled.linked > 0) {
+    logClientEvent("sanitize_backfilled_client_links", {
+      linked: backfilled.linked,
+      flagged: backfilled.flags.length,
+    });
+  }
+
+  return backfilled.store;
 }
 
 function packStore(store: BoardStore): BoardStore {
@@ -101,6 +164,7 @@ function packStore(store: BoardStore): BoardStore {
     quotes: normalizeQuotes(store.quotes),
     invoices: normalizeInvoices(store.invoices),
     expenses: normalizeExpenses(store.expenses),
+    clientLinkFlags: normalizeClientLinkFlags(store.clientLinkFlags),
     ideaLot: store.ideaLot ?? "",
   };
   return sanitizeClientIntegrity(packed);
@@ -179,6 +243,7 @@ function normalizeStore(value: unknown): BoardStore | null {
     quotes: normalizeQuotes(raw.quotes),
     invoices: normalizeInvoices(raw.invoices),
     expenses: normalizeExpenses(raw.expenses),
+    clientLinkFlags: normalizeClientLinkFlags(raw.clientLinkFlags),
     ideaLot,
   });
 }
@@ -220,6 +285,16 @@ function mergeDays(
 function mergeStores(local: BoardStore, cloud: BoardStore): BoardStore {
   const localIdea = local.ideaLot?.trim() ?? "";
   const cloudIdea = cloud.ideaLot?.trim() ?? "";
+  const flagMap = new Map<string, ClientLinkFlag>();
+  for (const flag of [
+    ...(cloud.clientLinkFlags || []),
+    ...(local.clientLinkFlags || []),
+  ]) {
+    const existing = flagMap.get(flag.id);
+    if (!existing || (flag.updatedAt || "") >= (existing.updatedAt || "")) {
+      flagMap.set(flag.id, flag);
+    }
+  }
   return {
     days: mergeDays(local.days, cloud.days),
     jobs: mergeByUpdatedAt(local.jobs, cloud.jobs),
@@ -229,6 +304,7 @@ function mergeStores(local: BoardStore, cloud: BoardStore): BoardStore {
     quotes: mergeByUpdatedAt(local.quotes, cloud.quotes),
     invoices: mergeByUpdatedAt(local.invoices, cloud.invoices),
     expenses: mergeByUpdatedAt(local.expenses, cloud.expenses),
+    clientLinkFlags: [...flagMap.values()],
     ideaLot: localIdea || cloudIdea,
   };
 }

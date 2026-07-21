@@ -35,6 +35,7 @@ describe("home command center", () => {
       tasks: [
         {
           id: "t1",
+          clientId: "",
           title: "Call supplier",
           dueDate: "2000-01-01",
           status: "open",
