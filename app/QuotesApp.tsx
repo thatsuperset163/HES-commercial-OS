@@ -1,7 +1,13 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { todayKey } from "@/lib/dates";
 import { formatQuoteMoney } from "@/lib/quotes/template";
 import {
@@ -17,7 +23,9 @@ import {
   upsertQuote,
 } from "@/lib/storage";
 import AppShell from "@/app/AppShell";
-import QuoteDocument from "@/app/quotes/QuoteDocument";
+import QuoteDocument, {
+  type QuoteDraftFields,
+} from "@/app/quotes/QuoteDocument";
 import "@/app/quotes/quote-document.css";
 import "@/app/quotes/quotes-os.css";
 
@@ -30,15 +38,57 @@ const STATUS_FILTERS: { id: "open" | "all" | QuoteStatus; label: string }[] = [
   { id: "all", label: "All" },
 ];
 
+function emptyDraft(prefill?: Partial<QuoteDraftFields>): QuoteDraftFields {
+  return {
+    clientName: prefill?.clientName ?? "",
+    address: prefill?.address ?? "",
+    scope: prefill?.scope ?? "Exterior cleaning",
+    amount: prefill?.amount ?? "",
+    notes: prefill?.notes ?? "",
+    followUpDate: prefill?.followUpDate ?? todayKey(),
+  };
+}
+
+function draftFromQuote(quote: QuoteDoc): QuoteDraftFields {
+  return {
+    clientName: quote.clientName,
+    address: quote.address,
+    scope: quote.scope,
+    amount: quote.amount == null ? "" : String(quote.amount),
+    notes: quote.notes,
+    followUpDate: quote.followUpDate || todayKey(),
+  };
+}
+
+function draftQuoteShell(draft: QuoteDraftFields): QuoteDoc {
+  const now = new Date().toISOString();
+  return {
+    id: "draft-new",
+    clientName: draft.clientName || "Client",
+    address: draft.address,
+    scope: draft.scope,
+    amount: draft.amount === "" ? null : Number(draft.amount),
+    status: "draft",
+    followUpDate: draft.followUpDate || todayKey(),
+    notes: draft.notes,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 export default function QuotesApp() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [ready, setReady] = useState(false);
   const [tick, setTick] = useState(0);
   const [filter, setFilter] = useState<(typeof STATUS_FILTERS)[number]["id"]>("open");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [showNew, setShowNew] = useState(false);
+  const [mode, setMode] = useState<"list" | "compose" | "view">("list");
   const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<QuoteDraftFields>(() => emptyDraft());
   const [toast, setToast] = useState("");
+  const [saving, setSaving] = useState(false);
   const today = todayKey();
 
   useEffect(() => {
@@ -52,6 +102,27 @@ export default function QuotesApp() {
       cancelled = true;
     };
   }, []);
+
+  // Create → Quote lands here with ?new=1 (optional client prefill).
+  useEffect(() => {
+    if (!ready) return;
+    const isNew = searchParams.get("new") === "1";
+    if (!isNew) return;
+    setDraft(
+      emptyDraft({
+        clientName: searchParams.get("clientName") || "",
+        address: searchParams.get("address") || "",
+        scope: searchParams.get("scope") || "Exterior cleaning",
+        amount: searchParams.get("amount") || "",
+        notes: searchParams.get("notes") || "",
+        followUpDate: searchParams.get("followUpDate") || todayKey(),
+      }),
+    );
+    setSelectedId(null);
+    setEditing(true);
+    setMode("compose");
+    router.replace("/work/quotes", { scroll: false });
+  }, [ready, searchParams, router]);
 
   const refresh = useCallback(() => setTick((v) => v + 1), []);
 
@@ -83,51 +154,78 @@ export default function QuotesApp() {
 
   function flash(message: string) {
     setToast(message);
-    window.setTimeout(() => setToast(""), 1200);
+    window.setTimeout(() => setToast(""), 1400);
     refresh();
   }
 
-  function onCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const fd = new FormData(event.currentTarget);
-    const clientName = String(fd.get("clientName") || "").trim();
-    if (!clientName) return;
-    const amountRaw = String(fd.get("amount") || "").trim();
-    const amount = amountRaw === "" ? null : Number(amountRaw);
-    const row = createQuote({
-      clientName,
-      address: String(fd.get("address") || ""),
-      scope: String(fd.get("scope") || ""),
-      amount,
-      followUpDate: String(fd.get("followUpDate") || today),
-      notes: String(fd.get("notes") || ""),
-    });
-    upsertQuote(row);
-    setShowNew(false);
-    event.currentTarget.reset();
-    setSelectedId(row.id);
-    setEditing(false);
-    flash("Quote created");
+  function startNewQuote(prefill?: Partial<QuoteDraftFields>) {
+    setDraft(emptyDraft(prefill));
+    setSelectedId(null);
+    setEditing(true);
+    setMode("compose");
   }
 
-  function onSaveEdit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selected) return;
-    const fd = new FormData(event.currentTarget);
-    const amountRaw = String(fd.get("amount") || "").trim();
-    const next: QuoteDoc = {
-      ...selected,
-      clientName: String(fd.get("clientName") || selected.clientName).trim(),
-      address: String(fd.get("address") || "").trim(),
-      scope: String(fd.get("scope") || "").trim(),
-      amount: amountRaw === "" ? null : Number(amountRaw),
-      followUpDate: String(fd.get("followUpDate") || selected.followUpDate),
-      notes: String(fd.get("notes") || "").trim(),
-      updatedAt: new Date().toISOString(),
-    };
-    upsertQuote(next);
+  function openQuote(id: string, edit = false) {
+    const row = listQuotes().find((q) => q.id === id);
+    if (!row) return;
+    setSelectedId(id);
+    setDraft(draftFromQuote(row));
+    setEditing(edit);
+    setMode("view");
+  }
+
+  function backToList() {
+    setMode("list");
+    setSelectedId(null);
     setEditing(false);
-    flash("Quote updated");
+  }
+
+  function saveDocument() {
+    if (saving) return;
+    const clientName = draft.clientName.trim();
+    if (!clientName) {
+      flash("Add a client name");
+      return;
+    }
+    setSaving(true);
+    try {
+      const amount =
+        draft.amount.trim() === "" ? null : Number(draft.amount);
+      if (mode === "compose" || !selected) {
+        const row = createQuote({
+          clientName,
+          address: draft.address.trim(),
+          scope: draft.scope.trim() || "Exterior cleaning",
+          amount,
+          followUpDate: draft.followUpDate || today,
+          notes: draft.notes.trim(),
+        });
+        upsertQuote(row);
+        setSelectedId(row.id);
+        setDraft(draftFromQuote(row));
+        setMode("view");
+        setEditing(false);
+        flash("Quote saved");
+      } else {
+        const next: QuoteDoc = {
+          ...selected,
+          clientName,
+          address: draft.address.trim(),
+          scope: draft.scope.trim() || "Exterior cleaning",
+          amount,
+          followUpDate: draft.followUpDate || selected.followUpDate,
+          notes: draft.notes.trim(),
+          updatedAt: new Date().toISOString(),
+        };
+        upsertQuote(next);
+        setDraft(draftFromQuote(next));
+        setEditing(false);
+        flash("Quote updated");
+      }
+      refresh();
+    } finally {
+      setSaving(false);
+    }
   }
 
   function printQuote() {
@@ -142,141 +240,103 @@ export default function QuotesApp() {
     );
   }
 
+  const documentQuote =
+    mode === "compose"
+      ? draftQuoteShell(draft)
+      : selected
+        ? {
+            ...selected,
+            clientName: editing ? draft.clientName : selected.clientName,
+            address: editing ? draft.address : selected.address,
+            scope: editing ? draft.scope : selected.scope,
+            amount:
+              editing
+                ? draft.amount.trim() === ""
+                  ? null
+                  : Number(draft.amount)
+                : selected.amount,
+            notes: editing ? draft.notes : selected.notes,
+          }
+        : null;
+
+  const showDocument = mode === "compose" || (mode === "view" && documentQuote);
+
   return (
     <AppShell>
-      <div className={`quotes-page${selected ? " has-preview" : ""}`}>
-        <div className="quotes-main no-print">
-          <header className="page-intro">
+      {showDocument && documentQuote ? (
+        <div className="quote-composer">
+          <header className="quote-composer-bar no-print">
             <div>
               <p className="hq-eyebrow">Work · Quotes</p>
-              <h2>Quotes</h2>
+              <h2>
+                {mode === "compose"
+                  ? "New quote"
+                  : editing
+                    ? "Edit quote"
+                    : "Quote document"}
+              </h2>
               <p>
-                Price the work with the official HES quote template. Send it.
-                Follow up.
+                Edit the official HES template, then print or save as PDF for
+                your client to sign.
               </p>
             </div>
-            <div className="jobs-intro-actions">
-              <Link href="/work" className="btn secondary">
-                Work home
-              </Link>
+            <div className="quote-composer-actions">
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={backToList}
+              >
+                All quotes
+              </button>
+              {!editing ? (
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => {
+                    if (selected) setDraft(draftFromQuote(selected));
+                    setEditing(true);
+                  }}
+                >
+                  Edit
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => {
+                    if (mode === "compose") {
+                      backToList();
+                      return;
+                    }
+                    if (selected) setDraft(draftFromQuote(selected));
+                    setEditing(false);
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
+              {editing ? (
+                <button
+                  type="button"
+                  className="btn primary"
+                  disabled={saving}
+                  onClick={saveDocument}
+                >
+                  {saving ? "Saving…" : "Save quote"}
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="btn primary"
-                onClick={() => setShowNew(true)}
+                onClick={printQuote}
               >
-                New quote
+                Print / PDF
               </button>
             </div>
           </header>
 
-          <div className="quotes-toolbar">
-            <input
-              className="field"
-              type="search"
-              placeholder="Search client, address, scope…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              aria-label="Search quotes"
-            />
-            <div className="quotes-filters" role="tablist" aria-label="Quote filters">
-              {STATUS_FILTERS.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={filter === item.id}
-                  className={`btn secondary small${filter === item.id ? " is-active" : ""}`}
-                  onClick={() => setFilter(item.id)}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <section className="panel quotes-list-panel" aria-label="Quote list">
-            {!filtered.length ? (
-              <p className="empty-state">
-                No quotes here.{" "}
-                <button
-                  type="button"
-                  className="btn primary small"
-                  onClick={() => setShowNew(true)}
-                >
-                  Create first quote
-                </button>
-              </p>
-            ) : (
-              <ul className="quotes-list">
-                {filtered.map((row) => (
-                  <li key={row.id}>
-                    <button
-                      type="button"
-                      className={`quotes-row${selectedId === row.id ? " is-active" : ""}`}
-                      onClick={() => {
-                        setSelectedId(row.id);
-                        setEditing(false);
-                      }}
-                    >
-                      <div className="quotes-row-main">
-                        <strong>{row.clientName}</strong>
-                        <span className={`status-chip status-${row.status}`}>
-                          {row.status}
-                        </span>
-                      </div>
-                      <p>{row.scope || "Exterior cleaning"}</p>
-                      <p className="quotes-row-meta">
-                        {[
-                          formatQuoteMoney(row.amount),
-                          row.address,
-                          row.followUpDate
-                            ? `Follow up ${row.followUpDate}`
-                            : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
-
-        {selected ? (
-          <aside className="quotes-preview panel" aria-label="Quote preview">
-            <div className="panel-head no-print">
-              <h2 className="panel-title">Quote document</h2>
-              <div className="quote-preview-actions">
-                <button
-                  type="button"
-                  className="btn secondary small"
-                  onClick={() => setEditing((v) => !v)}
-                >
-                  {editing ? "Preview" : "Edit"}
-                </button>
-                <button
-                  type="button"
-                  className="btn primary small"
-                  onClick={printQuote}
-                >
-                  Print / PDF
-                </button>
-                <button
-                  type="button"
-                  className="btn secondary small"
-                  onClick={() => {
-                    setSelectedId(null);
-                    setEditing(false);
-                  }}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-
-            <div className="hunt-actions no-print" style={{ marginBottom: 12 }}>
+          {selected && !editing ? (
+            <div className="hunt-actions no-print quote-status-actions">
               {selected.status === "draft" ? (
                 <button
                   type="button"
@@ -319,148 +379,129 @@ export default function QuotesApp() {
                 onClick={() => {
                   if (!window.confirm("Remove this quote?")) return;
                   removeQuote(selected.id);
-                  setSelectedId(null);
+                  backToList();
                   flash("Removed");
                 }}
               >
                 Remove
               </button>
             </div>
+          ) : null}
 
-            {editing ? (
-              <form className="jobs-form no-print" onSubmit={onSaveEdit}>
-                <label className="field-label">
-                  Client name
-                  <input
-                    className="field"
-                    name="clientName"
-                    defaultValue={selected.clientName}
-                    required
-                  />
-                </label>
-                <label className="field-label">
-                  Property address
-                  <input
-                    className="field"
-                    name="address"
-                    defaultValue={selected.address}
-                  />
-                </label>
-                <label className="field-label">
-                  Project overview (This project includes…)
-                  <textarea
-                    className="field textarea"
-                    name="scope"
-                    rows={5}
-                    defaultValue={selected.scope}
-                    required
-                    placeholder="Pressure washing of driveway, sidewalks, and front walkway…"
-                  />
-                </label>
-                <div className="jobs-form-row">
-                  <label className="field-label">
-                    Pricing ($)
-                    <input
-                      className="field"
-                      name="amount"
-                      type="number"
-                      min={0}
-                      step="1"
-                      defaultValue={selected.amount ?? ""}
-                    />
-                  </label>
-                  <label className="field-label">
-                    Follow up
-                    <input
-                      className="field"
-                      name="followUpDate"
-                      type="date"
-                      defaultValue={selected.followUpDate || today}
-                    />
-                  </label>
-                </div>
-                <label className="field-label">
-                  Pricing notes (optional)
-                  <textarea
-                    className="field textarea"
-                    name="notes"
-                    rows={3}
-                    defaultValue={selected.notes}
-                    placeholder="Includes materials, travel, or deposit notes…"
-                  />
-                </label>
-                <button type="submit" className="btn primary">
-                  Save changes
-                </button>
-              </form>
-            ) : (
-              <div className="quote-print-root quote-preview-shell">
-                <QuoteDocument quote={selected} />
-              </div>
-            )}
-          </aside>
-        ) : null}
-      </div>
-
-      {showNew ? (
-        <div className="modal-backdrop no-print" role="presentation">
-          <div className="modal-card" role="dialog" aria-label="New quote">
-            <div className="panel-head">
-              <h2 className="panel-title">New quote</h2>
-              <button
-                type="button"
-                className="btn secondary small"
-                onClick={() => setShowNew(false)}
-              >
-                Close
-              </button>
-            </div>
-            <form className="jobs-form" onSubmit={onCreate}>
-              <label className="field-label">
-                Client name *
-                <input className="field" name="clientName" required autoFocus />
-              </label>
-              <label className="field-label">
-                Property address
-                <input className="field" name="address" />
-              </label>
-              <label className="field-label">
-                Project overview (This project includes…) *
-                <textarea
-                  className="field textarea"
-                  name="scope"
-                  rows={4}
-                  required
-                  placeholder="Describe the work included in this quote"
-                  defaultValue="Exterior cleaning"
-                />
-              </label>
-              <div className="jobs-form-row">
-                <label className="field-label">
-                  Pricing ($)
-                  <input className="field" name="amount" type="number" min={0} />
-                </label>
-                <label className="field-label">
-                  Follow up
-                  <input
-                    className="field"
-                    name="followUpDate"
-                    type="date"
-                    defaultValue={today}
-                  />
-                </label>
-              </div>
-              <label className="field-label">
-                Pricing notes (optional)
-                <textarea className="field textarea" name="notes" rows={2} />
-              </label>
-              <button type="submit" className="btn primary">
-                Create quote
-              </button>
-            </form>
+          <div className="quote-print-root quote-composer-stage">
+            <QuoteDocument
+              quote={documentQuote}
+              editable={editing || mode === "compose"}
+              draft={draft}
+              onDraftChange={(patch) =>
+                setDraft((prev) => ({ ...prev, ...patch }))
+              }
+            />
           </div>
         </div>
-      ) : null}
+      ) : (
+        <div className="quotes-page">
+          <div className="quotes-main no-print">
+            <header className="page-intro">
+              <div>
+                <p className="hq-eyebrow">Work · Quotes</p>
+                <h2>Quotes</h2>
+                <p>
+                  Open the official HES quote page — edit it, print it, or save
+                  a PDF for clients to sign.
+                </p>
+              </div>
+              <div className="jobs-intro-actions">
+                <Link href="/work" className="btn secondary">
+                  Work home
+                </Link>
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={() => startNewQuote()}
+                >
+                  New quote
+                </button>
+              </div>
+            </header>
+
+            <div className="quotes-toolbar">
+              <input
+                className="field"
+                type="search"
+                placeholder="Search client, address, scope…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                aria-label="Search quotes"
+              />
+              <div
+                className="quotes-filters"
+                role="tablist"
+                aria-label="Quote filters"
+              >
+                {STATUS_FILTERS.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={filter === item.id}
+                    className={`btn secondary small${filter === item.id ? " is-active" : ""}`}
+                    onClick={() => setFilter(item.id)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <section className="panel quotes-list-panel" aria-label="Quote list">
+              {!filtered.length ? (
+                <p className="empty-state">
+                  No quotes here.{" "}
+                  <button
+                    type="button"
+                    className="btn primary small"
+                    onClick={() => startNewQuote()}
+                  >
+                    Create first quote
+                  </button>
+                </p>
+              ) : (
+                <ul className="quotes-list">
+                  {filtered.map((row) => (
+                    <li key={row.id}>
+                      <button
+                        type="button"
+                        className="quotes-row"
+                        onClick={() => openQuote(row.id)}
+                      >
+                        <div className="quotes-row-main">
+                          <strong>{row.clientName}</strong>
+                          <span className={`status-chip status-${row.status}`}>
+                            {row.status}
+                          </span>
+                        </div>
+                        <p>{row.scope || "Exterior cleaning"}</p>
+                        <p className="quotes-row-meta">
+                          {[
+                            formatQuoteMoney(row.amount),
+                            row.address,
+                            row.followUpDate
+                              ? `Follow up ${row.followUpDate}`
+                              : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
+        </div>
+      )}
 
       {toast ? (
         <p className="toast no-print" role="status">

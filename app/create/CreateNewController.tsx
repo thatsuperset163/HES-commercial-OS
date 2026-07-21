@@ -140,7 +140,10 @@ export default function CreateNewController({
         return;
       }
       if (kind === "quote") {
-        setDesk("quotes");
+        const params = new URLSearchParams({ new: "1" });
+        if (clientPrefill?.name) params.set("clientName", clientPrefill.name);
+        if (clientPrefill?.address) params.set("address", clientPrefill.address);
+        window.location.assign(`/work/quotes?${params.toString()}`);
         return;
       }
       if (kind === "invoice") {

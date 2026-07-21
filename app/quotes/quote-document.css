@@ -18,7 +18,19 @@
 .quote-doc-brand {
   margin-bottom: 1.1rem;
   padding-bottom: 0.85rem;
-  border-bottom: 2px solid color-mix(in srgb, var(--accent, #3b82f6) 55%, #cbd5e1);
+  border-bottom: 2px solid color-mix(in srgb, #0b2340 35%, #cbd5e1);
+}
+
+.quote-doc-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.quote-doc-logo {
+  flex-shrink: 0;
+  width: 72px;
+  height: auto;
 }
 
 .quote-doc-eyebrow {
@@ -27,7 +39,7 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   font-weight: 700;
-  color: var(--accent, #3b82f6);
+  color: #0b2340;
 }
 
 .quote-doc-title {
@@ -102,6 +114,49 @@
   white-space: pre-wrap;
   line-height: 1.5;
   font-size: 0.98rem;
+}
+
+.quote-doc-input,
+.quote-doc-textarea {
+  width: 100%;
+  border: 1px dashed #94a3b8;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--quote-ink);
+  font: inherit;
+  padding: 0.45rem 0.55rem;
+}
+
+.quote-doc-input:focus,
+.quote-doc-textarea:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+  border-style: solid;
+}
+
+.quote-doc-textarea {
+  resize: vertical;
+  min-height: 6rem;
+  line-height: 1.5;
+}
+
+.quote-doc-textarea.quote-doc-notes {
+  margin-top: 0.55rem;
+  min-height: 3.5rem;
+}
+
+.quote-doc-price-edit {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 1.5rem;
+  font-weight: 750;
+}
+
+.quote-doc-amount {
+  max-width: 12rem;
+  font-size: 1.5rem;
+  font-weight: 750;
 }
 
 .quote-doc-price {
@@ -187,14 +242,30 @@
   }
 
   .app-shell,
+  .home-shell,
   .hq-sidebar,
-  .hq-topbar,
+  .home-rail,
+  .os-menu-panel,
   .no-print,
   .quotes-main,
+  .quote-composer-bar,
+  .quote-status-actions,
   .quote-preview-actions,
   .modal-backdrop,
   .toast {
     display: none !important;
+  }
+
+  .shell-content,
+  .home-shell-content,
+  .quotes-page,
+  .quotes-preview,
+  .quote-print-root {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   .quotes-preview {
