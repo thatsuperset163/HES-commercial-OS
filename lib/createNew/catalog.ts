@@ -84,7 +84,7 @@ export const CREATE_NEW_OPTIONS: CreateNewOption[] = [
     id: "quote",
     group: "record",
     label: "Quote",
-    description: "Create pricing for requested work",
+    description: "Open the HES quote page to edit, print, or PDF",
     mark: "💵",
     onCalendar: false,
     hrefAfter: "/work/quotes",
