@@ -22,22 +22,10 @@
   align-items: start;
   overflow-x: auto;
   padding-bottom: 0.5rem;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--muted) 55%, transparent) transparent;
 }
 
-.pipeline-board::-webkit-scrollbar {
-  height: 4px;
-}
 
-.pipeline-board::-webkit-scrollbar-track {
-  background: transparent;
-}
 
-.pipeline-board::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--muted) 45%, transparent);
-  border-radius: 999px;
-}
 
 .pipeline-column {
   background: var(--bg-elev);

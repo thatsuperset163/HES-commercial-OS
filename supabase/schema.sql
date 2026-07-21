@@ -348,6 +348,14 @@ create table if not exists intake_requests (
   converted_client_id text,
   converted_job_id text,
   converted_invoice_id text,
+  converted_quote_id text,
+  linked_client_id text,
+  follow_up_date date,
+  follow_up_type text not null default '',
+  follow_up_notes text not null default '',
+  potential_value numeric,
+  property_type text not null default '',
+  site_visit_outcome text not null default '',
   ai_summary text not null default '',
   ai_suggested_reply text not null default '',
   ai_price_estimate text not null default '',
@@ -364,6 +372,9 @@ create table if not exists intake_requests (
 );
 create index if not exists intake_requests_status_idx on intake_requests (status, updated_at desc);
 create index if not exists intake_requests_received_idx on intake_requests (date_received desc);
+create index if not exists intake_requests_follow_up_idx
+  on intake_requests (follow_up_date)
+  where archived_at is null and follow_up_date is not null;
 create table if not exists intake_request_activities (
   id text primary key,
   request_id text not null references intake_requests(id) on delete cascade,

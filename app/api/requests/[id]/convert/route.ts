@@ -67,17 +67,29 @@ export async function POST(request: Request, { params }: Params) {
     const state = (data?.state ?? { days: {} }) as BlackboardState;
     const existingClients = normalizeClients(state.clients);
 
-    const resolved = findOrCreateClient(
-      existingClients,
-      {
-        name: intake.company || intake.customerName,
-        phone: intake.phone,
-        email: intake.email,
-        address: intake.address,
-        notes: `From Requests Center ${intake.id}`,
-      },
-      `requests_convert:${intake.id}`,
-    );
+    // Prefer an intentionally linked client before find-or-create.
+    const linked =
+      intake.linkedClientId
+        ? existingClients.find((c) => c.id === intake.linkedClientId)
+        : null;
+
+    const resolved = linked
+      ? {
+          client: linked,
+          created: false,
+          reason: "linked_client_id",
+        }
+      : findOrCreateClient(
+          existingClients,
+          {
+            name: intake.company || intake.customerName,
+            phone: intake.phone,
+            email: intake.email,
+            address: intake.address,
+            notes: `From Requests Center ${intake.id}`,
+          },
+          `requests_convert:${intake.id}`,
+        );
 
     const clientForStore = resolved.created
       ? resolved.client

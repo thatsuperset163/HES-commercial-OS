@@ -58,10 +58,12 @@ export default function CreateRequestModal({
     const phone = form.elements.namedItem("phone") as HTMLInputElement | null;
     const email = form.elements.namedItem("email") as HTMLInputElement | null;
     const address = form.elements.namedItem("address") as HTMLInputElement | null;
+    const linked = form.elements.namedItem("linkedClientId") as HTMLInputElement | null;
     if (name) name.value = client.name;
     if (phone) phone.value = client.phone;
     if (email) email.value = client.email;
     if (address) address.value = client.address;
+    if (linked) linked.value = client.id;
   };
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -94,6 +96,7 @@ export default function CreateRequestModal({
         notes: String(fd.get("notes") || ""),
         dateReceived: String(fd.get("dateReceived") || todayKey()),
         status: scheduleEstimate ? "estimate_scheduled" : "new",
+        linkedClientId: String(fd.get("linkedClientId") || "") || null,
       };
       if (scheduleEstimate) {
         body.estimateDate = String(fd.get("estimateDate") || date);
@@ -180,6 +183,11 @@ export default function CreateRequestModal({
               </select>
             </label>
           ) : null}
+          <input
+            type="hidden"
+            name="linkedClientId"
+            defaultValue={defaultClient?.id || ""}
+          />
           <div className="jobs-form-row">
             <label className="field-label">
               Customer name *

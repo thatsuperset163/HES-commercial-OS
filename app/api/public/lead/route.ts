@@ -5,7 +5,10 @@ import {
   supabaseConfigured,
 } from "@/lib/supabase";
 import { IntakeRepo } from "@/lib/requestsCenter/repo";
-import { todayDateKey } from "@/lib/requestsCenter/model";
+import {
+  findRecentDuplicate,
+  todayDateKey,
+} from "@/lib/requestsCenter/model";
 
 function client() {
   return getSupabaseServiceRole() ?? getSupabaseAdmin();
@@ -57,7 +60,22 @@ export async function POST(request: Request) {
 
   try {
     const repo = new IntakeRepo(supabase);
-    await repo.create({
+    const existing = await repo.list();
+    const dup = findRecentDuplicate(existing, { phone, email, customerName: name });
+    if (dup) {
+      console.info("[requests] public_lead_reused", {
+        existingId: dup.id,
+        name,
+      });
+      // Idempotent: do not create a second website lead for the same contact.
+      return NextResponse.json({
+        ok: true,
+        reused: true,
+        requestId: dup.id,
+      });
+    }
+
+    const created = await repo.create({
       customerName: name,
       phone,
       email,
@@ -69,7 +87,8 @@ export async function POST(request: Request) {
       dateReceived: todayDateKey(),
       status: "new",
     });
-    return NextResponse.json({ ok: true });
+    console.info("[requests] public_lead_created", { id: created.id, name });
+    return NextResponse.json({ ok: true, requestId: created.id });
   } catch (error) {
     const message = error instanceof Error ? error.message : "save_failed";
     return NextResponse.json(
