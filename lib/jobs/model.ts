@@ -61,6 +61,7 @@ export function createJob(input: JobInput): Job {
     customerId: input.customerId ?? null,
     requestId: input.requestId ?? null,
     prospectId: input.prospectId ?? null,
+    quoteId: input.quoteId ?? null,
     customerName: input.customerName.trim() || "Customer",
     companyName: (input.companyName ?? "").trim(),
     contactName: (input.contactName ?? "").trim(),
@@ -196,6 +197,9 @@ export function normalizeJobRecord(row: Record<string, unknown>): Job {
     prospectId: row.prospectId || row.prospect_id
       ? asString(row.prospectId || row.prospect_id)
       : null,
+    quoteId: row.quoteId || row.quote_id
+      ? asString(row.quoteId || row.quote_id)
+      : null,
     customerName:
       asString(row.customerName || row.customer_name).trim() || "Customer",
     companyName: asString(row.companyName || row.company_name),
@@ -232,6 +236,7 @@ export function jobToRow(job: Job): Record<string, unknown> {
     customer_id: job.customerId || "",
     request_id: job.requestId || "",
     prospect_id: job.prospectId || "",
+    quote_id: job.quoteId || "",
     customer_name: job.customerName,
     company_name: job.companyName,
     contact_name: job.contactName,

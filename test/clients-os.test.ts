@@ -12,6 +12,7 @@ function job(partial: Partial<Job> & { id: string }): Job {
     customerId: partial.customerId ?? null,
     requestId: partial.requestId ?? null,
     prospectId: partial.prospectId ?? null,
+    quoteId: partial.quoteId ?? null,
     customerName: partial.customerName ?? "Client",
     companyName: partial.companyName ?? "",
     contactName: partial.contactName ?? "",

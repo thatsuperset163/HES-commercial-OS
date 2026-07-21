@@ -15,6 +15,8 @@ export type PreferredContact = "phone" | "email" | "text" | "";
 export type RequestStatus = "new" | "contacted" | "quoted" | "closed";
 export type TaskStatus = "open" | "done";
 export type QuoteStatus = "draft" | "sent" | "won" | "lost";
+/** Distinguishes intentional extra quotes for the same request. */
+export type QuoteKind = "primary" | "revised" | "alternate" | "additional";
 export type InvoiceStatus =
   | "draft"
   | "sent"
@@ -100,12 +102,29 @@ export type WorkTask = {
 
 export type QuoteDoc = {
   id: string;
+  /** Human-readable number e.g. Q-2026-0007 (separate from id). */
+  number: string;
   clientName: string;
+  companyName: string;
+  /** Stable WorkClient id when known. */
+  clientId: string;
+  /** Originating intake request id when created from Requests OS. */
+  requestId: string;
+  /** Linked job id after Create Job from an approved quote. */
+  jobId: string;
+  /** Linked invoice id when one exists. */
+  invoiceId: string;
+  phone: string;
+  email: string;
   address: string;
+  billingAddress: string;
   scope: string;
   amount: number | null;
   status: QuoteStatus;
   followUpDate: string;
+  /** ISO timestamp when marked sent (empty when never sent). */
+  sentAt: string;
+  quoteKind: QuoteKind;
   notes: string;
   createdAt: string;
   updatedAt: string;

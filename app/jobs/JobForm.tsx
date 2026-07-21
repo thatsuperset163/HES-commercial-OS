@@ -126,6 +126,7 @@ export default function JobForm({
       // Keep any existing link quietly; UI no longer edits these.
       requestId: initial?.requestId ?? null,
       prospectId: initial?.prospectId ?? null,
+      quoteId: initial?.quoteId ?? null,
       customerName: name,
       companyName,
       contactName,

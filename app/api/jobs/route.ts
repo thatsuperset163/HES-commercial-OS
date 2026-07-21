@@ -58,6 +58,7 @@ export async function POST(request: Request) {
       customerId: body.customerId ? String(body.customerId) : null,
       requestId: body.requestId ? String(body.requestId) : null,
       prospectId: body.prospectId ? String(body.prospectId) : null,
+      quoteId: body.quoteId ? String(body.quoteId) : null,
       invoiceStatus: body.invoiceStatus as JobInput["invoiceStatus"],
       paymentStatus: body.paymentStatus as JobInput["paymentStatus"],
       recurringRule: String(body.recurringRule || ""),

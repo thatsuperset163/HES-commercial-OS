@@ -56,14 +56,23 @@ export function gatherClientRelated(
   const name = client.name;
   return {
     requests: input.requests.filter((r) => nameMatch(r.clientName, name)),
-    quotes: input.quotes.filter((q) => nameMatch(q.clientName, name)),
+    quotes: input.quotes.filter((q) => {
+      if (q.clientId && q.clientId === client.id) return true;
+      // Legacy fallback — name only when no clientId is stored.
+      if (!q.clientId) return nameMatch(q.clientName, name);
+      return false;
+    }),
     jobs: input.jobs.filter(
       (j) =>
         j.customerId === client.id ||
         nameMatch(j.customerName, name) ||
         nameMatch(j.companyName || "", name),
     ),
-    invoices: input.invoices.filter((i) => nameMatch(i.clientName, name)),
+    invoices: input.invoices.filter((i) => {
+      if (i.clientId && i.clientId === client.id) return true;
+      if (!i.clientId) return nameMatch(i.clientName, name);
+      return false;
+    }),
     tasks: input.tasks.filter(
       (t) => mentions(t.title, name) || mentions(t.notes, name),
     ),

@@ -1,6 +1,10 @@
+import { Suspense } from "react";
 import RequestsCenterApp from "@/app/RequestsCenterApp";
-import "@/app/requests-center.css";
 
-export default function Page() {
-  return <RequestsCenterApp />;
+export default function WorkRequestsPage() {
+  return (
+    <Suspense fallback={<p className="hq-lede">Loading requests…</p>}>
+      <RequestsCenterApp />
+    </Suspense>
+  );
 }

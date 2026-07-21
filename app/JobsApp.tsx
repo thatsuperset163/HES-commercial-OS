@@ -23,8 +23,10 @@ import {
   hydrateStoreFromCloud,
   listClients,
   listJobs,
+  listQuotes,
   listTasks,
   upsertJob,
+  upsertQuote,
 } from "@/lib/storage";
 import type { CreateNewKind } from "@/lib/createNew/catalog";
 import {
@@ -118,6 +120,35 @@ export default function JobsApp() {
     if (nextView) setView(nextView);
     if (nextDate) setAnchorKey(nextDate);
   }, [searchParams]);
+
+  // Create Job from approved Quote — open form prefilled; nothing saved until submit.
+  useEffect(() => {
+    if (!ready) return;
+    if (searchParams.get("new") !== "1") return;
+    const quoteId = searchParams.get("quoteId") || "";
+    const clientId = searchParams.get("clientId") || "";
+    const requestId = searchParams.get("requestId") || "";
+    setFormInitial({
+      customerId: clientId || null,
+      requestId: requestId || null,
+      quoteId: quoteId || null,
+      customerName: searchParams.get("customerName") || "",
+      companyName: searchParams.get("companyName") || "",
+      phone: searchParams.get("phone") || "",
+      email: searchParams.get("email") || "",
+      address: searchParams.get("address") || "",
+      service: searchParams.get("service") || "Exterior cleaning",
+      title: searchParams.get("service") || "",
+      description: searchParams.get("description") || "",
+      amount: searchParams.get("amount")
+        ? Number(searchParams.get("amount"))
+        : null,
+      notes: searchParams.get("notes") || "",
+      status: "unscheduled",
+    });
+    setFormOpen(true);
+    router.replace("/work/jobs", { scroll: false });
+  }, [ready, searchParams, router]);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -312,9 +343,64 @@ export default function JobsApp() {
         } as Partial<Job>);
         saved = await updateJobRemote(input.id, next);
       } else {
+        // Existing job protection when re-submitting from the same quote.
+        if (input.quoteId) {
+          const existing = jobs.find(
+            (j) => j.quoteId === input.quoteId && j.status !== "cancelled",
+          );
+          if (existing) {
+            setFormOpen(false);
+            setSelected(existing);
+            showToast("Job already exists for this quote");
+            return;
+          }
+        }
         saved = await createJobRemote(input);
       }
       upsertJob(saved);
+
+      if (saved.quoteId) {
+        const quote = listQuotes().find((q) => q.id === saved.quoteId);
+        if (quote && quote.jobId !== saved.id) {
+          upsertQuote({
+            ...quote,
+            jobId: saved.id,
+            clientId: quote.clientId || saved.customerId || "",
+            requestId: quote.requestId || saved.requestId || "",
+            updatedAt: new Date().toISOString(),
+          });
+        }
+        if (saved.requestId) {
+          try {
+            await fetch(`/api/requests/${saved.requestId}`, {
+              method: "PATCH",
+              credentials: "same-origin",
+              headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                status: "approved",
+                convertedJobId: saved.id,
+                convertedQuoteId: saved.quoteId,
+                linkedClientId: saved.customerId || undefined,
+                convertedClientId: saved.customerId || undefined,
+                activityType: "job_from_quote",
+                activityBody: `Job ${saved.id} created from quote ${saved.quoteId}`,
+                activityMeta: {
+                  jobId: saved.id,
+                  quoteId: saved.quoteId,
+                  clientId: saved.customerId,
+                  requestId: saved.requestId,
+                },
+              }),
+            });
+          } catch {
+            /* non-fatal — job already saved */
+          }
+        }
+      }
+
       await loadJobs();
       setFormOpen(false);
       setSelected(saved);

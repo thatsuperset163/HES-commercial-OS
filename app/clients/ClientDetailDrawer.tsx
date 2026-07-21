@@ -441,7 +441,7 @@ export default function ClientDetailDrawer({
             meta: [q.amount != null ? moneyLabel(q.amount) : null, q.status]
               .filter(Boolean)
               .join(" · "),
-            href: "/work/quotes",
+            href: `/work/quotes?id=${encodeURIComponent(q.id)}`,
           }))}
         />
       ) : null}

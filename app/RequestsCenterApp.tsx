@@ -2,7 +2,21 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { formatDisplayDate, todayKey } from "@/lib/dates";
+import {
+  findPossibleClientMatches,
+  type PossibleClientMatch,
+} from "@/lib/clients/identity";
+import {
+  buildQuoteComposeUrl,
+  matchReasonLabel,
+} from "@/lib/quotes/fromRequest";
+import {
+  formatQuoteStatus,
+  primaryQuoteForRequest,
+  quoteKindLabel,
+} from "@/lib/quotes/model";
 import { buildRequestNextAction } from "@/lib/requestsCenter/nextAction";
 import { todayDateKey } from "@/lib/requestsCenter/model";
 import {
@@ -33,6 +47,14 @@ import {
   writeSavedView,
   type SavedViewId,
 } from "@/lib/requestsCenter/views";
+import {
+  hydrateStoreFromCloud,
+  listClients,
+  listQuotes,
+  upsertClient,
+} from "@/lib/storage";
+import { createClient } from "@/lib/work/model";
+import type { QuoteKind, WorkClient } from "@/lib/work/types";
 import AppShell from "./AppShell";
 
 type ViewMode = "list" | "board";
@@ -130,6 +152,7 @@ const OPS_CHIPS: {
 ];
 
 export default function RequestsCenterApp() {
+  const searchParams = useSearchParams();
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [rows, setRows] = useState<IntakeRequest[]>([]);
@@ -144,6 +167,12 @@ export default function RequestsCenterApp() {
   const [savedView, setSavedView] = useState<SavedViewId>("all");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<IntakeStatus | "all">("all");
+  const [clients, setClients] = useState<WorkClient[]>([]);
+  const [quoteTick, setQuoteTick] = useState(0);
+  const [clientMatchOpen, setClientMatchOpen] = useState(false);
+  const [clientMatches, setClientMatches] = useState<PossibleClientMatch[]>([]);
+  const [pendingQuoteKind, setPendingQuoteKind] =
+    useState<QuoteKind>("primary");
   const today = todayKey();
 
   useEffect(() => {
@@ -163,11 +192,18 @@ export default function RequestsCenterApp() {
     setRows(data.requests);
   }, []);
 
+  const refreshLocalWork = useCallback(async () => {
+    await hydrateStoreFromCloud();
+    setClients(listClients());
+    setQuoteTick((v) => v + 1);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         await refresh();
+        await refreshLocalWork();
         if (!cancelled) setReady(true);
       } catch (err) {
         if (!cancelled) {
@@ -183,7 +219,15 @@ export default function RequestsCenterApp() {
     return () => {
       cancelled = true;
     };
-  }, [refresh]);
+  }, [refresh, refreshLocalWork]);
+
+  // Deep-link from Quote "Open request"
+  useEffect(() => {
+    if (!ready) return;
+    const id = searchParams.get("id");
+    if (!id) return;
+    void openDetail(id);
+  }, [ready, searchParams]);
 
   const selected = useMemo(
     () => rows.find((row) => row.id === selectedId) ?? detail,
@@ -379,6 +423,149 @@ export default function RequestsCenterApp() {
     }
   }
 
+  function navigateToQuoteCompose(
+    request: IntakeRequest,
+    clientId: string | null,
+    quoteKind: QuoteKind,
+  ) {
+    const client = clientId
+      ? clients.find((c) => c.id === clientId) ?? null
+      : null;
+    const url = buildQuoteComposeUrl({
+      request,
+      clientId,
+      clientName: client?.name || request.company || request.customerName,
+      quoteKind,
+      forceNew: quoteKind !== "primary",
+    });
+    window.location.assign(url);
+  }
+
+  async function linkClientAndCompose(
+    request: IntakeRequest,
+    clientId: string,
+    quoteKind: QuoteKind,
+  ) {
+    setBusy(true);
+    try {
+      await api<{ request: IntakeRequest }>(`/api/requests/${request.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          linkedClientId: clientId,
+          activityType: "client_linked",
+          activityBody: `Linked client ${clientId} for quote`,
+        }),
+      });
+      setClientMatchOpen(false);
+      navigateToQuoteCompose(request, clientId, quoteKind);
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Could not link client");
+      setBusy(false);
+    }
+  }
+
+  async function createNewClientAndCompose(
+    request: IntakeRequest,
+    quoteKind: QuoteKind,
+  ) {
+    setBusy(true);
+    try {
+      const client = createClient({
+        name: request.company.trim() || request.customerName.trim() || "Client",
+        companyName: request.company.trim(),
+        phone: request.phone,
+        email: request.email,
+        address: request.address,
+        clientType:
+          request.propertyType === "commercial" ? "commercial" : "residential",
+        notes: `Created from request ${request.id} for quote`,
+      });
+      upsertClient(client);
+      await api<{ request: IntakeRequest }>(`/api/requests/${request.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          linkedClientId: client.id,
+          activityType: "client_created",
+          activityBody: `Created client ${client.id} for quote`,
+        }),
+      });
+      setClientMatchOpen(false);
+      navigateToQuoteCompose(request, client.id, quoteKind);
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Could not create client");
+      setBusy(false);
+    }
+  }
+
+  function beginCreateQuote(quoteKind: QuoteKind = "primary") {
+    if (!selected) return;
+    if (selected.status === "declined") {
+      setToast("Lost requests cannot create quotes");
+      return;
+    }
+
+    const linkedId =
+      selected.linkedClientId || selected.convertedClientId || null;
+    if (linkedId) {
+      navigateToQuoteCompose(selected, linkedId, quoteKind);
+      return;
+    }
+
+    const matches = findPossibleClientMatches(clients, {
+      name: selected.customerName,
+      companyName: selected.company,
+      phone: selected.phone,
+      email: selected.email,
+      address: selected.address,
+    });
+
+    if (matches.length === 0) {
+      // No match — ask before creating a client (never auto-create).
+      setPendingQuoteKind(quoteKind);
+      setClientMatches([]);
+      setClientMatchOpen(true);
+      return;
+    }
+
+    if (matches.length === 1 && quoteKind === "primary" && linkedId == null) {
+      // Still require confirmation when a match exists.
+      setPendingQuoteKind(quoteKind);
+      setClientMatches(matches);
+      setClientMatchOpen(true);
+      return;
+    }
+
+    setPendingQuoteKind(quoteKind);
+    setClientMatches(matches);
+    setClientMatchOpen(true);
+  }
+
+  function beginAdditionalQuote() {
+    if (!selected) return;
+    const kind = window.prompt(
+      "Create another quote for this request?\nType: revised, alternate, or additional",
+      "additional",
+    );
+    if (!kind) return;
+    const normalized = kind.trim().toLowerCase();
+    if (
+      normalized !== "revised" &&
+      normalized !== "alternate" &&
+      normalized !== "additional"
+    ) {
+      setToast("Use revised, alternate, or additional");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Create a ${quoteKindLabel(normalized as QuoteKind)} for this request?`,
+      )
+    ) {
+      return;
+    }
+    beginCreateQuote(normalized as QuoteKind);
+  }
+
   async function refreshAi() {
     if (!selected) return;
     setBusy(true);
@@ -453,6 +640,15 @@ export default function RequestsCenterApp() {
 
   const nextSelected = selected
     ? buildRequestNextAction(selected, today)
+    : null;
+
+  void quoteTick;
+  const linkedQuote = selected
+    ? primaryQuoteForRequest(
+        listQuotes(),
+        selected.id,
+        selected.convertedQuoteId,
+      )
     : null;
 
   return (
@@ -956,6 +1152,85 @@ export default function RequestsCenterApp() {
                 </div>
 
                 <div className="rc-wait-block">
+                  <h3>Quote</h3>
+                  {linkedQuote || selected.convertedQuoteId ? (
+                    <>
+                      <p className="rc-status-help">
+                        {linkedQuote ? (
+                          <>
+                            {quoteKindLabel(linkedQuote.quoteKind)}{" "}
+                            <strong>
+                              {linkedQuote.number || linkedQuote.id}
+                            </strong>{" "}
+                            · {formatQuoteStatus(linkedQuote.status)}
+                          </>
+                        ) : (
+                          <>
+                            Linked quote{" "}
+                            <strong>{selected.convertedQuoteId}</strong>
+                          </>
+                        )}
+                      </p>
+                      <div className="hunt-actions">
+                        <Link
+                          className="btn primary small"
+                          href={
+                            linkedQuote
+                              ? `/work/quotes?id=${encodeURIComponent(linkedQuote.id)}`
+                              : `/work/quotes?id=${encodeURIComponent(selected.convertedQuoteId || "")}`
+                          }
+                        >
+                          View Quote
+                        </Link>
+                        {linkedQuote?.status === "draft" ? (
+                          <Link
+                            className="btn secondary small"
+                            href={`/work/quotes?id=${encodeURIComponent(linkedQuote.id)}&edit=1`}
+                          >
+                            Edit draft
+                          </Link>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="btn secondary small"
+                          disabled={busy || selected.status === "declined"}
+                          onClick={() => beginAdditionalQuote()}
+                        >
+                          Create another quote…
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="rc-status-help">
+                        Open the official quote document prefilled from this
+                        request. Nothing is saved until you click Save.
+                      </p>
+                      <div className="hunt-actions">
+                        <button
+                          type="button"
+                          className="btn primary"
+                          disabled={busy || selected.status === "declined"}
+                          onClick={() => beginCreateQuote("primary")}
+                        >
+                          Create Quote
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  {selected.linkedClientId || selected.convertedClientId ? (
+                    <p className="rc-status-help">
+                      Client{" "}
+                      <Link
+                        href={`/work/clients?id=${encodeURIComponent(selected.linkedClientId || selected.convertedClientId || "")}`}
+                      >
+                        {selected.linkedClientId || selected.convertedClientId}
+                      </Link>
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="rc-wait-block">
                   <h3>Converted / Lost</h3>
                   <div className="hunt-actions">
                     <button
@@ -1204,6 +1479,85 @@ export default function RequestsCenterApp() {
                 Create request
               </button>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {clientMatchOpen && selected ? (
+        <div
+          className="rc-modal-backdrop"
+          role="presentation"
+          onClick={() => !busy && setClientMatchOpen(false)}
+        >
+          <div
+            className="panel rc-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="rc-client-match-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="panel-head">
+              <h3 id="rc-client-match-title" className="panel-title">
+                Link a client before quoting
+              </h3>
+              <button
+                type="button"
+                className="btn secondary small"
+                disabled={busy}
+                onClick={() => setClientMatchOpen(false)}
+              >
+                Cancel
+              </button>
+            </div>
+            <p className="rc-status-help">
+              One real-world customer = one Client. Choose an existing match or
+              intentionally create a new Client. Opening a quote never creates
+              records by itself.
+            </p>
+            {clientMatches.length ? (
+              <ul className="rc-client-match-list">
+                {clientMatches.map((match) => (
+                  <li key={match.client.id}>
+                    <div>
+                      <strong>{match.client.name}</strong>
+                      <span className="rc-status-help">
+                        {matchReasonLabel(match.reason)}
+                        {match.client.email ? ` · ${match.client.email}` : ""}
+                        {match.client.phone ? ` · ${match.client.phone}` : ""}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn primary small"
+                      disabled={busy}
+                      onClick={() =>
+                        void linkClientAndCompose(
+                          selected,
+                          match.client.id,
+                          pendingQuoteKind,
+                        )
+                      }
+                    >
+                      Use this client
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="empty-state">No existing client matches found.</p>
+            )}
+            <div className="hunt-actions">
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={busy}
+                onClick={() =>
+                  void createNewClientAndCompose(selected, pendingQuoteKind)
+                }
+              >
+                Create new client &amp; continue
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

@@ -34,8 +34,19 @@
   justify-content: flex-end;
 }
 
-.quote-composer-stage {
-  padding: 0.35rem 0 1.25rem;
+.quote-link-row {
+  margin: 0.45rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.quote-link-row a {
+  color: inherit;
+  text-underline-offset: 2px;
 }
 
 .quote-status-actions {
