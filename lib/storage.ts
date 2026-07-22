@@ -214,18 +214,42 @@ export function blackboardCloudStatusLabel(
 ): string {
   switch (status) {
     case "loading":
-      return "Checking cloud…";
+      return "Checking…";
     case "synced":
-      return "Cloud synced";
+      return "Saved";
     case "saving":
       return "Saving…";
     case "local":
-      return "Local only";
+      return "Local changes pending";
     case "offline":
-      return "Cloud offline";
+      return "Offline";
     case "error":
-      return "Save error";
+      return "Sync error";
   }
+}
+
+/**
+ * Non-secret operator checklist when cloud is unavailable.
+ * Never include or request the service-role key in client UI.
+ */
+export function blackboardCloudHelp(): string[] {
+  return [
+    "Confirm production and preview deployment env vars are set.",
+    "Confirm NEXT_PUBLIC_SUPABASE_URL points at your project.",
+    "Confirm NEXT_PUBLIC_SUPABASE_ANON_KEY is the public anon key (not the service-role key).",
+    "Confirm the deployment scope includes those variables.",
+    "Local edits stay on this device until cloud is available.",
+  ];
+}
+
+export function blackboardCloudStatusDetail(
+  status: BlackboardCloudStatus,
+): string {
+  const label = blackboardCloudStatusLabel(status);
+  if (status === "synced" || status === "saving" || status === "loading") {
+    return label;
+  }
+  return `${label}\n\n${blackboardCloudHelp().join("\n")}`;
 }
 
 function normalizeStore(value: unknown): BoardStore | null {
@@ -318,25 +342,24 @@ function saveLocalStore(store: BoardStore): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
 }
 
+/**
+ * Soft notice only — never block the UI with window.alert on load/save.
+ * Deduped so operators are not spammed on every write.
+ */
 function alertLocalOnly(): void {
   if (localOnlyAlerted || typeof window === "undefined") return;
   localOnlyAlerted = true;
-  window.setTimeout(() => {
-    window.alert(
-      "HQ / Jobs cloud is not available on this deployment. " +
-        "Days and jobs will only save in this browser and can disappear. " +
-        "Add NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and " +
-        "SUPABASE_SERVICE_ROLE_KEY on Vercel, then redeploy.",
-    );
-  }, 600);
+  console.warn(
+    "[HES cloud] Offline / cloud unavailable — keeping local data.",
+    blackboardCloudHelp(),
+  );
 }
 
 function alertSaveFailed(): void {
   if (saveErrorAlerted || typeof window === "undefined") return;
   saveErrorAlerted = true;
-  window.alert(
-    "Cloud save failed. Your latest HQ / Jobs edits may only be on this device. " +
-      "Check the sync status in the sidebar and confirm Supabase env vars on Vercel.",
+  console.warn(
+    "[HES cloud] Sync error — local changes pending; cloud write failed.",
   );
 }
 
@@ -578,6 +601,25 @@ export function upsertJob(job: Job, store?: BoardStore): BoardStore {
       ? jobs.map((row) => (row.id === job.id ? job : row))
       : [job, ...jobs];
   return saveJobs(nextJobs, current);
+}
+
+/**
+ * Cache Jobs API results into local store without scheduling a cloud write.
+ * HQ page loads must not mutate business records or bounce remote jobs back
+ * to the blackboard endpoint.
+ */
+export function cacheJobsFromRemote(jobs: Job[]): void {
+  if (typeof window === "undefined") return;
+  const current = loadStore();
+  const byId = new Map(listJobs(current).map((row) => [row.id, row]));
+  for (const job of normalizeJobs(jobs)) {
+    byId.set(job.id, job);
+  }
+  const next = packStore(
+    withPipeline(current, { jobs: [...byId.values()] }),
+  );
+  if (storesEqual(next, packStore(current))) return;
+  saveLocalStore(next);
 }
 
 export function removeJob(jobId: string, store?: BoardStore): BoardStore {

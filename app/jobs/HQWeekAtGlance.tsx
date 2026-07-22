@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { moneyLabel } from "@/lib/jobs/statusStyles";
-import type { WeekGlanceDay } from "@/lib/jobs/calendar";
+import type { HqWeekGlanceDay } from "@/lib/home/todayOps";
 import { parseDateKey } from "@/lib/dates";
 import { jobsDayHref } from "@/lib/osNav";
 
 type Props = {
-  days: WeekGlanceDay[];
+  days: HqWeekGlanceDay[];
 };
 
 const WEEKDAY_CLASS = [
@@ -32,11 +32,14 @@ export default function HQWeekAtGlance({ days }: Props) {
       <div className="hq-week-grid">
         {days.map((day) => {
           const weekday = WEEKDAY_CLASS[parseDateKey(day.dateKey).getDay()];
+          const followUps = day.requestFollowUps + day.quoteFollowUps;
           return (
             <Link
               key={day.dateKey}
               href={jobsDayHref(day.dateKey)}
-              className={`hq-week-day ${weekday}${day.isToday ? " is-today" : ""}`}
+              className={`hq-week-day ${weekday}${day.isToday ? " is-today" : ""}${
+                day.hasConflict || day.hasOverdue ? " has-exception" : ""
+              }`}
               aria-label={`${day.label} agenda`}
             >
               <header>
@@ -44,19 +47,21 @@ export default function HQWeekAtGlance({ days }: Props) {
                 {day.isToday ? <span className="hq-pill accent">Today</span> : null}
               </header>
               <p className="hq-week-stats">
-                {day.count} job{day.count === 1 ? "" : "s"} · {moneyLabel(day.revenue)} ·{" "}
-                {day.hours}h
+                {day.jobCount} job{day.jobCount === 1 ? "" : "s"} ·{" "}
+                {moneyLabel(day.jobValue)}
               </p>
-              {day.names.length ? (
-                <ul className="hq-week-names">
-                  {day.names.map((name) => (
-                    <li key={`${day.dateKey}-${name}`}>{name}</li>
-                  ))}
-                  {day.more > 0 ? <li className="muted">+{day.more} more</li> : null}
-                </ul>
-              ) : (
+              {followUps > 0 ? (
+                <p className="hq-week-followups">
+                  {followUps} follow-up{followUps === 1 ? "" : "s"}
+                </p>
+              ) : null}
+              {day.hasConflict ? (
+                <p className="hq-week-flag">Conflict</p>
+              ) : day.hasOverdue ? (
+                <p className="hq-week-flag">Overdue</p>
+              ) : !day.jobCount && !followUps ? (
                 <p className="hq-week-empty">Open</p>
-              )}
+              ) : null}
             </Link>
           );
         })}

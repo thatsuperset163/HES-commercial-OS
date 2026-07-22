@@ -13,6 +13,7 @@ import {
 import { filterOsNav, HOME_QUICK_LINKS, resolveQuickHref } from "@/lib/osNav";
 import { todayKey } from "@/lib/dates";
 import { groupRecordHits, searchRecords } from "@/lib/home/recordSearch";
+import type { IntakeRequest } from "@/lib/requestsCenter/types";
 
 type Props = {
   inputRef?: RefObject<HTMLInputElement | null>;
@@ -30,14 +31,15 @@ type FlatHit = {
 };
 
 /**
- * Global search: OS systems, quick links, and live blackboard records.
- * Debounced record search; keyboard ↑↓ Enter Escape.
+ * Global search: OS systems, quick links, and Work records.
+ * Requests use live intake when available. Sales prospects are not blended in.
  */
 export default function HomeSearch({ inputRef, className = "" }: Props) {
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  const [intake, setIntake] = useState<IntakeRequest[]>([]);
   const rootRef = useRef<HTMLDivElement>(null);
   const localRef = useRef<HTMLInputElement>(null);
   const listId = useId();
@@ -49,6 +51,24 @@ export default function HomeSearch({ inputRef, className = "" }: Props) {
     return () => window.clearTimeout(t);
   }, [query]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/requests", {
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+    })
+      .then((res) => res.json())
+      .then((json: { ok?: boolean; data?: { requests?: IntakeRequest[] } }) => {
+        if (!cancelled && json.ok) setIntake(json.data?.requests ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setIntake([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const results = useMemo(() => {
     const os = filterOsNav(query);
     const q = query.trim().toLowerCase();
@@ -59,10 +79,10 @@ export default function HomeSearch({ inputRef, className = "" }: Props) {
       ...link,
       href: resolveQuickHref(link.href, today),
     }));
-    const records = searchRecords(debounced);
+    const records = searchRecords(debounced, 12, { intakeRequests: intake });
     const recordGroups = groupRecordHits(records);
     return { os, quick, records, recordGroups };
-  }, [query, debounced, today]);
+  }, [query, debounced, today, intake]);
 
   const flat: FlatHit[] = useMemo(() => {
     const rows: FlatHit[] = [];

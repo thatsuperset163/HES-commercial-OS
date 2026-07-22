@@ -6,21 +6,30 @@ import { formatDisplayDate, todayKey } from "@/lib/dates";
 import {
   buildClearDayMessage,
   buildHomeGreeting,
-  buildHomeModules,
-  buildTodayAttention,
 } from "@/lib/home/commandCenter";
+import {
+  buildHqExceptions,
+  buildHqTodaySections,
+  buildHqWeekGlance,
+  type HqTodayItem,
+} from "@/lib/home/todayOps";
 import { buildWeekJobValue } from "@/lib/clients/weekValue";
 import JobValueWeekCard from "./JobValueWeekCard";
 import {
+  cacheJobsFromRemote,
+  getBlackboardCloudStatus,
   hydrateStoreFromCloud,
   listClients,
   listJobs,
+  listQuotes,
   loadStore,
+  subscribeBlackboardCloudStatus,
   upsertJob,
+  type BlackboardCloudStatus,
 } from "@/lib/storage";
 import { createJobRemote, fetchJobs } from "@/lib/jobs/api";
-import { buildWeekGlance } from "@/lib/jobs/calendar";
 import type { Job, JobInput } from "@/lib/jobs/types";
+import type { IntakeRequest } from "@/lib/requestsCenter/types";
 import AppShell from "./AppShell";
 import CreateNewController from "./create/CreateNewController";
 import JobForm from "./jobs/JobForm";
@@ -30,28 +39,92 @@ import "./home-shell.css";
 import "./home-command.css";
 
 function urgencyClass(urgency: string) {
-  if (urgency === "overdue") return "status-chip overdue";
-  if (urgency === "today") return "status-chip due-today";
-  if (urgency === "money") return "status-chip money";
+  if (urgency === "critical" || urgency === "overdue") {
+    return "status-chip overdue";
+  }
+  if (urgency === "today" || urgency === "new" || urgency === "now") {
+    return "status-chip due-today";
+  }
+  if (urgency === "later") return "status-chip soon";
   return "status-chip soon";
 }
 
-function urgencyLabel(urgency: string) {
-  if (urgency === "overdue") return "Overdue";
-  if (urgency === "today") return "Today";
-  if (urgency === "money") return "Money";
-  return "Soon";
+async function fetchIntakeRequests(): Promise<IntakeRequest[]> {
+  try {
+    const res = await fetch("/api/requests", {
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+    });
+    const json = (await res.json()) as {
+      ok?: boolean;
+      data?: { requests?: IntakeRequest[] };
+    };
+    if (!res.ok || !json.ok) return [];
+    return json.data?.requests ?? [];
+  } catch {
+    return [];
+  }
+}
+
+function TodayGroup({
+  title,
+  empty,
+  items,
+}: {
+  title: string;
+  empty: string;
+  items: HqTodayItem[];
+}) {
+  return (
+    <div className="home-today-group">
+      <div className="home-today-group-head">
+        <h3>{title}</h3>
+        <span className="hq-pill">{items.length ? `${items.length}` : "Clear"}</span>
+      </div>
+      {items.length ? (
+        <ul className="home-today-list">
+          {items.map((item) => (
+            <li key={item.id}>
+              <Link href={item.href} className="home-today-item">
+                <div className="home-today-meta">
+                  {item.timeLabel ? (
+                    <span className="home-today-time">{item.timeLabel}</span>
+                  ) : (
+                    <span className={urgencyClass(item.urgency)}>
+                      {item.urgencyLabel}
+                    </span>
+                  )}
+                </div>
+                <div className="home-today-copy">
+                  <strong>{item.title}</strong>
+                  <span>{item.detail}</span>
+                  <span className="home-today-submeta">{item.meta}</span>
+                </div>
+                <span className="home-today-action">{item.actionLabel} →</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="home-today-clear">{empty}</p>
+      )}
+    </div>
+  );
 }
 
 export default function HomeApp() {
   const [ready, setReady] = useState(false);
   const [tick, setTick] = useState(0);
   const [scheduleJobs, setScheduleJobs] = useState<Job[]>([]);
+  const [intake, setIntake] = useState<IntakeRequest[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [formInitial, setFormInitial] = useState<Partial<Job> | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [clients, setClients] = useState(listClients());
+  const [cloudStatus, setCloudStatus] = useState<BlackboardCloudStatus>(
+    getBlackboardCloudStatus,
+  );
   const date = todayKey();
 
   const refreshMeta = useCallback(() => {
@@ -60,19 +133,25 @@ export default function HomeApp() {
   }, []);
 
   useEffect(() => {
+    const unsub = subscribeBlackboardCloudStatus(setCloudStatus);
+    return unsub;
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     void hydrateStoreFromCloud().then(async () => {
       if (cancelled) return;
       refreshMeta();
-      try {
-        const remote = await fetchJobs();
-        if (cancelled) return;
-        for (const job of remote) upsertJob(job);
-        setScheduleJobs(remote);
-      } catch {
-        if (!cancelled) setScheduleJobs(listJobs());
-      }
-      if (!cancelled) setReady(true);
+      const [remoteJobs, requests] = await Promise.all([
+        fetchJobs().catch(() => listJobs()),
+        fetchIntakeRequests(),
+      ]);
+      if (cancelled) return;
+      // Local cache only — do not schedule cloud writes on HQ load.
+      cacheJobsFromRemote(remoteJobs);
+      setScheduleJobs(remoteJobs);
+      setIntake(requests);
+      setReady(true);
     });
     return () => {
       cancelled = true;
@@ -106,15 +185,36 @@ export default function HomeApp() {
   const snapshot = useMemo(() => {
     const store = loadStore();
     const jobs = scheduleJobs.length ? scheduleJobs : listJobs();
+    const quotes = listQuotes();
+    const today = buildHqTodaySections({
+      requests: intake,
+      jobs,
+      quotes,
+      today: date,
+    });
+    const exceptions = buildHqExceptions({
+      jobs,
+      quotes,
+      requests: intake,
+      linkFlags: store.clientLinkFlags,
+      cloudStatus,
+      today: date,
+    });
     return {
-      week: buildWeekGlance(jobs, date),
+      week: buildHqWeekGlance({
+        jobs,
+        quotes,
+        requests: intake,
+        today: date,
+      }),
       weekValue: buildWeekJobValue(jobs, date),
-      today: buildTodayAttention(store, jobs, 5),
+      today,
+      exceptions,
       clearMessage: buildClearDayMessage(jobs, date),
-      modules: buildHomeModules(store, jobs),
+      liveCount: today.combined.length,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, scheduleJobs, tick]);
+  }, [date, scheduleJobs, intake, tick, cloudStatus]);
 
   if (!ready) {
     return (
@@ -132,8 +232,7 @@ export default function HomeApp() {
             <p className="hq-eyebrow">Harris Exterior Solutions</p>
             <h1 className="home-hero-title">{buildHomeGreeting("Will")}</h1>
             <p className="home-hero-lede">
-              {formatDisplayDate(date)}. Here is what needs your attention
-              today.
+              {formatDisplayDate(date)}. What must move toward cash today.
             </p>
           </div>
           <CreateNewController
@@ -152,13 +251,13 @@ export default function HomeApp() {
             }}
             onCreated={async () => {
               refreshMeta();
-              try {
-                const remote = await fetchJobs();
-                for (const job of remote) upsertJob(job);
-                setScheduleJobs(remote);
-              } catch {
-                setScheduleJobs(listJobs());
-              }
+              const [remote, requests] = await Promise.all([
+                fetchJobs().catch(() => listJobs()),
+                fetchIntakeRequests(),
+              ]);
+              cacheJobsFromRemote(remote);
+              setScheduleJobs(remote);
+              setIntake(requests);
             }}
           />
         </header>
@@ -166,66 +265,72 @@ export default function HomeApp() {
         <section className="home-today" aria-label="Today">
           <div className="hq-section-head">
             <h2>Today</h2>
-            {snapshot.today.length ? (
-              <span className="hq-pill accent">{snapshot.today.length} live</span>
+            {snapshot.liveCount ? (
+              <span className="hq-pill accent">{snapshot.liveCount} live</span>
             ) : (
               <span className="hq-pill">Clear</span>
             )}
           </div>
 
-          {snapshot.today.length ? (
-            <ul className="home-today-list">
-              {snapshot.today.map((item) => (
-                <li key={item.id}>
-                  <Link href={item.href} className="home-today-item">
-                    <div className="home-today-meta">
-                      {item.timeLabel ? (
-                        <span className="home-today-time">{item.timeLabel}</span>
-                      ) : (
-                        <span className={urgencyClass(item.urgency)}>
-                          {urgencyLabel(item.urgency)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="home-today-copy">
-                      <strong>{item.title}</strong>
-                      <span>{item.detail}</span>
-                    </div>
-                    <span className="home-today-action">{item.actionLabel} →</span>
+          {!snapshot.liveCount ? (
+            <p className="home-today-clear">{snapshot.clearMessage}</p>
+          ) : null}
+
+          <TodayGroup
+            title="Requests needing action"
+            empty="You’re caught up on active requests."
+            items={snapshot.today.requests}
+          />
+          <TodayGroup
+            title="Jobs today"
+            empty="No jobs scheduled today."
+            items={snapshot.today.jobs}
+          />
+          <TodayGroup
+            title="Quote follow-ups"
+            empty="No quote follow-ups due today."
+            items={snapshot.today.quotes}
+          />
+
+          <div className="home-today-links">
+            <Link href="/work/requests" className="btn secondary small">
+              Requests OS
+            </Link>
+            <Link href="/work/jobs" className="btn secondary small">
+              Jobs OS
+            </Link>
+            <Link href="/work/quotes" className="btn secondary small">
+              Quotes
+            </Link>
+          </div>
+        </section>
+
+        {snapshot.exceptions.length ? (
+          <section className="home-exceptions" aria-label="Exceptions">
+            <div className="hq-section-head">
+              <h2>Exceptions</h2>
+              <span className="hq-pill">{snapshot.exceptions.length}</span>
+            </div>
+            <ul className="home-exception-list">
+              {snapshot.exceptions.map((row) => (
+                <li key={row.id}>
+                  <Link
+                    href={row.href}
+                    className={`home-exception-item is-${row.severity}`}
+                  >
+                    <strong>{row.title}</strong>
+                    <span>{row.detail}</span>
                   </Link>
                 </li>
               ))}
             </ul>
-          ) : (
-            <p className="home-today-clear">{snapshot.clearMessage}</p>
-          )}
-        </section>
+          </section>
+        ) : null}
 
         <JobValueWeekCard value={snapshot.weekValue} />
 
         <section className="home-secondary" aria-label="This week">
           <HQWeekAtGlance days={snapshot.week} />
-        </section>
-
-        <section className="home-modules" aria-label="Operating modules">
-          <div className="hq-section-head">
-            <h2>Desks</h2>
-            <span className="hq-pill">Live</span>
-          </div>
-          <div className="home-module-grid">
-            {snapshot.modules.map((mod) => (
-              <Link
-                key={mod.id}
-                href={mod.href}
-                className={`home-module-card${mod.attention ? " needs-attention" : ""}`}
-              >
-                <strong>{mod.label}</strong>
-                {mod.lines.map((line) => (
-                  <span key={line}>{line}</span>
-                ))}
-              </Link>
-            ))}
-          </div>
         </section>
       </div>
 

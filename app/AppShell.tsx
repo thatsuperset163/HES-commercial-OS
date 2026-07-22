@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
+  blackboardCloudStatusDetail,
   blackboardCloudStatusLabel,
   getBlackboardCloudStatus,
   hydrateStoreFromCloud,
@@ -42,6 +43,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   );
   const searchRef = useRef<HTMLInputElement>(null);
   const statusLabel = blackboardCloudStatusLabel(cloudStatus);
+  const statusDetail = blackboardCloudStatusDetail(cloudStatus);
   const isHome = pathname === "/";
 
   useEffect(() => {
@@ -102,7 +104,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
         <HomeSearch inputRef={searchRef} className="home-topbar-search" />
 
         <div className="home-topbar-right">
-          <span className="utility-status" title={statusLabel}>
+          <span
+            className="utility-status"
+            title={statusDetail}
+            aria-label={statusLabel}
+          >
             <span className={syncDotClass(cloudStatus)} aria-hidden />
             <span className="utility-status-label">{statusLabel}</span>
           </span>

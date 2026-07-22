@@ -14,14 +14,20 @@ export default function JobValueWeekCard({ value }: Props) {
         ? `+${value.scheduledChangePct}% vs last week`
         : `${value.scheduledChangePct}% vs last week`;
 
+  const collectedReliable = value.collectedValue > 0;
+
   return (
-    <section className="home-kpi-week" aria-label="Job value this week">
+    <section
+      className="home-kpi-week"
+      aria-label="Scheduled Job Value This Week"
+    >
       <div className="hq-section-head">
-        <h2>Job value this week</h2>
-        <span className="hq-pill accent">Scheduled</span>
+        <h2>Scheduled Job Value This Week</h2>
+        <span className="hq-pill accent">Mon–Sun</span>
       </div>
       <p className="home-kpi-lede">
-        Based on scheduled job amounts (Mon–Sun). Canceled jobs excluded.
+        Scheduled job amounts only — not collected revenue. Canceled jobs
+        excluded.
       </p>
       <div className="home-kpi-hero">
         <strong>{moneyCompact(value.scheduledValue)}</strong>
@@ -43,8 +49,10 @@ export default function JobValueWeekCard({ value }: Props) {
           <strong>{moneyCompact(value.completedValue)}</strong>
         </li>
         <li>
-          <span>Collected</span>
-          <strong>{moneyCompact(value.collectedValue)}</strong>
+          <span>{collectedReliable ? "Collected" : "Collected (when marked paid)"}</span>
+          <strong>
+            {collectedReliable ? moneyCompact(value.collectedValue) : "—"}
+          </strong>
         </li>
       </ul>
     </section>
