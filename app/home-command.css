@@ -295,3 +295,104 @@
     justify-self: start;
   }
 }
+
+/* Today groups + Exceptions */
+.home-today-group {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.home-today-group:first-of-type {
+  margin-top: 0.35rem;
+  padding-top: 0;
+  border-top: none;
+}
+
+.home-today-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.45rem;
+}
+
+.home-today-group-head h3 {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+
+.home-today-submeta {
+  color: var(--text-muted) !important;
+  font-size: 0.78rem !important;
+  white-space: normal !important;
+}
+
+.home-today-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+}
+
+.home-exceptions {
+  border: 1px solid color-mix(in srgb, var(--color-warning) 35%, var(--line));
+  background: color-mix(in srgb, var(--surface) 92%, rgba(245, 158, 11, 0.08));
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+}
+
+.home-exception-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.home-exception-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--line-soft);
+  background: var(--surface-primary);
+}
+
+.home-exception-item strong {
+  font-size: 0.9rem;
+}
+
+.home-exception-item span {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.home-exception-item.is-critical {
+  border-color: color-mix(in srgb, var(--color-danger, #ef4444) 40%, var(--line));
+}
+
+.home-exception-item.is-warn {
+  border-color: color-mix(in srgb, var(--color-warning) 35%, var(--line));
+}
+
+.hq-week-followups {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.hq-week-flag {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--color-warning);
+}
+
+.hq-week-day.has-exception {
+  border-color: color-mix(in srgb, var(--color-warning) 40%, var(--line));
+}

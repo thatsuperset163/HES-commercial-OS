@@ -79,6 +79,11 @@ export type WorkClient = {
   updatedAt: string;
 };
 
+/**
+ * @deprecated LEGACY blackboard desk request (New / Contacted / Quoted / Closed).
+ * Live Requests OS uses Supabase `intake_requests` (`IntakeRequest`).
+ * Do not surface these on HQ Home. Keep for migration / historical read only.
+ */
 export type ServiceRequest = {
   id: string;
   /** Stable WorkClient id when known. */

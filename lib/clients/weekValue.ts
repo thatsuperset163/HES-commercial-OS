@@ -24,9 +24,13 @@ function sumAmounts(jobs: Job[]): number {
 }
 
 function jobsInWeek(jobs: Job[], start: string, end: string): Job[] {
+  const seen = new Set<string>();
   return jobs.filter((j) => {
     if (j.status === "cancelled" || !j.scheduledDate) return false;
-    return j.scheduledDate >= start && j.scheduledDate <= end;
+    if (j.scheduledDate < start || j.scheduledDate > end) return false;
+    if (seen.has(j.id)) return false;
+    seen.add(j.id);
+    return true;
   });
 }
 

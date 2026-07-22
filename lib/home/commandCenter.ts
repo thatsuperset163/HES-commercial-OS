@@ -9,6 +9,10 @@ import {
   type PipelineCount,
 } from "../work/pipeline.ts";
 
+/**
+ * @deprecated HQ Today no longer uses blackboard ServiceRequest.
+ * Kept for WorkDesk / pipeline tooling only — do not surface on Home.
+ */
 export type TodayItem = {
   id: string;
   title: string;
@@ -60,8 +64,8 @@ function formatTime(startTime?: string): string | undefined {
 }
 
 /**
- * Top attention items for home — pipeline next actions plus today's
- * scheduled jobs (with times) when they aren't already covered.
+ * @deprecated Use `buildHqTodaySections` from `lib/home/todayOps.ts` for HQ.
+ * This path still mixes blackboard ServiceRequest — frozen for Home.
  */
 export function buildTodayAttention(
   store: BoardStore,
@@ -69,7 +73,10 @@ export function buildTodayAttention(
   limit = 5,
 ): TodayItem[] {
   const today = todayKey();
-  const pipeline = buildPipelineNextActions(store);
+  // Freeze legacy ServiceRequest on HQ: strip request desk rows.
+  const pipeline = buildPipelineNextActions(store).filter(
+    (row) => row.deskId !== "requests",
+  );
   const items: TodayItem[] = pipeline.map((row) => ({
     id: row.id,
     title: row.title,
@@ -130,7 +137,7 @@ export function buildClearDayMessage(
             month: "short",
             day: "numeric",
           });
-    const time = formatTime(first.startTime);
+    const time = formatTime(first?.startTime);
     return time
       ? `You’re clear for today. Next up is ${when} at ${time}.`
       : `You’re clear for today. Next up is ${when}.`;
@@ -165,15 +172,8 @@ function pulseLines(
   }
 
   if (desk.id === "requests") {
-    const waiting = (store.requests ?? []).filter(
-      (r) => r.status === "new" || r.status === "contacted",
-    ).length;
-    lines.push(
-      waiting
-        ? `${waiting} awaiting response`
-        : "No requests waiting",
-    );
-    if (desk.count) lines.push(`${desk.count} total`);
+    // Legacy blackboard ServiceRequest — frozen. Do not treat as live intake.
+    lines.push("Use Requests OS for live intake");
     return lines;
   }
 
@@ -232,46 +232,25 @@ function pulseLines(
   return lines;
 }
 
-/** Live desk pulses for home modules — only real store data. */
+/**
+ * @deprecated HQ no longer renders the Desks grid (nav lives in OS menu).
+ * Kept for any residual callers — Sales vanity card removed.
+ */
 export function buildHomeModules(
   store: BoardStore,
   scheduleJobs: Job[],
 ): ModulePulse[] {
   const counts = buildPipelineCounts(store);
-  const order = [
-    "jobs",
-    "requests",
-    "sales",
-    "quotes",
-    "invoices",
-    "tasks",
-  ] as const;
-
+  const order = ["jobs", "quotes", "invoices", "tasks"] as const;
   const byId = Object.fromEntries(counts.map((c) => [c.id, c]));
   const modules: ModulePulse[] = [];
 
   for (const id of order) {
-    if (id === "sales") {
-      modules.push({
-        id: "sales",
-        label: "Sales OS",
-        href: "/work/sales/",
-        lines: ["Commercial pipeline"],
-        attention: false,
-      });
-      continue;
-    }
     const desk = byId[id];
     if (!desk) continue;
-    const label =
-      id === "jobs"
-        ? "Schedule"
-        : id === "requests"
-          ? "Requests"
-          : desk.label;
     modules.push({
       id,
-      label,
+      label: id === "jobs" ? "Schedule" : desk.label,
       href: id === "jobs" ? "/work/jobs" : desk.href,
       lines: pulseLines(desk, store, scheduleJobs),
       attention: desk.attention > 0,
