@@ -333,21 +333,30 @@ export function Prospects() {
             onClick={(e) => e.stopPropagation()}
             onSubmit={createProspect}
           >
-            <div className="modal-head">
+            <div className="modal-head prospect-create-head">
               <div>
-                <p className="eyebrow">New record</p>
-                <h2>New commercial prospect</h2>
-                <p className="form-lede">
-                  Capture the decision maker first — company context second.
-                </p>
+                <h2>Add prospect</h2>
+                <p className="form-lede">Company + decision maker — enough to start outreach.</p>
+              </div>
+              <div className="modal-actions prospect-create-actions-top">
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => setShowNew(false)}
+                  disabled={saving}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn" disabled={saving}>
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
               </div>
             </div>
 
-            <section className="form-section">
-              <h3>Company information</h3>
-              <div className="form-grid">
+            <div className="prospect-create-body">
+              <div className="prospect-create-grid">
                 <label className="lbl">
-                  Company name
+                  Company
                   <input className="field" name="businessName" required autoFocus />
                 </label>
                 <label className="lbl">
@@ -361,20 +370,13 @@ export function Prospects() {
                   </select>
                 </label>
                 <label className="lbl">
-                  Company website
+                  Website
                   <input className="field" name="website" placeholder="https://" />
                 </label>
+
                 <label className="lbl">
-                  Company phone number
+                  Company phone
                   <input className="field" name="companyPhone" inputMode="tel" />
-                </label>
-                <label className="lbl full">
-                  Company address
-                  <input
-                    className="field"
-                    name="address"
-                    placeholder="Street address"
-                  />
                 </label>
                 <label className="lbl">
                   City
@@ -384,50 +386,44 @@ export function Prospects() {
                   State
                   <input className="field" name="state" placeholder="TX" maxLength={2} />
                 </label>
-              </div>
-            </section>
 
-            <section className="form-section">
-              <h3>Decision maker</h3>
-              <div className="form-grid">
+                <label className="lbl span-3">
+                  Address
+                  <input
+                    className="field"
+                    name="address"
+                    placeholder="Street address"
+                  />
+                </label>
+
                 <label className="lbl">
-                  Full name
+                  Decision maker
                   <input className="field" name="decisionMaker" required />
                 </label>
                 <label className="lbl">
-                  Job title
-                  <input className="field" name="jobTitle" placeholder="Property Manager, FM…" />
+                  Title
+                  <input className="field" name="jobTitle" placeholder="Property Manager…" />
                 </label>
                 <label className="lbl">
-                  Direct email address
+                  Email
                   <input className="field" name="email" type="email" />
                 </label>
+
                 <label className="lbl">
-                  Direct phone number
+                  Direct phone
                   <input className="field" name="phone" inputMode="tel" />
                 </label>
                 <label className="lbl">
-                  Extension
+                  Ext
                   <input className="field" name="phoneExt" />
                 </label>
                 <label className="lbl">
-                  Assistant / gatekeeper name
-                  <span className="opt">Optional</span>
-                  <input className="field" name="assistantName" />
+                  Next follow-up
+                  <input className="field" name="nextFollowUpAt" type="date" />
                 </label>
-                <label className="lbl">
-                  Assistant phone
-                  <span className="opt">Optional</span>
-                  <input className="field" name="assistantPhone" inputMode="tel" />
-                </label>
-              </div>
-            </section>
 
-            <section className="form-section">
-              <h3>Outreach tracking</h3>
-              <div className="form-grid">
                 <label className="lbl">
-                  Lead status
+                  Status
                   <select className="field" name="stage" defaultValue="not_contacted">
                     {STAGES.map((s) => (
                       <option key={s.id} value={s.id}>
@@ -447,28 +443,6 @@ export function Prospects() {
                   </select>
                 </label>
                 <label className="lbl">
-                  Estimated job value
-                  <input
-                    className="field"
-                    name="estimatedJobValue"
-                    type="number"
-                    min="0"
-                    step="100"
-                    placeholder="4500"
-                  />
-                </label>
-                <label className="lbl">
-                  Estimated annual value
-                  <input
-                    className="field"
-                    name="estimatedAnnualValue"
-                    type="number"
-                    min="0"
-                    step="100"
-                    placeholder="12000"
-                  />
-                </label>
-                <label className="lbl">
                   Lead source
                   <select className="field" name="leadSourceId" defaultValue="">
                     <option value="">Unknown</option>
@@ -479,58 +453,71 @@ export function Prospects() {
                     ))}
                   </select>
                 </label>
-              </div>
-            </section>
 
-            <section className="form-section">
-              <h3>Follow-up</h3>
-              <div className="form-grid">
                 <label className="lbl">
-                  Next follow-up date
-                  <input className="field" name="nextFollowUpAt" type="date" />
+                  Job value
+                  <input
+                    className="field"
+                    name="estimatedJobValue"
+                    type="number"
+                    min="0"
+                    step="100"
+                    placeholder="4500"
+                  />
+                </label>
+                <label className="lbl">
+                  Annual value
+                  <input
+                    className="field"
+                    name="estimatedAnnualValue"
+                    type="number"
+                    min="0"
+                    step="100"
+                    placeholder="12000"
+                  />
+                </label>
+                <label className="lbl">
+                  Assistant
+                  <input className="field" name="assistantName" placeholder="Optional" />
+                </label>
+
+                <label className="lbl">
+                  Assistant phone
+                  <input
+                    className="field"
+                    name="assistantPhone"
+                    inputMode="tel"
+                    placeholder="Optional"
+                  />
+                </label>
+                <label className="lbl span-2">
+                  Notes
+                  <textarea
+                    className="field prospect-create-notes"
+                    name="notes"
+                    rows={2}
+                    placeholder="Anything useful about this account…"
+                  />
                 </label>
               </div>
-            </section>
 
-            <section className="form-section">
-              <h3>Notes</h3>
-              <textarea
-                className="field"
-                name="notes"
-                rows={3}
-                placeholder="Anything useful about this account…"
-              />
-              <input type="hidden" name="salesRep" value="Will" />
-            </section>
-
-            <section className="form-section">
-              <h3>Services</h3>
-              <div className="service-chips">
-                {SERVICES.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    className={services.includes(s.id) ? 'chip active' : 'chip'}
-                    onClick={() => toggleService(s.id)}
-                  >
-                    {s.label}
-                  </button>
-                ))}
+              <div className="prospect-create-services">
+                <span className="prospect-create-services-label">Services</span>
+                <div className="service-chips compact">
+                  {SERVICES.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      className={services.includes(s.id) ? 'chip active' : 'chip'}
+                      onClick={() => toggleService(s.id)}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </section>
 
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="btn secondary"
-                onClick={() => setShowNew(false)}
-                disabled={saving}
-              >
-                Cancel
-              </button>
-              <button type="submit" className="btn" disabled={saving}>
-                {saving ? 'Saving…' : 'Save prospect'}
-              </button>
+              <input type="hidden" name="salesRep" value="Will" />
             </div>
           </form>
         </div>

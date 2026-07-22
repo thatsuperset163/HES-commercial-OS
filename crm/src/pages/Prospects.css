@@ -111,9 +111,13 @@
 }
 
 .overlay-backdrop.prospect-overlay {
-  display: block;
-  overflow: hidden;
-  padding: 0;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  padding: max(0.75rem, env(safe-area-inset-top))
+    max(0.75rem, env(safe-area-inset-right))
+    max(0.75rem, env(safe-area-inset-bottom))
+    max(0.75rem, env(safe-area-inset-left));
   z-index: 80;
 }
 
@@ -127,18 +131,119 @@
 }
 
 .prospect-form-modal {
-  position: absolute;
-  top: max(1rem, env(safe-area-inset-top));
-  right: max(1rem, env(safe-area-inset-right));
-  bottom: max(1rem, env(safe-area-inset-bottom));
-  left: max(1rem, env(safe-area-inset-left));
-  width: auto;
-  max-width: 920px;
-  max-height: none;
-  margin-inline: auto;
+  position: relative;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  width: min(860px, 100%);
+  max-width: 860px;
+  max-height: min(92dvh, 760px);
+  margin: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 1.15rem 1.2rem 1.25rem;
+  padding: 0.85rem 1rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.prospect-create-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.prospect-create-head h2 {
+  margin: 0;
+  text-transform: none;
+  letter-spacing: -0.01em;
+  font-size: 1.15rem;
+}
+
+.prospect-create-head .form-lede {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.prospect-create-actions-top {
+  margin: 0;
+  padding: 0;
+  position: static;
+  background: none;
+  flex-shrink: 0;
+}
+
+.prospect-create-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-height: 0;
+}
+
+.prospect-create-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem 0.55rem;
+}
+
+.prospect-create-grid .span-2 {
+  grid-column: span 2;
+}
+
+.prospect-create-grid .span-3 {
+  grid-column: 1 / -1;
+}
+
+.prospect-form-modal .lbl {
+  gap: 0.18rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+}
+
+.prospect-form-modal .field,
+.prospect-form-modal select.field,
+.prospect-form-modal textarea.field {
+  padding: 0.42rem 0.55rem;
+  font-size: 0.88rem;
+  line-height: 1.25;
+  border-radius: 5px;
+}
+
+.prospect-create-notes {
+  min-height: 2.4rem;
+  resize: vertical;
+  max-height: 4.5rem;
+}
+
+.prospect-create-services {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding-top: 0.15rem;
+}
+
+.prospect-create-services-label {
+  flex: 0 0 auto;
+  margin-top: 0.35rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.service-chips.compact {
+  gap: 0.3rem;
+}
+
+.service-chips.compact .chip {
+  padding: 0.28rem 0.5rem;
+  font-size: 0.72rem;
 }
 
 .modal-head {
@@ -194,6 +299,17 @@
   font-weight: 650;
 }
 
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(transparent, var(--bg-elev) 30%);
+  padding-top: 0.75rem;
+}
+
 .priority-tag {
   display: inline-block;
   padding: 0.2rem 0.45rem;
@@ -226,15 +342,45 @@
   margin-bottom: 1rem;
 }
 
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 0.35rem;
-  position: sticky;
-  bottom: 0;
-  background: linear-gradient(transparent, var(--bg-elev) 30%);
-  padding-top: 0.75rem;
+@media (max-width: 720px) {
+  .prospect-form-modal {
+    width: 100%;
+    max-height: calc(100dvh - 1rem);
+    padding: 0.75rem 0.8rem 0.85rem;
+  }
+
+  .prospect-create-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .prospect-create-actions-top {
+    justify-content: stretch;
+  }
+
+  .prospect-create-actions-top .btn {
+    flex: 1;
+  }
+
+  .prospect-create-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .prospect-create-grid .span-2,
+  .prospect-create-grid .span-3 {
+    grid-column: 1 / -1;
+  }
+
+  .prospect-create-services {
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .prospect-create-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .breadcrumb {
